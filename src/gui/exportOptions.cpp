@@ -406,15 +406,27 @@ void FurnaceGUI::drawExportText(bool onWindow) {
   exitDisabledTimer=1;
 
   ImGui::Text(
-    _("this option exports the song to a text file.\n")
+    _("This option exports the song to a .asm file compatible with SMPS2ASM.\n")
   );
+  ImGui::Separator();
+  ImGui::Text(_("SMPS2ASM Version:"));
+  ImGui::RadioButton(_("Flamewing"), &smpsASMVersion, 0);
+  ImGui::RadioButton(_("MD Music Player"), &smpsASMVersion, 1);
+  ImGui::RadioButton(_("AMPS"), &smpsASMVersion, 2);
+  ImGui::RadioButton(_("SMPS Source"), &smpsASMVersion, 3);
+  ImGui::Text(_("Tempo Algorithm"));
+  ImGui::RadioButton(_("Sonic 1"), &smpsTempo, 0);
+  ImGui::RadioButton(_("Sonic 3 & Knuckles"), &smpsTempo, 1);
+  ImGui::Text(_("Vibrato Variation (Ignored if AMPS is selected)"));
+  ImGui::RadioButton(_("SMPS 68k"), &smpsVibrato, 0);
+  ImGui::RadioButton(_("SMPS Z80"), &smpsVibrato, 1);
   if (onWindow) {
     ImGui::Separator();
     if (ImGui::Button(_("Cancel"),ImVec2(200.0f*dpiScale,0))) ImGui::CloseCurrentPopup();
     ImGui::SameLine();
   }
   if (ImGui::Button(_("Export"),ImVec2(200.0f*dpiScale,0))) {
-    openFileDialog(GUI_FILE_EXPORT_TEXT);
+    openFileDialog(GUI_FILE_EXPORT_ASM);
     ImGui::CloseCurrentPopup();
   }
 }
@@ -496,7 +508,7 @@ void FurnaceGUI::drawExport() {
           ImGui::EndTabItem();
         }
       }
-      if (ImGui::BeginTabItem(_("Text"))) {
+      if (ImGui::BeginTabItem(_("SMPS2ASM"))) {
         drawExportText(true);
         ImGui::EndTabItem();
       }

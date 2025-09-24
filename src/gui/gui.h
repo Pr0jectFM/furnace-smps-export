@@ -625,6 +625,7 @@ enum FurnaceGUIFileDialogs {
   GUI_FILE_EXPORT_VGM,
   GUI_FILE_EXPORT_CMDSTREAM,
   GUI_FILE_EXPORT_TEXT,
+  GUI_FILE_EXPORT_ASM,
   GUI_FILE_EXPORT_ROM,
   GUI_FILE_LOAD_MAIN_FONT,
   GUI_FILE_LOAD_HEAD_FONT,
@@ -2805,6 +2806,9 @@ class FurnaceGUI {
   // export options
   DivAudioExportOptions audioExportOptions;
   int dmfExportVersion;
+  int smpsASMVersion;
+  int smpsTempo;
+  int smpsVibrato;
   FurnaceGUIExportTypes curExportType;
   DivCSOptions csExportOptions;
   DivCSProgress csProgress;
