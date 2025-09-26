@@ -5698,7 +5698,7 @@ bool FurnaceGUI::loop() {
               }
               break;
             case GUI_FILE_EXPORT_ASM: {
-              SafeWriter* w = e->saveText(false, smpsASMVersion);
+              SafeWriter* w = e->saveText(false, smpsLabel, smpsASMVersion, smpsTempo, smpsVibrato);
               if (w != NULL) {
                 FILE* f = ps_fopen(copyOfName.c_str(), "wb");
                 if (f != NULL) {
@@ -5721,7 +5721,7 @@ bool FurnaceGUI::loop() {
               break;
             }
             case GUI_FILE_EXPORT_TEXT: {
-              SafeWriter* w=e->saveText(false, 0);
+              SafeWriter* w=e->saveText(false, smpsLabel, smpsASMVersion, smpsTempo, smpsVibrato);
               if (w!=NULL) {
                 FILE* f=ps_fopen(copyOfName.c_str(),"wb");
                 if (f!=NULL) {

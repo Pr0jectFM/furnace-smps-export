@@ -2806,6 +2806,7 @@ class FurnaceGUI {
   // export options
   DivAudioExportOptions audioExportOptions;
   int dmfExportVersion;
+  String smpsLabel;
   int smpsASMVersion;
   int smpsTempo;
   int smpsVibrato;
