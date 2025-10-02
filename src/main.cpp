@@ -987,7 +987,7 @@ int main(int argc, char** argv) {
     }
     if (txtOutName!="") {
       e.setConsoleMode(true);
-      SafeWriter* w=e.saveText(false);
+      SafeWriter* w=e.saveASM(false);
       if (w!=NULL) {
         FILE* f=ps_fopen(txtOutName.c_str(),"wb");
         if (f!=NULL) {

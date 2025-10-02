@@ -2809,9 +2809,13 @@ class FurnaceGUI {
   DivAudioExportOptions audioExportOptions;
   int dmfExportVersion;
   String smpsLabel;
-  int smpsASMVersion;
+  int smpsChosenPreset;
+  int smpsStyle;
   int smpsTempo;
   int smpsVibrato;
+  int smpsPSGPitch;
+  int smpsPitchEnv;
+  int smpsPortamento;
   FurnaceGUIExportTypes curExportType;
   DivCSOptions csExportOptions;
   DivCSProgress csProgress;

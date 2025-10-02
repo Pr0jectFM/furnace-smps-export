@@ -402,28 +402,69 @@ void FurnaceGUI::drawExportROM(bool onWindow) {
   }
 }
 
+static const char* smpsPresets[5] = {
+  "Sonic 1",
+  "Sonic 2",
+  "Sonic 3 & Knuckles",
+  "AMPS",
+  "Source 68k"
+};
+
+static const int smpsPresetOptions[5][6] = {
+  {0, 0, 0, 0, 0, 0},
+  {0, 1, 1, 1, 0, 0},
+  {0, 2, 1, 1, 0, 0},
+  {2, 2, 2, 0, 1, 1},
+  {3, 0, 0, 0, 0, 0}
+};
+
 void FurnaceGUI::drawExportText(bool onWindow) {
   exitDisabledTimer=1;
-
   ImGui::Text(
     _("This option exports the song to a .asm file compatible with SMPS2ASM.\n")
   );
   ImGui::Separator();
   ImGui::Text(_("Label Prefix:"));
-  smpsLabel = "Label";
   ImGui::InputText("##ASMLabel", &smpsLabel);
+  ImGui::Text(_("Preset:"));
+  if (ImGui::BeginCombo("##Preset", smpsPresets[smpsChosenPreset])) {
+    for (int i = 0; i < 5; i++) {
+      if (ImGui::Selectable(smpsPresets[i], smpsChosenPreset == i)) {
+        smpsChosenPreset = i;
+        smpsStyle = smpsPresetOptions[i][0];
+        smpsTempo = smpsPresetOptions[i][1];
+        smpsVibrato = smpsPresetOptions[i][2];
+        smpsPSGPitch = smpsPresetOptions[i][3];
+        smpsPitchEnv = smpsPresetOptions[i][4];
+        smpsPortamento = smpsPresetOptions[i][5];
+      }
+    }
+    ImGui::EndCombo();
+  }
+
+  ImGui::Separator();
   ImGui::Text(_("SMPS2ASM Version:"));
-  ImGui::RadioButton(_("Flamewing"), &smpsASMVersion, 0);
-  ImGui::RadioButton(_("MD Music Player"), &smpsASMVersion, 1);
-  ImGui::RadioButton(_("AMPS"), &smpsASMVersion, 2);
-  ImGui::RadioButton(_("SMPS Source"), &smpsASMVersion, 3);
+  ImGui::RadioButton(_("Flamewing"), &smpsStyle, 0);
+  ImGui::RadioButton(_("MD Music Player"), &smpsStyle, 1);
+  ImGui::RadioButton(_("AMPS"), &smpsStyle, 2);
+  ImGui::RadioButton(_("SMPS Source"), &smpsStyle, 3);
   ImGui::Text(_("Tempo Algorithm:"));
   ImGui::RadioButton(_("Sonic 1"), &smpsTempo, 0);
-  ImGui::RadioButton(_("Sonic 3 & Knuckles"), &smpsTempo, 1);
+  ImGui::RadioButton(_("Sonic 2"), &smpsTempo, 1);
+  ImGui::RadioButton(_("Sonic 3 & Knuckles"), &smpsTempo, 2);
   ImGui::Text(_("Vibrato Variation:"));
   ImGui::RadioButton(_("SMPS 68k"), &smpsVibrato, 0);
   ImGui::RadioButton(_("SMPS Z80"), &smpsVibrato, 1);
-  ImGui::Text(_("Note: AMPS uses a unique vibrato variation instead"));
+  ImGui::RadioButton(_("AMPS"), &smpsVibrato, 2);
+  ImGui::Text(_("PSG Pitch:"));
+  ImGui::RadioButton(_("SMPS 68k"), &smpsPSGPitch, 0);
+  ImGui::RadioButton(_("SMPS Z80"), &smpsPSGPitch, 1);
+  ImGui::Text(_("Pitch Envelopes:"));
+  ImGui::RadioButton(_("Disabled"), &smpsPitchEnv, 0);
+  ImGui::RadioButton(_("Enabled"), &smpsPitchEnv, 1);
+  ImGui::Text(_("Portamento:"));
+  ImGui::RadioButton(_("Modulation"), &smpsPortamento, 0);
+  ImGui::RadioButton(_("Portamento"), &smpsPortamento, 1);
   if (onWindow) {
     ImGui::Separator();
     if (ImGui::Button(_("Cancel"),ImVec2(200.0f*dpiScale,0))) ImGui::CloseCurrentPopup();

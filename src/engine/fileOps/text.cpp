@@ -470,12 +470,46 @@ void write2Operators(SafeWriter* w, const int opArray[4], const char* param, con
   w->writeText(fmt::sprintf("$%.2X\n", opArray2[0]));
 }
 
+void smpsFindLoop(DivSubSong* s, int& loopPattern, int& endPattern, int& endPlace) {
+  for (int j = 0; j < s->ordersLen; j++) {
+    for (int k = 0; k < s->patLen; k++) {
+      nextPattern:
+      for (int l = 0; l < 10; l++) {
+        DivPattern* p = s->pat[l].getPattern(s->orders.ord[l][j], false);
+        for (int m = 0; m < s->pat[l].effectCols; m++) {
+          if (p->data[k][4 + (m << 1)] == 0x0B) {
+            if (p->data[k][5 + (m << 1)] <= j) {
+              // if looping
+              endPattern = j;
+              endPlace = k;
+              loopPattern = p->data[k][5 + (m << 1)];
+              return;
+            }
+            else {
+              // if skipping ahead
+              j = p->data[k][5 + (m << 1)];
+              k = 0;
+              goto nextPattern;
+            }
+          }
+          if (p->data[k][4 + (m << 1)] == 0x0D) {
+            // if going to the next order
+            j++;
+            k = p->data[k][5 + (m << 1)];
+            goto nextPattern;
+          }
+        }
+      }
+    }
+  }
+  return;
+}
+
 void spmToTempo1(SafeWriter* w, DivSubSong* s) {
   float frames = (60 * s->speeds.val[0] * (s->timeBase + 1)) / s->hz;
   int div = 2;
-  if (frames <= 2) {
+  if (frames <= 2)
     div = 1;
-  }
   int tempo = (1 / (1 - div / frames));
   w->writeText(fmt::sprintf("$%.2X, $%.2X\n", div, tempo));
   float given = (s->hz * 60) / (s->speeds.val[0] * s->hilightA * (s->timeBase + 1));
@@ -484,16 +518,28 @@ void spmToTempo1(SafeWriter* w, DivSubSong* s) {
   w->writeText(fmt::sprintf(";\tApproximated Tempo = %f BPM\n", approx));
 }
 
+void spmToTempo2(SafeWriter* w, DivSubSong* s) {
+  float frames = (60 * s->speeds.val[0] * (s->timeBase + 1)) / s->hz;
+  int div = 2;
+  if (frames <= 2)
+    div = 1;
+  int tempo = div * 256.0 / frames;
+  w->writeText(fmt::sprintf("$%.2X, $%.2X\n", div, tempo));
+  float given = (s->hz * 60) / (s->speeds.val[0] * s->hilightA * (s->timeBase + 1));
+  float approx = (60 * 60) / (s->hilightA * 256.0 * div / tempo);
+  w->writeText(fmt::sprintf(";\tGiven Tempo = %f BPM\n", given));
+  w->writeText(fmt::sprintf(";\tApproximated Tempo = %f BPM\n", approx));
+}
+
 void spmToTempo3(SafeWriter* w, DivSubSong* s) {
   float frames = (60 * s->speeds.val[0] * (s->timeBase + 1)) / s->hz;
   int div = 2;
-  if (frames <= 2) {
+  if (frames <= 2)
     div = 1;
-  }
-  int tempo = (1 / (1 - div / frames));
+  int tempo = 256 - div * 256.0 / frames;
   w->writeText(fmt::sprintf("$%.2X, $%.2X\n", div, tempo));
   float given = (s->hz * 60) / (s->speeds.val[0] * s->hilightA * (s->timeBase + 1));
-  float approx = (60 * 60) / (s->hilightA * div * (tempo / (tempo - 1.0)));
+  float approx = (60 * 60) / (s->hilightA * 256.0 * div / (256 - tempo));
   w->writeText(fmt::sprintf(";\tGiven Tempo = %f BPM\n", given));
   w->writeText(fmt::sprintf(";\tApproximated Tempo = %f BPM\n", approx));
 }
@@ -537,7 +583,7 @@ void writeTextMacro(SafeWriter* w, DivInstrumentMacro& m, const char* name, bool
   w->writeText("\n");
 }
 
-SafeWriter* DivEngine::saveText(bool separatePatterns, String smpsLabel, int smpsASMVersion, int smpsTempoVer, int smpsVibrato) {
+SafeWriter* DivEngine::saveASM(bool separatePatterns, String smpsLabel, int smpsStyle, int smpsTempo, int smpsVibrato, int smpsPSGPitch, int smpsPitchEnv, int smpsPortamento) {
   saveLock.lock();
 
   SafeWriter* w = new SafeWriter;
@@ -545,7 +591,7 @@ SafeWriter* DivEngine::saveText(bool separatePatterns, String smpsLabel, int smp
 
   // Get symbols for the corresponding version
   static const char* smpsSymCommands[smpsSymLen] = {};
-  switch (smpsASMVersion) {
+  switch (smpsStyle) {
   case verFlamewing:
     std::copy(smpsSymFlamewing, smpsSymFlamewing + smpsSymLen, smpsSymCommands);
     break;
@@ -563,12 +609,21 @@ SafeWriter* DivEngine::saveText(bool separatePatterns, String smpsLabel, int smp
   // Write header
   w->writeText(fmt::sprintf("%s_Header:", smpsLabel));
   w->writeText(fmt::sprintf("\n\t%s", smpsSymCommands[smpsStart]));
-  if (smpsASMVersion != verAMPS)
+  if (smpsStyle != verAMPS)
     w->writeText(fmt::sprintf("\n\t%s\t%s_Voices", smpsSymCommands[smpsVoice], smpsLabel));
   w->writeText(fmt::sprintf("\n\t%s\t$%.2X, $%.2X", smpsSymCommands[smpsChan], 6, 3));
   w->writeText(fmt::sprintf("\n\t%s\t", smpsSymCommands[smpsTempo]));
-  spmToTempo1(w, song.subsong[0]);
-  if (smpsASMVersion == verAMPS) {
+  switch (smpsTempo) {
+    case 0:
+      spmToTempo1(w, song.subsong[0]);
+      break;
+    case 1:
+      spmToTempo2(w, song.subsong[0]);
+      break;
+    default:
+      spmToTempo3(w, song.subsong[0]);
+  }
+  if (smpsStyle == verAMPS) {
     w->writeText(fmt::sprintf("\n\t%s\t%s_DAC1", smpsSymCommands[smpsDAC], smpsLabel));
     w->writeText(fmt::sprintf("\n\t%s\t%s_DAC2", smpsSymCommands[smpsDAC], smpsLabel));
   }
@@ -584,13 +639,13 @@ SafeWriter* DivEngine::saveText(bool separatePatterns, String smpsLabel, int smp
   // Write voices
   w->writeText(fmt::sprintf("\n\n%s_Voices:\n", smpsLabel));
 
+  int fmVoice = 0, psgVoice = 0;
   for (int i = 0; i < song.insLen; i++) {
-    int fmVoice = 0, psgVoice = 0;
     DivInstrument* ins = song.ins[i];
 
     // For FM voices
     if (ins->type == DIV_INS_FM) {
-      w->writeText(fmt::sprintf(";\tFM Voice %.2X: %s\n", fmVoice, ins->name));
+      w->writeText(fmt::sprintf(";\tFM Voice %.2X -> %.2X: %s\n", i, fmVoice, ins->name));
       const int opCount = 4;
 
       // create table of operator values
@@ -612,7 +667,7 @@ SafeWriter* DivEngine::saveText(bool separatePatterns, String smpsLabel, int smp
         opParams[smpsTotLv - smpsVoices][j] = op.tl;
         opParams[smpsSSGEG - smpsVoices][j] = op.ssgEnv;
       }
-      if (smpsASMVersion != verSource) {
+      if (smpsStyle != verSource) {
         w->writeText(fmt::sprintf("\t%s\t\t$%.2X\n", smpsSymCommands[smpsAlg], ins->fm.alg));
         w->writeText(fmt::sprintf("\t%s\t\t$%.2X\n", smpsSymCommands[smpsFeed], ins->fm.fb));
         writeOperator(w, opParams[smpsDetune - smpsVoices], smpsSymCommands[smpsDetune]);
@@ -625,7 +680,7 @@ SafeWriter* DivEngine::saveText(bool separatePatterns, String smpsLabel, int smp
         writeOperator(w, opParams[smpsSusLv - smpsVoices], smpsSymCommands[smpsSusLv]);
         writeOperator(w, opParams[smpsRelRt - smpsVoices], smpsSymCommands[smpsRelRt]);
         writeOperator(w, opParams[smpsTotLv - smpsVoices], smpsSymCommands[smpsTotLv]);
-        if (smpsASMVersion == verAMPS)
+        if (smpsStyle == verAMPS)
           writeOperator(w, opParams[smpsSSGEG - smpsVoices], smpsSymCommands[smpsSSGEG]);
 
       }
@@ -643,7 +698,7 @@ SafeWriter* DivEngine::saveText(bool separatePatterns, String smpsLabel, int smp
 
     // For PSG voices
     if (ins->type == DIV_INS_STD) {
-      w->writeText(fmt::sprintf(";\tPSG Voice %.2X: %s\n", psgVoice, ins->name));
+      w->writeText(fmt::sprintf(";\tPSG Voice %.2X -> %.2X: %s\n", i, psgVoice, ins->name));
       psgVoice++;
     }
     bool header = false;
@@ -682,23 +737,49 @@ SafeWriter* DivEngine::saveText(bool separatePatterns, String smpsLabel, int smp
   // To Do: choose which subsong to export rather than default to the first one
   DivSubSong* s = song.subsong[i];
 
-  // Write notes
-  for (int k = 0; k < chans; k++) {
-    w->writeText(fmt::sprintf("%s_%s:\n", smpsLabel, smpsChanName(k)));
-    for (int j = 0; j < s->ordersLen; j++) {
-      w->writeText(fmt::sprintf("\t%s %s_%s_%.2X\n", smpsSymCommands[smpsCall], smpsLabel, smpsChanName(k), s->orders.ord[k][j]));
-    }
-    w->writeText(fmt::sprintf("\t%s %s_$s\n\n",smpsSymCommands[smpsJump], smpsLabel, smpsChanName(k)));
+  // Get length of each pattern and loop points
+  int loopPattern = 0, endPattern = s->ordersLen, endPlace = s->patLen;
+  smpsFindLoop(s, loopPattern, endPattern, endPlace);
+  w->writeText(fmt::sprintf("\t; Loop Pattern : % .2X\n", loopPattern));
+  w->writeText(fmt::sprintf("\t; End Pattern : % .2X\n", endPattern));
+  w->writeText(fmt::sprintf("\t; End Place : % .2X\n\n", endPlace));
 
-    int l = 0;
+  // Write notes
+  for (int l = 0; l < chans; l++) {
+    // Write order list
+    w->writeText(fmt::sprintf("%s_%s:\n", smpsLabel, smpsChanName(l)));
+
+    // Write a rest if it starts holding a note
+    DivPattern* p = s->pat[l].getPattern(s->orders.ord[l][0], false);
+    if (p->data[0][0] == 0 && p->data[0][1] == 0)
+      w->writeText(fmt::sprintf("\tdc.b nRst"));
+
+    w->writeText(fmt::sprintf("%s_%s_Jump:\n", smpsLabel, smpsChanName(l)));
     for (int j = 0; j < s->ordersLen; j++) {
-      DivPattern* p = s->pat[l].getPattern(s->orders.ord[l][j], false);
+      w->writeText(fmt::sprintf("\t%s %s_%s_%.2X\n", smpsSymCommands[smpsCall], smpsLabel, smpsChanName(l), s->orders.ord[l][j]));
+    }
+    w->writeText(fmt::sprintf("\t%s %s_%s_Jump\n\n",smpsSymCommands[smpsJump], smpsLabel, smpsChanName(l)));
+
+    // Create array to keep track of written patterns
+    int patternsWritten[0x100];
+    for (int i = 0; i < 0x100; i++)
+      patternsWritten[i] = 0;
+
+    for (int j = 0; j < s->ordersLen; j++) {
+      // Don't write duplicate patterns
+      int orderNum = s->orders.ord[l][j];
+      if (patternsWritten[orderNum])
+        goto nextPattern;
+      patternsWritten[orderNum] = 1;
+
+      DivPattern* p = s->pat[l].getPattern(orderNum, false);
+
       int cntWait = 1;
 
       int note = p->data[0][0];
       int octave = p->data[0][1];
 
-      w->writeText(fmt::sprintf("%s_%s_%.2X:\n", smpsLabel, smpsChanName(k), s->orders.ord[k][j]));
+      w->writeText(fmt::sprintf("%s_%s_%.2X:\n", smpsLabel, smpsChanName(l), orderNum));
 
       if (note == 0 && octave == 0)
         w->writeText(fmt::sprintf("\tdc.b %s",smpsSymCommands[smpsHold]));
@@ -714,10 +795,12 @@ SafeWriter* DivEngine::saveText(bool separatePatterns, String smpsLabel, int smp
         w->writeText(fmt::sprintf("\tdc.b %s%d", notes[note], octave));
       }
 
-      for (int m = 1; m < s->patLen; m++) {
+      int patLen = s->patLen;
 
-        note = p->data[m][0];
-        octave = p->data[m][1];
+      for (int k = 1; k < patLen; k++) {
+
+        note = p->data[k][0];
+        octave = p->data[k][1];
 
         if (note == 0 && octave == 0)
           cntWait++;
@@ -738,6 +821,8 @@ SafeWriter* DivEngine::saveText(bool separatePatterns, String smpsLabel, int smp
         }
       }
       w->writeText(fmt::sprintf(", $%.2X\n\t%s\n\n", cntWait, smpsSymCommands[smpsRet]));
+    nextPattern:
+      continue;
     }
   }
 

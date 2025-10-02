@@ -734,7 +734,7 @@ class DivEngine {
     // dump command stream.
     SafeWriter* saveCommand(DivCSProgress* progress=NULL, DivCSOptions options=DivCSOptions());
     // export to text
-    SafeWriter* saveText(bool separatePatterns=true, String smpsLabel="Label", int smpsASMVersion = 0, int smpsTempo = 0, int smpsVibrato = 0);
+    SafeWriter* saveASM(bool separatePatterns=true, String smpsLabel="Label", int smpsASMVersion = 0, int smpsTempo = 0, int smpsVibrato = 0, int smpsPSGPitch = 0, int smpsPitchEnv = 0, int smpsPortamento = 0);
     // export to an audio file
     bool saveAudio(const char* path, DivAudioExportOptions options);
     // wait for audio export to finish
