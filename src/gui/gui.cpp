@@ -4548,6 +4548,10 @@ bool FurnaceGUI::loop() {
         }
         ImGui::Separator();
         if (settings.exportOptionsLayout==0) {
+          if (ImGui::BeginMenu(_("export smps2asm..."))) {
+            drawExportASM();
+            ImGui::EndMenu();
+          }
           if (ImGui::BeginMenu(_("export audio..."))) {
             drawExportAudio();
             ImGui::EndMenu();
@@ -5788,7 +5792,7 @@ bool FurnaceGUI::loop() {
               break;
             }
             case GUI_FILE_EXPORT_TEXT: {
-              SafeWriter* w=e->saveASM(false, smpsLabel, smpsStyle, smpsTempo, smpsVibrato, smpsPSGPitch, smpsPitchEnv, smpsPortamento);
+              SafeWriter* w = e->saveText(false);
               if (w!=NULL) {
                 FILE* f=ps_fopen(copyOfName.c_str(),"wb");
                 if (f!=NULL) {

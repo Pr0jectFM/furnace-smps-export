@@ -693,6 +693,7 @@ src/engine/platform/ym2608Interface.cpp
 src/engine/platform/ym2610Interface.cpp
 
 src/engine/fileOps/fileOpsCommon.cpp
+src/engine/fileOps/asm.cpp
 src/engine/fileOps/dmf.cpp
 src/engine/fileOps/fc.cpp
 src/engine/fileOps/ftm.cpp
