@@ -28,7 +28,7 @@ static const char* gbEnvDir[2]={
 };
 
 static const char* notes[13]={
-  "nC", "nCs", "nD", "nDs", "nE", "nF", "nFs", "nG", "nGs", "nA", "nBb", "nB", "nRst"
+  "nC", "nCs", "nD", "nDs", "nE", "nF", "nFs", "nG", "nAb", "nA", "nBb", "nB", "nRst"
 };
 
 static const char* notesSource[13] = {
@@ -104,9 +104,9 @@ enum smpsSymbols{
 static const char* smpsSymFlamewing[smpsSymLen] = {
   // Header
   "smpsHeaderStartSong",
-  "smpsHeaderVoice",
-  "smpsHeaderChan",
-  "smpsHeaderTempo",
+  "smpsHeaderVoice\t",
+  "smpsHeaderChan\t",
+  "smpsHeaderTempo\t",
   "smpsHeaderDAC",
   "smpsHeaderFM",
   "smpsHeaderPSG",
@@ -130,12 +130,12 @@ static const char* smpsSymFlamewing[smpsSymLen] = {
   "smpsAlterPitch",
   "smpsSetTempoDiv",
   "smpsNoAttack",
-  "smpsSetVoice",
+  "smpsSetvoice",
   "smpsPSGvoice",
   "smpsModChange",
   "smpsSetTempoMod",
-  "; Not Implemented",
-  "; Not Implemented",
+  "; smpsSampDAC Not Implemented",
+  "; smpsPitchDAC Not Implemented",
   "smpsAlterVol",
   "smpsPSGAlterVol",
   "smpsSetLFO",
@@ -143,8 +143,8 @@ static const char* smpsSymFlamewing[smpsSymLen] = {
   "smpsModZ80",
   "smpsModOn",
   "smpsModOff",
-  "; Not Implemented",
-  "; Not Implemented",
+  "; smpsVibFreq Not Implemented",
+  "; smpsVibReset Not Implemented",
   "smpsPitchSlide",
   "smpsStop",
   "smpsJump",
@@ -189,18 +189,18 @@ static const char* smpsSymMDMP[smpsSymLen] = {
   "sVolEnvPSG",
   "sModEnv",
   "ssTempo",
-  "; Not Implemented",
-  "; Not Implemented",
+  "; smpsSampDAC Not Implemented",
+  "; smpsPitchDAC Not Implemented",
   "saVolFM",
   "saVolPSG",
-  "; Not Implemented",
+  "; smpsSetLFO Not Implemented",
   "sMod68k",
   "sModZ80",
   "sModOn",
   "sModOff",
-  "; Not Implemented",
-  "; Not Implemented",
-  "; Not Implemented",
+  "; smpsVibFreq Not Implemented",
+  "; smpsVibReset Not Implemented",
+  "; smpsPortamento Not Implemented",
   "sStop",
   "sJump",
   "sLoop",
@@ -250,7 +250,7 @@ static const char* smpsSymAMPS[smpsSymLen] = {
   "saVol",
   "ssLFO",
   "sModAMPS",
-  "; Not Implemented",
+  "; smpsVibZ80 Not Implemented",
   "sModOn",
   "sModOff",
   "sModFreq",
@@ -268,27 +268,27 @@ static const char* smpsSymAMPS[smpsSymLen] = {
 
 static const char* smpsSymSource[smpsSymLen] = {
   // Header
-  "; Not Implemented",
-  "; Not Implemented",
-  "; Not Implemented",
-  "; Not Implemented",
-  "; Not Implemented",
-  "; Not Implemented",
-  "; Not Implemented",
+  "; smpsStart Not Implemented",
+  "; smpsVoice Not Implemented",
+  "; smpsChan Not Implemented",
+  "; smpsTempo Not Implemented",
+  "; smpsDAC Not Implemented",
+  "; smpsFM Not Implemented",
+  "; smpsPSG Not Implemented",
   // Voices
   "CNF",
-  "; Not Implemented",
+  "; smpsFeed Not Implemented",
   "MD",
-  "; Not Implemented",
+  "; smpsMult Not Implemented",
   "RSAR",
-  "; Not Implemented",
-  "; Not Implemented",
+  "; smpsAttRt Not Implemented",
+  "; smpsAmpMod Not Implemented",
   "D1R",
   "D2R",
   "RRL",
-  "; Not Implemented",
+  "; smpsRelRt Not Implemented",
   "TL",
-  "; Not Implemented",
+  "; smpsSSGEG Not Implemented",
   // Effects
   "LRPAN",
   "FDT",
@@ -297,10 +297,10 @@ static const char* smpsSymSource[smpsSymLen] = {
   "TIE",
   "FEV",
   "EV",
-  "; Not Implemented",
+  "; smpsModEnv Not Implemented",
   "TEMPO_CHG",
-  "; Not Implemented",
-  "; Not Implemented",
+  "; smpsSampDAC Not Implemented",
+  "; smpsPitchDAC Not Implemented",
   "CMVADD",
   "PFVADD",
   "LFO",
@@ -308,16 +308,16 @@ static const char* smpsSymSource[smpsSymLen] = {
   "FVR",
   "VRON",
   "VROFF",
-  "; Not Implemented",
-  "; Not Implemented",
-  "; Not Implemented",
+  "; smpsVibFreq Not Implemented",
+  "; smpsVibReset Not Implemented",
+  "; smpsPortamento Not Implemented",
   "CMEND",
   "CMJUMP",
   "CMREPT",
   "CMCALL",
   "CMRET",
   "CMGATE",
-  "; Not Implemented",
+  "; smpsFreqNote Not Implemented",
   "CMNOIS"
 };
 
@@ -346,108 +346,103 @@ String smpsChanName(int num) {
 
 }
 
-void smpsCommands(SafeWriter* w, const int effect, const int value) {
+String smpsCommands(SafeWriter* w, const int effect, const int value) {
   switch (effect) {
     // arpeggio
     case 0x00:
-      break;
+      return "\n\t; arpeggio";
 
-    // volume slide up
+    // pitch slide up
     case 0x01:
-      break;
+      return "\n\t; pitch slide up";
 
-    // volume slide down
+    // pitch slide down
     case 0x02:
-      break;
+      return "\n\t; pitch slide down";
 
     // portamento
     case 0x03:
-      break;
+      return "\n\t; portamento";
 
     // vibrato
     case 0x04:
-      break;
+      return "\n\t; vibrato";
 
     // tremolo
     case 0x07:
-      break;
+      return "\n\t; portamento";
 
     // panning
     case 0x08:
       if (value & 0xF0) {
         if (value & 0xF)
-          w->writeText(fmt::sprintf("\tsmpsPan\t\tpanCenter, $00"));
+          return "\n\tsmpsPan\t\tpanCenter, $00";
         else
-          w->writeText(fmt::sprintf("\tsmpsPan\t\tpanLeft, $00"));
+          return "\n\tsmpsPan\t\tpanLeft, $00";
       }
       else if (value & 0xF)
-        w->writeText(fmt::sprintf("\tsmpsPan\t\tpanRight, $00"));
+        return "\n\tsmpsPan\t\tpanRight, $00";
       else
-        w->writeText(fmt::sprintf("\tsmpsPan\t\tpanNone, $00"));
-      break;
+        return "\n\tsmpsPan\t\tpanNone, $00";
 
     // groove pattern
     case 0x09:
-      break;
+      return "\t; groove pattern";
 
     // volume slide
     case 0x0A:
-      break;
+      return "\t; volume slide";
 
     // jump to pattern
     case 0x0B:
-      break;
+      // jump to next pattern
+    case 0x0D:
+      return "";
 
     // retrigger
     case 0x0C:
-      break;
+      return "\t; retrigger";
 
-    // jump to next pattern
-    case 0x0D:
-      break;
-
-    // set tick rate (Hx)
+    // set tick rate (Hz)
     case 0xC0:
-      break;
+      return "\t; set tick rate (Hz)";
 
     // set pitch
     case 0xE5:
-      break;
+      return "\t; set pitch";
 
     // legato
     case 0xEA:
-      break;
+      return "\t; legato";
 
     // note cut
     case 0xEC:
-      break;
+      return "\t; note cut";
 
-    // note delay
+      // note delay
     case 0xED:
-      break;
+      return "\t; note delay";
 
-    // set tick rate (bpm)
+      // set tick rate (bpm)
     case 0xF0:
-      break;
+      return "\t; set tick rate (bpm)";
 
-    // fine volume slide up
+      // fine volume slide up
     case 0xF3:
-      break;
+      return "\t; fine volume slide up";
 
-    // fine volume slide down
+      // fine volume slide down
     case 0xF4:
-      break;
+      return "\t; fine volume slide down";
 
-    // stop song
+      // stop song
     case 0xFF:
-      break;
+      return "\t; stop song";
 
-    // unsupported effects are commented out
+      // unsupported effects are commented out
     default:
-      w->writeText(fmt::sprintf(";\tEffect not supported: %d %d", effect, value));
-      break;
+      return "\t; Effect not supported:";
   }
-  w->writeText(fmt::sprintf("\n"));
 }
 
 void writeOperator(SafeWriter* w, const int opArray[4], const char* param) {
@@ -470,16 +465,17 @@ void write2Operators(SafeWriter* w, const int opArray[4], const char* param, con
   w->writeText(fmt::sprintf("$%.2X\n", opArray2[0]));
 }
 
-void smpsFindLoop(DivSubSong* s, int& loopPattern, int& endPattern, int& endPlace) {
+void smpsFindLoop(DivSubSong* s, int& loopPattern, int& endPattern, int& endPlace, int(&lenTable)[2][0x100]) {
   for (int j = 0; j < s->ordersLen; j++) {
     for (int k = 0; k < s->patLen; k++) {
-      nextPattern:
+    nextPattern:
       for (int l = 0; l < 10; l++) {
         DivPattern* p = s->pat[l].getPattern(s->orders.ord[l][j], false);
         for (int m = 0; m < s->pat[l].effectCols; m++) {
           if (p->data[k][4 + (m << 1)] == 0x0B) {
             if (p->data[k][5 + (m << 1)] <= j) {
               // if looping
+              lenTable[1][j] = k + 1;
               endPattern = j;
               endPlace = k;
               loopPattern = p->data[k][5 + (m << 1)];
@@ -487,6 +483,7 @@ void smpsFindLoop(DivSubSong* s, int& loopPattern, int& endPattern, int& endPlac
             }
             else {
               // if skipping ahead
+              lenTable[1][j] = k + 1;
               j = p->data[k][5 + (m << 1)];
               k = 0;
               goto nextPattern;
@@ -494,26 +491,42 @@ void smpsFindLoop(DivSubSong* s, int& loopPattern, int& endPattern, int& endPlac
           }
           if (p->data[k][4 + (m << 1)] == 0x0D) {
             // if going to the next order
+            lenTable[1][j] = k + 1;
             j++;
             k = p->data[k][5 + (m << 1)];
+            lenTable[0][j] = k;
             goto nextPattern;
           }
         }
       }
+      lenTable[1][j] = s->patLen;
     }
   }
   return;
 }
 
 void spmToTempo1(SafeWriter* w, DivSubSong* s) {
+  int tempo = 0;
+  float approx = 0;
   float frames = (60 * s->speeds.val[0] * (s->timeBase + 1)) / s->hz;
-  int div = 2;
-  if (frames <= 2)
-    div = 1;
-  int tempo = (1 / (1 - div / frames));
-  w->writeText(fmt::sprintf("$%.2X, $%.2X\n", div, tempo));
+  int div = 1;
+  int tempo1 = round(1 / (1 - div / frames));
+  float approx1 = (60 * 60) / (s->hilightA * div * (tempo1 / (tempo1 - 1.0)));
+  div = 2;
+  int tempo2 = round(1 / (1 - div / frames));
+  float approx2 = (60 * 60) / (s->hilightA * div * (tempo2 / (tempo2 - 1.0)));
   float given = (s->hz * 60) / (s->speeds.val[0] * s->hilightA * (s->timeBase + 1));
-  float approx = (60 * 60) / (s->hilightA * div * (tempo / (tempo - 1.0)));
+
+  if ((abs(approx2 - given) / given) > (abs(approx1 - given) / given)){
+    div = 1;
+    approx = approx1;
+    tempo = tempo1;
+  }
+  else {
+    approx = approx2;
+    tempo = tempo2;
+  }
+  w->writeText(fmt::sprintf("$%.2X, $%.2X\n", div, tempo));
   w->writeText(fmt::sprintf(";\tGiven Tempo = %f BPM\n", given));
   w->writeText(fmt::sprintf(";\tApproximated Tempo = %f BPM\n", approx));
 }
@@ -583,7 +596,7 @@ void writeASMMacro(SafeWriter* w, DivInstrumentMacro& m, const char* name, bool&
   w->writeText("\n");
 }
 
-SafeWriter* DivEngine::saveASM(bool separatePatterns, String smpsLabel, int smpsStyle, int smpsTempo, int smpsVibrato, int smpsPSGPitch, int smpsPitchEnv, int smpsPortamento) {
+SafeWriter* DivEngine::saveASM(bool separatePatterns, String smpsLabel, int smpsStyle, int smpsSettingsTempo, int smpsVibrato, int smpsPSGPitch, int smpsPitchEnv, int smpsPortamento) {
   saveLock.lock();
 
   SafeWriter* w = new SafeWriter;
@@ -609,11 +622,13 @@ SafeWriter* DivEngine::saveASM(bool separatePatterns, String smpsLabel, int smps
   // Write header
   w->writeText(fmt::sprintf("%s_Header:", smpsLabel));
   w->writeText(fmt::sprintf("\n\t%s", smpsSymCommands[smpsStart]));
+  if (smpsStyle == verFlamewing)
+    w->writeText(fmt::sprintf(" %d", smpsSettingsTempo + 1));
   if (smpsStyle != verAMPS)
     w->writeText(fmt::sprintf("\n\t%s\t%s_Voices", smpsSymCommands[smpsVoice], smpsLabel));
   w->writeText(fmt::sprintf("\n\t%s\t$%.2X, $%.2X", smpsSymCommands[smpsChan], 6, 3));
   w->writeText(fmt::sprintf("\n\t%s\t", smpsSymCommands[smpsTempo]));
-  switch (smpsTempo) {
+  switch (smpsSettingsTempo) {
     case 0:
       spmToTempo1(w, song.subsong[0]);
       break;
@@ -629,23 +644,26 @@ SafeWriter* DivEngine::saveASM(bool separatePatterns, String smpsLabel, int smps
   }
   else
     w->writeText(fmt::sprintf("\n\t%s\t%s_DAC", smpsSymCommands[smpsDAC], smpsLabel));
-  for (int i = 1; i <= 6; i++) {
-    w->writeText(fmt::sprintf("\n\t%s\t%s_FM%d, $%.2X, $%.2X", smpsSymCommands[smpsFM], smpsLabel, i, 0, 0));
+  for (int i = 1; i <= 5; i++) {
+    w->writeText(fmt::sprintf("\n\t%s\t%s_FM%d,\t$%.2X, $%.2X", smpsSymCommands[smpsFM], smpsLabel, i, 0, 0));
   }
   for (int i = 1; i <= 3; i++) {
-    w->writeText(fmt::sprintf("\n\t%s\t%s_PSG%d, $%.2X, $%.2X, $%.2X, $%.2X", smpsSymCommands[smpsFM], smpsLabel, i, 0, 0, 0, 0));
+    w->writeText(fmt::sprintf("\n\t%s\t%s_PSG%d,\t$%.2X, $%.2X, $%.2X, $%.2X", smpsSymCommands[smpsPSG], smpsLabel, i, 0, 0, 0, 0));
   }
 
   // Write voices
   w->writeText(fmt::sprintf("\n\n%s_Voices:\n", smpsLabel));
 
-  int fmVoice = 0, psgVoice = 0;
+  int fmVoice = 0;
+  int fmVoices[0x100];
+  String psgVoices[0x100];
   for (int i = 0; i < song.insLen; i++) {
     DivInstrument* ins = song.ins[i];
 
     // For FM voices
     if (ins->type == DIV_INS_FM) {
       w->writeText(fmt::sprintf(";\tFM Voice %.2X -> %.2X: %s\n", i, fmVoice, ins->name));
+      fmVoices[i] = fmVoice;
       const int opCount = 4;
 
       // create table of operator values
@@ -698,8 +716,9 @@ SafeWriter* DivEngine::saveASM(bool separatePatterns, String smpsLabel, int smps
 
     // For PSG voices
     if (ins->type == DIV_INS_STD) {
-      w->writeText(fmt::sprintf(";\tPSG Voice %.2X -> %.2X: %s\n", i, psgVoice, ins->name));
-      psgVoice++;
+      String psgVoice = ins->name;
+      w->writeText(fmt::sprintf(";\tPSG Voice %.2X -> %s: %s\n", i, psgVoice, ins->name));
+      psgVoices[i] = psgVoice;
     }
     bool header = false;
     // To Do: apply volume macros for FM
@@ -738,8 +757,12 @@ SafeWriter* DivEngine::saveASM(bool separatePatterns, String smpsLabel, int smps
   DivSubSong* s = song.subsong[i];
 
   // Get length of each pattern and loop points
-  int loopPattern = 0, endPattern = s->ordersLen, endPlace = s->patLen;
-  smpsFindLoop(s, loopPattern, endPattern, endPlace);
+  int loopPattern = 0, endPattern = s->ordersLen, endPlace = s->patLen, lenTable[2][0x100];
+  for (int i = 0; i < 0x100; i++) {
+    lenTable[0][i] = 0;
+    lenTable[1][i] = 0;
+  }
+  smpsFindLoop(s, loopPattern, endPattern, endPlace, lenTable);
   w->writeText(fmt::sprintf("\t; Loop Pattern : % .2X\n", loopPattern));
   w->writeText(fmt::sprintf("\t; End Pattern : % .2X\n", endPattern));
   w->writeText(fmt::sprintf("\t; End Place : % .2X\n\n", endPlace));
@@ -752,92 +775,220 @@ SafeWriter* DivEngine::saveASM(bool separatePatterns, String smpsLabel, int smps
     std::copy(notesSource, notesSource + 13, notesSet);
 
   for (int l = 0; l < chans; l++) {
+    if (l == 8)
+      l++;
+
     // Write order list
-    w->writeText(fmt::sprintf("%s_%s:\n", smpsLabel, smpsChanName(l)));
+    w->writeText(fmt::sprintf("\n%s_%s:", smpsLabel, smpsChanName(l)));
 
     // Write a rest if it starts holding a note
-    DivPattern* p = s->pat[l].getPattern(s->orders.ord[l][0], false);
+    /*
     if (p->data[0][0] == 0 && p->data[0][1] == 0)
       w->writeText(fmt::sprintf("\tdc.b nRst\n"));
+    */
+    if (l == 9)
+      w->writeText(fmt::sprintf("\n\t%s\t$%.2X", smpsSymCommands[smpsNoise], 0xE7));
 
-    w->writeText(fmt::sprintf("%s_%s_Jump:\n", smpsLabel, smpsChanName(l)));
+    // get the volume at the beginning of each pattern
+    int startVols[0x100];
+    if (l < 6)
+      startVols[0] = 0x7F;
+    else
+      startVols[0] = 0x0F;
     for (int j = 0; j < s->ordersLen; j++) {
-      w->writeText(fmt::sprintf("\t%s %s_%s_%.2X\n", smpsSymCommands[smpsCall], smpsLabel, smpsChanName(l), s->orders.ord[l][j]));
+      DivPattern* p = s->pat[l].getPattern(s->orders.ord[l][j], false);
+      startVols[j + 1] = startVols[j] & 0x000000FF;
+      bool change = true;
+      for (int k = lenTable[0][j]; k < lenTable[1][j]; k++) {
+        if (p->data[k][3] >= 0) {
+          change = false;
+          startVols[j + 1] = p->data[k][3];
+        }
+        if (change)
+          startVols[j] -= 0x100;
+      }
     }
-    w->writeText(fmt::sprintf("\t%s %s_%s_Jump\n\n",smpsSymCommands[smpsJump], smpsLabel, smpsChanName(l)));
+
+    for (int j = 0; j < s->ordersLen; j++) {
+      if (j == loopPattern)
+        w->writeText(fmt::sprintf("\n\n%s_%s_Jump:", smpsLabel, smpsChanName(l)));
+      w->writeText(fmt::sprintf("\n\t%s %s_%s_%.2X_%d_%d", smpsSymCommands[smpsCall], smpsLabel, smpsChanName(l), s->orders.ord[l][j], lenTable[0][j], lenTable[1][j]));
+      if (startVols[j] > 0)
+        w->writeText(fmt::sprintf("_%.2X",startVols[j]));
+    }
+
+    // Before jumping, reset volume
+    int diffVol = (startVols[endPattern] - startVols[loopPattern])&0x000000FF;
+    if (diffVol != 0)
+      if (l < 6)
+        w->writeText(fmt::sprintf("\n\t%s\t$%.2X", smpsSymCommands[smpsAltVolFM], diffVol));
+      else
+        w->writeText(fmt::sprintf("\n\t%s\t$%.2X", smpsSymCommands[smpsAltVolPSG], diffVol));
+    w->writeText(fmt::sprintf("\n\t%s %s_%s_Jump\n",smpsSymCommands[smpsJump], smpsLabel, smpsChanName(l)));
 
     // Create array to keep track of written patterns
-    int patternsWritten[0x100];
-    for (int i = 0; i < 0x100; i++)
-      patternsWritten[i] = 0;
+    int patternsWritten[3][0x100];
+    for (int i = 0; i < 0x100; i++) {
+      patternsWritten[0][i] = 0;
+      patternsWritten[1][i] = 0;
+      patternsWritten[2][i] = 0;
+    }
 
     for (int j = 0; j < s->ordersLen; j++) {
       // Don't write duplicate patterns
       int orderNum = s->orders.ord[l][j];
-      if (patternsWritten[orderNum])
+      int patStart = lenTable[0][j];
+      int patLen = lenTable[1][j];
+      int lastVol = startVols[j], lastIns = -1;
+      if (patternsWritten[0][orderNum] == patStart && patternsWritten[1][orderNum] == patLen && patternsWritten[2][orderNum] == lastVol)
         goto nextPattern;
-      patternsWritten[orderNum] = 1;
-
-      DivPattern* p = s->pat[l].getPattern(orderNum, false);
+      patternsWritten[0][orderNum] = patStart;
+      patternsWritten[1][orderNum] = patLen;
+      patternsWritten[2][orderNum] = lastVol;
 
       int cntWait = 0;
       int lastNote = 0, lastOctave = 0, lastWait = 0;
-      int patLen = s->patLen;
+      int lineCnt = 0;
+      int holding = 1;
 
-      w->writeText(fmt::sprintf("%s_%s_%.2X:\n\tdc.b ", smpsLabel, smpsChanName(l), orderNum));
+      DivPattern* p = s->pat[l].getPattern(orderNum, false);
 
-      if (p->data[0][0] == 0 && p->data[0][1] == 0) {
-        w->writeText(fmt::sprintf("%s, ", smpsSymCommands[smpsHold]));
-      }
+      w->writeText(fmt::sprintf("\n%s_%s_%.2X_%d_%d", smpsLabel, smpsChanName(l), orderNum, patStart, patLen));
+      if (lastVol > 0)
+        w->writeText(fmt::sprintf("_%.2X", lastVol));
+      w->writeText(":");
 
       for (int k = 0; k < patLen; k++) {
 
         int note = p->data[k][0];
         int octave = p->data[k][1];
 
-        if (note == 0 && octave == 0)
+        // write instrument changes
+        if (p->data[k][2] >= 0 && p->data[k][2] != lastIns) {
+          if (cntWait != 0) {
+            lastWait = 0;
+            if (lineCnt != 0)
+              w->writeText(", ");
+            w->writeText(fmt::sprintf("$%.2X", cntWait));
+            cntWait = 0;
+          }
+          if (l < 5)
+            w->writeText(fmt::sprintf("\n\t%s\t$%.2X", smpsSymCommands[smpsSetVoice], fmVoices[p->data[k][2]]));
+          else if (l > 5)
+            w->writeText(fmt::sprintf("\n\t%s\t%s", smpsSymCommands[smpsVolEnv], psgVoices[p->data[k][2]]));
+          lastIns = p->data[k][2];
+          lineCnt = 0;
+          holding = 1;
+        }
+
+        // write volume changes
+        if (p->data[k][3] >= 0 && p->data[k][3] != lastVol) {
+          if (cntWait != 0) {
+            lastWait = 0;
+            if (lineCnt != 0)
+              w->writeText(", ");
+            w->writeText(fmt::sprintf("$%.2X", cntWait));
+            cntWait = 0;
+          }
+          if (l < 6)
+            w->writeText(fmt::sprintf("\n\t%s\t$%.2X", smpsSymCommands[smpsAltVolFM], (-(p->data[k][3] - lastVol))&0x000000FF));
+          else
+            w->writeText(fmt::sprintf("\n\t%s\t$%.2X", smpsSymCommands[smpsAltVolPSG], (-(p->data[k][3] - lastVol))&0x000000FF));
+          lastVol = p->data[k][3];
+          lineCnt = 0;
+          holding = 1;
+        }
+
+        // write effects
+        for (int m = 0; m < s->pat[l].effectCols; m++)
+          if (p->data[k][4 + (m << 1)] >= 0) {
+            String line = smpsCommands(w, p->data[k][4 + (m << 1)], p->data[k][5 + (m << 1)]);
+            if (line != "") {
+              if (cntWait != 0) {
+                lastWait = 0;
+                if (lineCnt != 0)
+                  w->writeText(", ");
+                w->writeText(fmt::sprintf("$%.2X", cntWait));
+                cntWait = 0;
+              }
+              lineCnt = 0;
+              w->writeText(fmt::sprintf(line));
+              holding = 1;
+            }
+          }
+
+        // write notes
+        if (note == 0 && octave == 0) {
+          if (holding) {
+            w->writeText(fmt::sprintf("\n\tdc.b %s", smpsSymCommands[smpsHold]));
+            lineCnt++;
+            holding = 0;
+          }
           cntWait++;
+        }
         else {
+          holding = 0;
+          if (lineCnt != 0)
+            w->writeText(", ");
+          else
+            w->writeText(fmt::sprintf("\n\tdc.b "));
           if (lastNote == note && lastOctave == octave) {
             lastNote = note;
             lastOctave = octave;
             lastWait = 0;
-            w->writeText(fmt::sprintf("$%.2X, ", cntWait));
+            lineCnt++;
+            w->writeText(fmt::sprintf("$%.2X", cntWait));
           }
           else if (lastWait == cntWait) {
             lastNote = 0;
             lastOctave = 0;
             lastWait = cntWait;
+            lineCnt++;
             if (note != 100) {
               if (octave >= 128) octave -= 256;
               if (note > 11) {
                 note -= 12;
                 octave++;
               }
-              w->writeText(fmt::sprintf("%s%d, ", notesSet[note], octave));
+              if (l > 5)
+                octave--;
+              if (l > 5 && (octave > 5 || (octave == 5 && note >= 5)))
+                w->writeText(fmt::sprintf("%s", "nMaxPSG"));
+              else
+                w->writeText(fmt::sprintf("%s%d", notesSet[note], octave));
             }
             else
-              w->writeText(fmt::sprintf("%s, ", notesSet[12]));
+              w->writeText(fmt::sprintf("%s", notesSet[12]));
           }
           else {
             lastNote = note;
             lastOctave = octave;
             lastWait = cntWait;
+            lineCnt += 2;
             if (note != 100) {
               if (octave >= 128) octave -= 256;
               if (note > 11) {
                 note -= 12;
                 octave++;
               }
-              w->writeText(fmt::sprintf("$%.2X, %s%d, ", cntWait, notesSet[note], octave));
+              if (l > 5)
+                octave--;
+              if (l > 5 && (octave > 5 || (octave == 5 && note >= 5)))
+                w->writeText(fmt::sprintf("$%.2X, %s", cntWait, "nMaxPSG"));
+              else
+                w->writeText(fmt::sprintf("$%.2X, %s%d", cntWait, notesSet[note], octave));
             }
             else
-              w->writeText(fmt::sprintf("$%.2X, %s, ", cntWait, notesSet[12]));
+              w->writeText(fmt::sprintf("$%.2X, %s", cntWait, notesSet[12]));
           }
           cntWait = 1;
         }
+        if (lineCnt >= 16)
+          lineCnt = 0;
       }
-      w->writeText(fmt::sprintf("$%.2X\n\t%s\n\n", cntWait, smpsSymCommands[smpsRet]));
+      if (lastWait != cntWait)
+        w->writeText(fmt::sprintf(", $%.2X", cntWait));
+      w->writeText(fmt::sprintf("\n\t%s\n", smpsSymCommands[smpsRet]));
     nextPattern:
       continue;
     }
