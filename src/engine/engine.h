@@ -130,6 +130,21 @@ struct DivAudioExportOptions {
   }
 };
 
+struct DivSMPSOptions {
+  String label;
+  int preset, style, tempo, vibrato, psgPitch, pitchEnv, portamento;
+  DivSMPSOptions():
+    label("MZ"),
+    preset(0),
+    style(0),
+    tempo(0),
+    vibrato(0),
+    psgPitch(0),
+    pitchEnv(0),
+    portamento(0) {
+  }
+};
+
 struct DivChannelState {
   std::vector<DivDelayedCommand> delayed;
   int note, oldNote, lastIns, pitch, portaSpeed, portaNote;
@@ -736,8 +751,9 @@ class DivEngine {
     SafeWriter* saveCommand(DivCSProgress* progress=NULL, DivCSOptions options=DivCSOptions());
     // export to text
     SafeWriter* saveText(bool separatePatterns = true);
+
     // export to SMPS2ASM
-    SafeWriter* saveASM(bool separatePatterns=true, String smpsLabel="Label", int smpsASMVersion = 0, int smpsTempo = 0, int smpsVibrato = 0, int smpsPSGPitch = 0, int smpsPitchEnv = 0, int smpsPortamento = 0);
+    SafeWriter* saveASM(bool separatePatterns=true, DivSMPSOptions options=DivSMPSOptions());
     // export to an audio file
     bool saveAudio(const char* path, DivAudioExportOptions options);
     // wait for audio export to finish
