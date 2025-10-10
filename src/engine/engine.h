@@ -54,8 +54,8 @@ class DivWorkPool;
 
 #define DIV_UNSTABLE
 
-#define DIV_VERSION "dev233"
-#define DIV_ENGINE_VERSION 233
+#define DIV_VERSION "dev234"
+#define DIV_ENGINE_VERSION 234
 // for imports
 #define DIV_VERSION_MOD 0xff01
 #define DIV_VERSION_FC 0xff02
@@ -664,6 +664,7 @@ class DivEngine {
   void exchangeWave(int one, int two);
   void exchangeSample(int one, int two);
 
+  void copyChannel(int src, int dest);
   void swapChannels(int src, int dest);
   void stompChannel(int ch);
 
@@ -1279,6 +1280,9 @@ class DivEngine {
     // -1: render all samples
     // >=0: render specific sample
     void renderSamplesP(int whichSample=-1);
+
+    // public copy channel
+    void copyChannelP(int src, int dest);
 
     // public swap channels
     void swapChannelsP(int src, int dest);
