@@ -436,25 +436,24 @@ static const int smpsPresetOptions[5][6] = {
 };
 
 void FurnaceGUI::drawExportASM(bool onWindow) {
-  DivSMPSOptions settings;
   exitDisabledTimer=1;
   ImGui::Text(
     _("This option exports the song to a .asm file compatible with SMPS2ASM.\n")
   );
   ImGui::Separator();
   ImGui::Text(_("Label Prefix:"));
-  ImGui::InputText("##ASMLabel", &settings.label);
+  ImGui::InputText("##ASMLabel", &smpsSettings.label);
   ImGui::Text(_("Preset:"));
-  if (ImGui::BeginCombo("##Preset", smpsPresets[settings.preset])) {
+  if (ImGui::BeginCombo("##Preset", smpsPresets[smpsSettings.preset])) {
     for (int i = 0; i < 5; i++) {
-      if (ImGui::Selectable(smpsPresets[i], settings.preset == i)) {
-        settings.preset = i;
-        settings.style = smpsPresetOptions[i][0];
-        settings.tempo = smpsPresetOptions[i][1];
-        settings.vibrato = smpsPresetOptions[i][2];
-        settings.psgPitch = smpsPresetOptions[i][3];
-        settings.pitchEnv = smpsPresetOptions[i][4];
-        settings.portamento = smpsPresetOptions[i][5];
+      if (ImGui::Selectable(smpsPresets[i], smpsSettings.preset == i)) {
+        smpsSettings.preset = i;
+        smpsSettings.style = smpsPresetOptions[i][0];
+        smpsSettings.tempo = smpsPresetOptions[i][1];
+        smpsSettings.vibrato = smpsPresetOptions[i][2];
+        smpsSettings.psgPitch = smpsPresetOptions[i][3];
+        smpsSettings.pitchEnv = smpsPresetOptions[i][4];
+        smpsSettings.portamento = smpsPresetOptions[i][5];
       }
     }
     ImGui::EndCombo();
@@ -462,27 +461,27 @@ void FurnaceGUI::drawExportASM(bool onWindow) {
 
   ImGui::Separator();
   ImGui::Text(_("SMPS2ASM Version:"));
-  ImGui::RadioButton(_("Flamewing"), &settings.style, 0);
-  ImGui::RadioButton(_("MD Music Player"), &settings.style, 1);
-  ImGui::RadioButton(_("AMPS##ampsstyle"), &settings.style, 2);
-  ImGui::RadioButton(_("SMPS Source"), &settings.style, 3);
+  ImGui::RadioButton(_("Flamewing"), smpsSettings.style==0);
+  ImGui::RadioButton(_("MD Music Player"), smpsSettings.style==1);
+  ImGui::RadioButton(_("AMPS##ampsstyle"), smpsSettings.style==2);
+  ImGui::RadioButton(_("SMPS Source"), smpsSettings.style==3);
   ImGui::Text(_("Tempo Algorithm:"));
-  ImGui::RadioButton(_("Sonic 1"), &settings.tempo, 0);
-  ImGui::RadioButton(_("Sonic 2"), &settings.tempo, 1);
-  ImGui::RadioButton(_("Sonic 3 & Knuckles"), &settings.tempo, 2);
+  ImGui::RadioButton(_("Sonic 1"), smpsSettings.tempo==0);
+  ImGui::RadioButton(_("Sonic 2"), smpsSettings.tempo==1);
+  ImGui::RadioButton(_("Sonic 3 & Knuckles"), smpsSettings.tempo==2);
   ImGui::Text(_("Vibrato Variation:"));
-  ImGui::RadioButton(_("SMPS 68k##68kvib"), &settings.vibrato, 0);
-  ImGui::RadioButton(_("SMPS Z80##z80vib"), &settings.vibrato, 1);
-  ImGui::RadioButton(_("AMPS##ampsvib"), &settings.vibrato, 2);
+  ImGui::RadioButton(_("SMPS 68k##68kvib"), smpsSettings.vibrato==0);
+  ImGui::RadioButton(_("SMPS Z80##z80vib"), smpsSettings.vibrato==1);
+  ImGui::RadioButton(_("AMPS##ampsvib"), smpsSettings.vibrato==2);
   ImGui::Text(_("PSG Pitch:"));
-  ImGui::RadioButton(_("SMPS 68k##68kpit"), &settings.psgPitch, 0);
-  ImGui::RadioButton(_("SMPS Z80##z80pit"), &settings.psgPitch, 1);
+  ImGui::RadioButton(_("SMPS 68k##68kpit"), smpsSettings.psgPitch==0);
+  ImGui::RadioButton(_("SMPS Z80##z80pit"), smpsSettings.psgPitch==1);
   ImGui::Text(_("Pitch Envelopes:"));
-  ImGui::RadioButton(_("Disabled"), &settings.pitchEnv, 0);
-  ImGui::RadioButton(_("Enabled"), &settings.pitchEnv, 1);
+  ImGui::RadioButton(_("Disabled"), smpsSettings.pitchEnv==0);
+  ImGui::RadioButton(_("Enabled"), smpsSettings.pitchEnv==1);
   ImGui::Text(_("Portamento:"));
-  ImGui::RadioButton(_("Modulation"), &settings.portamento, 0);
-  ImGui::RadioButton(_("Portamento"), &settings.portamento, 1);
+  ImGui::RadioButton(_("Modulation"), smpsSettings.portamento==0);
+  ImGui::RadioButton(_("Portamento"), smpsSettings.portamento==1);
   if (onWindow) {
     ImGui::Separator();
     if (ImGui::Button(_("Cancel"),ImVec2(200.0f*dpiScale,0))) ImGui::CloseCurrentPopup();

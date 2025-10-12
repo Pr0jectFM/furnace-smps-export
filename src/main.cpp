@@ -94,6 +94,7 @@ String txtOutName;
 int benchMode=0;
 int subsong=-1;
 DivCSOptions csExportOptions;
+DivSMPSOptions smpsSettings;
 DivAudioExportOptions exportOptions;
 DivConfig romExportConfig;
 

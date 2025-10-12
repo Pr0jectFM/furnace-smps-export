@@ -134,7 +134,7 @@ struct DivSMPSOptions {
   String label;
   int preset, style, tempo, vibrato, psgPitch, pitchEnv, portamento;
   DivSMPSOptions():
-    label("MZ"),
+    label(""),
     preset(0),
     style(0),
     tempo(0),
@@ -752,9 +752,8 @@ class DivEngine {
     SafeWriter* saveCommand(DivCSProgress* progress=NULL, DivCSOptions options=DivCSOptions());
     // export to text
     SafeWriter* saveText(bool separatePatterns = true);
-
     // export to SMPS2ASM
-    SafeWriter* saveASM(bool separatePatterns=true, DivSMPSOptions options=DivSMPSOptions());
+    SafeWriter* saveASM(DivSMPSOptions options);
     // export to an audio file
     bool saveAudio(const char* path, DivAudioExportOptions options);
     // wait for audio export to finish

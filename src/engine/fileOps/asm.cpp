@@ -480,6 +480,7 @@ static const char* smpsSymSource[smpsSymLen] = {
 // Variables
 struct smpsVars {
   const char* symCommands[smpsSymLen];
+  const char* notesSet[13];
   uint8_t fmVoices[0x100];
   String psgVoices[0x100];
   // pattern and song length
@@ -488,14 +489,62 @@ struct smpsVars {
   uint8_t lenTable[2][0x100];
   int endPlace;
   // note status
-  bool hold, legato;
   int volRate;
   uint8_t vib[4];
   int pitchTarget, pitchRate;
   uint8_t pan, noise, retrigger;
-  // macros
-  int pitchMacro, volMacro;
 
+};
+
+// Channel names
+enum chNames {
+  chFM1,
+  chFM2,
+  chFM3,
+  chFM4,
+  chFM5,
+  chFM6,
+  chPSG1,
+  chPSG2,
+  chPSG3,
+  chNoise
+};
+
+// Variables used for timers
+enum smpsTimers {
+  timePitch,
+  timeVib,
+  timeVol,
+  timeRetrigger,
+  timeDelay,
+  timeLen
+};
+
+// Variables used by macros
+enum smpsMacros {
+  macVol,
+  macPitch,
+  macDetune,
+  macLen
+};
+
+// Temporary variables
+struct smpsTempVars {
+  String effects[0x10];
+  uint8_t numEffects;
+  int timers[timeLen];
+  uint8_t macroTimer, macroVals[macLen][2];
+  uint8_t lineCnt;
+  uint8_t noteTime, prevTime;
+  uint8_t lastIns, lastVol;
+  int steps;
+  uint8_t channel, order;
+  int note, octave, prevNote, prevOctave;
+  bool redo;
+  String noteString;
+  int offset;
+  bool hold, legato;
+  bool wroteLen, wroteNote;
 };
 
 static void writeHeader(SafeWriter* w, smpsVars& vars, DivSubSong*& s, DivSMPSOptions& options) {
@@ -639,7 +688,7 @@ static const char* notesSource[13] = {
 };
 
 // command-specific code
-String smpsCommands(SafeWriter* w, const uint8_t effect, const uint8_t value, smpsVars &vars, DivSubSong*& s, DivSMPSOptions &options) {
+static String smpsCommands(const uint8_t effect, const uint8_t value, smpsVars &vars, DivSubSong*& s, DivSMPSOptions &options, smpsTempVars &temp) {
   switch (effect) {
     // arpeggio
     case 0x00:
@@ -649,21 +698,31 @@ String smpsCommands(SafeWriter* w, const uint8_t effect, const uint8_t value, sm
     case 0x01:
       vars.pitchRate = value;
       vars.pitchTarget = 0;
+      vars.vib[2] = 0x04;
+      vars.vib[3] = 0x7F;
       goto setVib;
     // pitch slide down
     case 0x02:
       vars.pitchRate = value;
       vars.pitchTarget = 0;
+      vars.vib[2] = -0x04;
+      vars.vib[3] = -0x80;
       goto setVib;
     // portamento
     case 0x03:
+      vars.vib[2] = 0x04;
+      vars.vib[3] = 0x7F;
+    setVib:
       vars.pitchRate = value;
       vars.pitchTarget = 0;
+      vars.vib[0] = 0x00;
+      vars.vib[1] = 0x01;
+      temp.timers[timeVib] = value * 4;
+      return fmt::sprintf("\n\t%s\t$%.2X, $%.2X, $%.2X, $%.2X", vars.symCommands[smpsSetVib68k], vars.vib[0], vars.vib[1], vars.vib[2], vars.vib[3]);
     // vibrato
     case 0x04:
-    setVib:
       if ((value & 0x0F) == 0)
-        return fmt::format("\n\t{:s}", vars.symCommands[smpsVibOff]);
+        return fmt::sprintf("\n\t%s", vars.symCommands[smpsVibOff]);
 
       switch (options.vibrato) {
         case 0:
@@ -677,10 +736,15 @@ String smpsCommands(SafeWriter* w, const uint8_t effect, const uint8_t value, sm
       }
       vars.vib[1] = 0x01;
       // (TickRate/(64×VibratoSpeed))
-      vars.vib[3] = round(s->hz * (0x0F - value / 0x10) / (vars.vib[1] * 64));
-      vars.vib[2] = round(8.0 * vars.vib[1] * (value & 0x0F) / (0x0F - value / 0x10));
+      vars.vib[3] = round(s->hz * (0x0F - value / 0x10) / (vars.vib[1] * 64 * 2));
+      if (temp.channel < chPSG1) {
+        vars.vib[2] = round(8.0 * vars.vib[1] * (value & 0x0F) / (0x0F - value / 0x10));
+      } else {
+        vars.vib[2] = round(5.0 * vars.vib[1] * (value & 0x0F) / (0x0F - value / 0x10));
+      }
 
-      return fmt::format("\n\t{:s}\t${:X}, ${:X}, ${:X}, ${:X}", vars.symCommands[smpsSetVib68k], vars.vib[0], vars.vib[1], vars.vib[2], vars.vib[3]);
+
+      return fmt::sprintf("\n\t%s\t$%.2X, $%.2X, $%.2X, $%.2X", vars.symCommands[smpsSetVib68k], vars.vib[0], vars.vib[1], vars.vib[2], vars.vib[3]);
 
     // tremolo
     case 0x07:
@@ -693,13 +757,13 @@ String smpsCommands(SafeWriter* w, const uint8_t effect, const uint8_t value, sm
       vars.pan = value;
       if (value & 0xF0)
         if (value & 0xF)
-          return fmt::format("\n\t{:s}\t\t{:s}, $00", vars.symCommands[smpsPan], vars.symCommands[smpsPanCenter]);
+          return fmt::sprintf("\n\t%s\t\t%s, $00", vars.symCommands[smpsPan], vars.symCommands[smpsPanCenter]);
         else
-          return fmt::format("\n\t{:s}\t\t{:s}, $00", vars.symCommands[smpsPan], vars.symCommands[smpsPanLeft]);
+          return fmt::sprintf("\n\t%s\t\t%s, $00", vars.symCommands[smpsPan], vars.symCommands[smpsPanLeft]);
       else if (value & 0xF)
-        return fmt::format("\n\t{:s}\t\t{:s}, $00", vars.symCommands[smpsPan], vars.symCommands[smpsPanRight]);
+        return fmt::sprintf("\n\t%s\t\t%s, $00", vars.symCommands[smpsPan], vars.symCommands[smpsPanRight]);
       else
-        return fmt::format("\n\t{:s}\t\t{:s}, $00", vars.symCommands[smpsPan], vars.symCommands[smpsPanNone]);
+        return fmt::sprintf("\n\t%s\t\t%s, $00", vars.symCommands[smpsPan], vars.symCommands[smpsPanNone]);
 
     // groove pattern
     case 0x09:
@@ -725,25 +789,35 @@ String smpsCommands(SafeWriter* w, const uint8_t effect, const uint8_t value, sm
     case 0x0C:
       return "\t; retrigger";
 
+    // noise mode
+    case 0x20:
+      if (!(value & 0xF0))
+        return "\t; preset noise frequencies not supported";
+      if (value & 0x0F)
+        vars.noise = 0xE3;
+      else
+        vars.noise = 0xE7;
+      return fmt::sprintf("\n\t%s\t\t$%.2X", vars.symCommands[smpsNoise], vars.noise);
+
     // set tick rate (Hz)
     case 0xC0:
       return "\t; set tick rate (Hz)";
 
     // set pitch
     case 0xE5:
-      return fmt::format("\n\t{:s}\t\t%d", vars.symCommands[smpsDetune], value);
+      return fmt::sprintf("\n\t%s\t\t$%.2X", vars.symCommands[smpsSetDetune], uint8_t(value - 0x80));
 
     // legato
     case 0xEA:
       if (value)
-        vars.legato = true;
+        temp.legato = true;
       else
-        vars.legato = false;
+        temp.legato = false;
       return "";
 
     // note cut
     case 0xEC:
-      return fmt::format("\n\t{:s}\t\t{:s}", vars.symCommands[smpsGate], value);
+      return fmt::sprintf("\n\t%s\t\t%s", vars.symCommands[smpsGate], value);
 
       // note delay
     case 0xED:
@@ -770,7 +844,7 @@ String smpsCommands(SafeWriter* w, const uint8_t effect, const uint8_t value, sm
 }
 
 // find the start and end positions of each pattern, as well as the end spot and loop point
-void smpsFindLoop(DivSubSong* s, smpsVars &vars) {
+static void smpsFindLoop(DivSubSong* s, smpsVars &vars) {
   vars.loopPat = 0, vars.endPat = s->ordersLen;
   vars.endPlace = s->patLen;
   for (int i = 0; i < 0x100; i++) {
@@ -823,7 +897,169 @@ void smpsFindLoop(DivSubSong* s, smpsVars &vars) {
   return;
 }
 
-SafeWriter* DivEngine::saveASM(bool separatePatterns, DivSMPSOptions options) {
+static void getTimer(DivPattern* p, smpsVars& vars, smpsTempVars& temp, DivSubSong* s, DivSMPSOptions &options) {
+  for (int step = temp.steps; step < vars.lenTable[1][temp.order] + 1; step++) {
+    temp.numEffects = 0;
+    bool found = false;
+    // check timers
+    for (int timer = 0; timer < timeLen; timer++) {
+      if ((temp.timers[timer] == 1)) {
+        int value = temp.timers[timer];
+        switch (timer) {
+        case timePitch:
+
+        case timeVib:
+          temp.effects[temp.numEffects] = fmt::sprintf("\n\t%s", vars.symCommands[smpsVibOff]);
+          temp.numEffects++;
+
+        case timeVol:
+
+        case timeRetrigger:
+
+        case timeDelay:
+
+        default:
+          temp.timers[timer] = 0;
+          found = true;
+        }
+      }
+      else if (temp.timers[timer] > 1) {
+        --temp.timers[timer];
+      }
+    }
+    // check for instrument changes
+    if (p->data[step][2] >= 0 && p->data[step][2] != temp.lastIns) {
+      if (temp.channel < chFM6) {
+        temp.effects[temp.numEffects] = fmt::sprintf("\n\t%s\t$%.2X", vars.symCommands[smpsSetVoice], vars.fmVoices[p->data[step][2]]);
+        temp.numEffects++;
+        found = true;
+      }
+      else if (temp.channel > chFM6) {
+        temp.effects[temp.numEffects] = fmt::sprintf("\n\t%s\t%s", vars.symCommands[smpsVolEnv], vars.psgVoices[p->data[step][2]]);
+        temp.numEffects++;
+        found = true;
+      }
+      temp.lastIns = p->data[step][2];
+    }
+    // check for changes in pitch or volume
+    if (p->data[step][3] >= 0 && p->data[step][3] != temp.lastVol) {
+      if (temp.channel < chFM6) {
+        temp.effects[temp.numEffects] = fmt::sprintf("\n\t%s\t$%.2X", vars.symCommands[smpsAltVolFM], uint8_t(-(p->data[step][3] - temp.lastVol)));
+        temp.numEffects++;
+        found = true;
+      }
+      else if (temp.channel > chFM6) {
+        temp.effects[temp.numEffects] = fmt::sprintf("\n\t%s\t$%.2X", vars.symCommands[smpsAltVolPSG], uint8_t(-(p->data[step][3] - temp.lastVol)));
+        temp.numEffects++;
+        found = true;
+      }
+      temp.lastVol = p->data[step][3];
+    }
+    // check effects
+    for (int layer = 0; layer < s->pat[temp.channel].effectCols; layer++)
+      if (p->data[step][4 + (layer << 1)] >= 0) {
+        String line = smpsCommands(p->data[step][4 + (layer << 1)], p->data[step][5 + (layer << 1)], vars, s, options, temp);
+        if (line != "") {
+          temp.effects[temp.numEffects] = line;
+          temp.numEffects++;
+          found = true;
+        }
+      }
+
+    // check notes
+    temp.note = p->data[step][0];
+    temp.octave = p->data[step][1];
+    if (temp.note != 0 || temp.octave != 0) {
+      temp.macroTimer = 0;
+      found = true;
+    }
+
+    // check macros
+    /*
+    DivInstrument* ins = song.ins[i];
+    ins->std.volMacro;
+    */
+
+    // leave if something is found
+    if (found || (1 + step - temp.steps) == 0x7F) {
+      temp.noteTime = 1 + step - temp.steps;
+      return;
+    }
+  }
+  temp.noteTime = 1 + vars.lenTable[1][temp.order] - temp.steps;
+};
+
+static void separateNote(SafeWriter* w, smpsTempVars& temp) {
+  if (temp.lineCnt != 0)
+    w->writeText(", ");
+  else
+    w->writeText(fmt::sprintf("\n\tdc.b "));
+  temp.lineCnt = (temp.lineCnt + 1) % 16;
+}
+
+String getNote(smpsVars& vars, smpsTempVars& temp) {
+  temp.prevNote = temp.note;
+  temp.prevOctave = temp.octave;
+  if (temp.note != 100) {
+    if (temp.octave >= 128)
+      temp.octave -= 256;
+    if (temp.note > 11) {
+      temp.note -= 12;
+      temp.octave++;
+    }
+    if (temp.channel > chFM6)
+      temp.octave--;
+    if (temp.channel > chFM6 && (temp.octave > 5 || (temp.octave == 5 && temp.note >= 5)))
+      return fmt::sprintf("%s", "nMaxPSG");
+    else
+      return fmt::sprintf("%s%d", vars.notesSet[temp.note], temp.octave);
+  }
+  else
+    return fmt::sprintf("%s", vars.notesSet[12]);
+}
+
+static void writeNotes(SafeWriter* w, smpsVars& vars, smpsTempVars& temp) {
+  // write timer
+  if (temp.noteTime != 0) {
+    if (temp.prevTime != temp.noteTime || temp.wroteNote == false) {
+      separateNote(w, temp);
+      w->writeText(fmt::sprintf("$%.2X", temp.noteTime));
+      temp.prevTime = temp.noteTime;
+      temp.wroteLen = true;
+    }
+    else
+      temp.wroteLen = false;
+  }
+
+  // write effects
+  for (int i = 0; i < temp.numEffects; i++) {
+    w->writeText(fmt::sprintf("%s", temp.effects[i]));
+    temp.lineCnt = 0;
+    if (temp.note == 0 && temp.octave == 0)
+      temp.hold = true;
+  }
+
+  // hold note
+  if (temp.hold || (temp.note == 0 && temp.octave != 0)) {
+    separateNote(w, temp);
+    w->writeText(vars.symCommands[smpsHold]);
+    if (!temp.legato)
+      temp.hold = false;
+  }
+
+  // write next note
+  if ((temp.note != 0 || temp.octave != 0) && ((temp.prevNote != temp.note || temp.prevOctave != temp.octave) || temp.wroteLen == false)) {
+    separateNote(w, temp);
+    w->writeText(getNote(vars, temp));
+    temp.prevNote = temp.note;
+    temp.prevOctave = temp.octave;
+    temp.wroteNote = true;
+  }
+  else
+    temp.wroteNote = false;
+}
+
+SafeWriter* DivEngine::saveASM(DivSMPSOptions options) {
   saveLock.lock();
 
   SafeWriter* w = new SafeWriter;
@@ -861,45 +1097,35 @@ SafeWriter* DivEngine::saveASM(bool separatePatterns, DivSMPSOptions options) {
   w->writeText(fmt::sprintf("\t; End Place : % .2X\n\n", vars.endPlace));
 
   // Write notes
-  String notesSet[13];
   if (options.style != verSource)
-    std::copy(notes, notes + 13, notesSet);
+    std::copy(notes, notes + 13, vars.notesSet);
   else
-    std::copy(notesSource, notesSource + 13, notesSet);
+    std::copy(notesSource, notesSource + 13, vars.notesSet);
 
   for (int l = 0; l < chans; l++) {
-    if (l == 8)
+    if (l == chPSG3)
       l++;
 
     // Write order list
     if (vars.loopPat >= 0)
       w->writeText(fmt::sprintf("\n%s_%s:", options.label, smpsChanName(l)));
 
-    // Write a rest if it starts holding a note
-    /*
-    if (p->data[0][0] == 0 && p->data[0][1] == 0)
-      w->writeText(fmt::sprintf("\tdc.b nRst\n"));
-    */
-    if (l == 9)
+    if (l == chNoise)
       w->writeText(fmt::sprintf("\n\t%s\t$%.2X", vars.symCommands[smpsNoise], 0xE7));
 
     // get the volume at the beginning of each pattern
-    int startVols[0x100];
-    if (l < 6)
+    uint8_t startVols[0x101];
+    if (l < chPSG1)
       startVols[0] = 0x7F;
     else
       startVols[0] = 0x0F;
     for (int j = 0; j < s->ordersLen; j++) {
       DivPattern* p = s->pat[l].getPattern(s->orders.ord[l][j], false);
-      startVols[j + 1] = startVols[j] & 0x000000FF;
-      bool change = true;
-      for (int k = vars.lenTable[0][j]; k < vars.lenTable[1][j]; k++) {
+      startVols[j + 1] = startVols[j];
+      for (int k = vars.lenTable[0][j]; k <= vars.lenTable[1][j]; k++) {
         if (p->data[k][3] >= 0) {
-          change = false;
           startVols[j + 1] = p->data[k][3];
         }
-        if (change)
-          startVols[j] -= 0x100;
       }
     }
 
@@ -907,14 +1133,14 @@ SafeWriter* DivEngine::saveASM(bool separatePatterns, DivSMPSOptions options) {
       if (j == vars.loopPat)
         w->writeText(fmt::sprintf("\n\n%s_%s_Jump:", options.label, smpsChanName(l)));
       w->writeText(fmt::sprintf("\n\t%s %s_%s_%.2X_%d_%d", vars.symCommands[smpsCall], options.label, smpsChanName(l), s->orders.ord[l][j], vars.lenTable[0][j], vars.lenTable[1][j]));
-      if (startVols[j] > 0)
+      if (startVols[j + 1] != startVols[j])
         w->writeText(fmt::sprintf("_%.2X",startVols[j]));
     }
 
     // Before jumping, reset volume
-    int diffVol = (startVols[vars.endPat] - startVols[vars.loopPat&0xFF])&0x000000FF;
+    uint8_t diffVol = (startVols[vars.endPat + 1] - startVols[vars.loopPat]);
     if (diffVol != 0)
-      if (l < 6)
+      if (l < chPSG1)
         w->writeText(fmt::sprintf("\n\t%s\t$%.2X", vars.symCommands[smpsAltVolFM], diffVol));
       else
         w->writeText(fmt::sprintf("\n\t%s\t$%.2X", vars.symCommands[smpsAltVolPSG], diffVol));
@@ -924,11 +1150,13 @@ SafeWriter* DivEngine::saveASM(bool separatePatterns, DivSMPSOptions options) {
       w->writeText(fmt::sprintf("\n\t%s\n", vars.symCommands[smpsStop]));
 
     // Create array to keep track of written patterns
-    uint8_t patternsWritten[3][0x100];
+    uint8_t patternsWritten[4][0x100];
+    int numUniquePat = 0;
     for (int i = 0; i < 0x100; i++) {
       patternsWritten[0][i] = 0;
       patternsWritten[1][i] = 0;
       patternsWritten[2][i] = 0;
+      patternsWritten[3][i] = 0;
     }
 
     for (int j = 0; j < s->ordersLen; j++) {
@@ -936,157 +1164,54 @@ SafeWriter* DivEngine::saveASM(bool separatePatterns, DivSMPSOptions options) {
       int orderNum = s->orders.ord[l][j];
       int patStart = vars.lenTable[0][j];
       int patLen = vars.lenTable[1][j];
-      uint8_t lastVol = startVols[j], lastIns = -1;
-      if (patternsWritten[0][orderNum] == patStart && patternsWritten[1][orderNum] == patLen && patternsWritten[2][orderNum] == lastVol)
-        goto nextPattern;
-      patternsWritten[0][orderNum] = patStart;
-      patternsWritten[1][orderNum] = patLen;
-      patternsWritten[2][orderNum] = lastVol;
+      uint8_t changeVol = startVols[j + 1] - startVols[j], lastIns = -1;
+      smpsTempVars temp;
+      for (int i = 0; i < numUniquePat; i++)
+        if (patternsWritten[3][i] == orderNum)
+          if (patternsWritten[0][i] == patStart && patternsWritten[1][i] == patLen && patternsWritten[2][i] == changeVol)
+            goto nextPattern;
+      patternsWritten[0][numUniquePat] = patStart;
+      patternsWritten[1][numUniquePat] = patLen;
+      patternsWritten[2][numUniquePat] = changeVol;
+      patternsWritten[3][numUniquePat] = orderNum;
+      numUniquePat++;
 
       int cntWait = 0;
       int lastNote = 0, lastOctave = 0, lastWait = 0;
       int lineCnt = 0;
-      vars.hold = true;
-      vars.legato = false;
 
       DivPattern* p = s->pat[l].getPattern(orderNum, false);
 
       w->writeText(fmt::sprintf("\n%s_%s_%.2X_%d_%d", options.label, smpsChanName(l), orderNum, patStart, patLen));
-      if (startVols[j] > 0)
+      if (startVols[j + 1] != startVols[j])
         w->writeText(fmt::sprintf("_%.2X", startVols[j]));
       w->writeText(":");
 
-      for (int k = 0; k < patLen; k++) {
+      temp.hold = temp.legato = false;
+      temp.wroteLen = temp.wroteNote = false;
+      temp.note = temp.octave = 0;
+      temp.order = j;
+      temp.channel = l;
+      temp.lineCnt = 0;
+      temp.steps = patStart;
+      temp.lastIns = -1;
+      temp.lastVol = startVols[j];
+      temp.prevNote = temp.prevOctave = temp.prevTime = 0;
+      getTimer(p, vars, temp, s, options);
 
-        int note = p->data[k][0];
-        int octave = p->data[k][1];
-
-        // write instrument changes
-        if (p->data[k][2] >= 0 && p->data[k][2] != lastIns) {
-          if (cntWait != 0) {
-            lastWait = cntWait;
-            if (lineCnt != 0)
-              w->writeText(", ");
-            else
-              w->writeText(fmt::sprintf("\n\tdc.b "));
-            w->writeText(fmt::sprintf("$%.2X", cntWait));
-            cntWait = 0;
-          }
-          if (l < 5)
-            w->writeText(fmt::sprintf("\n\t%s\t$%.2X", vars.symCommands[smpsSetVoice], vars.fmVoices[p->data[k][2]]));
-          else if (l > 5)
-            w->writeText(fmt::sprintf("\n\t%s\t%s", vars.symCommands[smpsVolEnv], vars.psgVoices[p->data[k][2]]));
-          lastIns = p->data[k][2];
-          lineCnt = 0;
-          if (note == 0 && octave == 0)
-            vars.hold = true;
-        }
-
-        // write volume changes
-        if (p->data[k][3] >= 0 && p->data[k][3] != lastVol) {
-          if (cntWait != 0) {
-            lastWait = cntWait;
-            if (lineCnt != 0)
-              w->writeText(", ");
-            else
-              w->writeText(fmt::sprintf("\n\tdc.b "));
-            w->writeText(fmt::sprintf("$%.2X", cntWait));
-            cntWait = 0;
-          }
-          if (l < 6)
-            w->writeText(fmt::sprintf("\n\t%s\t$%.2X", vars.symCommands[smpsAltVolFM], (-(p->data[k][3] - lastVol))&0x000000FF));
-          else
-            w->writeText(fmt::sprintf("\n\t%s\t$%.2X", vars.symCommands[smpsAltVolPSG], (-(p->data[k][3] - lastVol))&0x000000FF));
-          lastVol = p->data[k][3];
-          lineCnt = 0;
-          if (note == 0 && octave == 0)
-            vars.hold = true;
-        }
-
-        // write effects
-        for (int m = 0; m < s->pat[l].effectCols; m++)
-          if (p->data[k][4 + (m << 1)] >= 0) {
-            String line = smpsCommands(w, p->data[k][4 + (m << 1)], p->data[k][5 + (m << 1)], vars, s, options);
-            if (line != "") {
-              if (cntWait != 0) {
-                lastWait = cntWait;
-                if (lineCnt != 0)
-                  w->writeText(", ");
-                else
-                  w->writeText(fmt::sprintf("\n\tdc.b "));
-                w->writeText(fmt::sprintf("$%.2X", cntWait));
-                cntWait = 0;
-              }
-              lineCnt = 0;
-              w->writeText(fmt::sprintf(line));
-              if (note == 0 && octave == 0)
-                vars.hold = true;
-            }
-          }
-
-        // write notes
-        if (note == 0 && octave == 0) {
-          if (vars.hold) {
-            w->writeText(fmt::sprintf("\n\tdc.b %s", vars.symCommands[smpsHold]));
-            lineCnt++;
-            vars.hold = false;
-          }
-          cntWait++;
-        }
-        else if (lastNote == note && lastOctave == octave && cntWait == 0) {
-          cntWait = 1;
-        }
-        else {
-          vars.hold = vars.legato;
-          bool written = false;
-          if (lineCnt != 0)
-            w->writeText(", ");
-          else
-            w->writeText(fmt::sprintf("\n\tdc.b "));
-          if (lastWait != cntWait && cntWait != 0) {
-            written = true;
-            lineCnt++;
-            w->writeText(fmt::sprintf("$%.2X", cntWait));
-          }
-          if (lastNote != note || lastOctave != octave) {
-            if (written)
-              w->writeText(fmt::sprintf(", "));
-            written = true;
-            lastNote = note;
-            lastOctave = octave;
-            lineCnt++;
-            if (note != 100) {
-              if (octave >= 128) octave -= 256;
-              if (note > 11) {
-                note -= 12;
-                octave++;
-              }
-              if (l > 5)
-                octave--;
-              if (l > 5 && (octave > 5 || (octave == 5 && note >= 5)))
-                w->writeText(fmt::sprintf("%s", "nMaxPSG"));
-              else
-                w->writeText(fmt::sprintf("%s%d", notesSet[note], octave));
-            }
-            else
-              w->writeText(fmt::sprintf("%s", notesSet[12]));
-          }
-          if (written == false) {
-            lineCnt++;
-            w->writeText(fmt::sprintf("$%.2X", cntWait));
-          }
-          lastWait = cntWait;
-          cntWait = 1;
-        }
-        if (lineCnt >= 16)
-          lineCnt = 0;
+      if (temp.noteTime != vars.lenTable[1][temp.order])
+        temp.noteTime -= 1;
+      if (temp.noteTime > 0) {
+        separateNote(w, temp);
+        w->writeText(vars.symCommands[smpsHold]);
+        if (!temp.legato)
+          temp.hold = false;
       }
-      if (lastWait != cntWait) {
-        if (lineCnt != 0)
-          w->writeText(", ");
-        else
-          w->writeText(fmt::sprintf("\n\tdc.b "));
-        w->writeText(fmt::sprintf("$%.2X", cntWait));
+      writeNotes(w, vars, temp);
+      for (temp.steps = (temp.noteTime + 1); temp.steps <= patLen;) {
+        getTimer(p, vars, temp, s, options);
+        writeNotes(w, vars, temp);
+        temp.steps += temp.noteTime;
       }
       w->writeText(fmt::sprintf("\n\t%s\n", vars.symCommands[smpsRet]));
 
@@ -1094,7 +1219,6 @@ SafeWriter* DivEngine::saveASM(bool separatePatterns, DivSMPSOptions options) {
       continue;
     }
   }
-
   saveLock.unlock();
   return w;
 }

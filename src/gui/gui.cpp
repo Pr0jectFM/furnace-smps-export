@@ -5775,7 +5775,7 @@ bool FurnaceGUI::loop() {
               }
               break;
             case GUI_FILE_EXPORT_ASM: {
-              SafeWriter* w = e->saveASM(false, smpsSettings);
+              SafeWriter* w = e->saveASM(smpsSettings);
               if (w != NULL) {
                 FILE* f = ps_fopen(copyOfName.c_str(), "wb");
                 if (f != NULL) {
@@ -9105,6 +9105,7 @@ FurnaceGUI::FurnaceGUI():
   csExportTarget(false),
   csExportDone(false),
   dmfExportVersion(0),
+
   curExportType(GUI_EXPORT_NONE),
   romTarget(DIV_ROM_ABSTRACT),
   romMultiFile(false),
