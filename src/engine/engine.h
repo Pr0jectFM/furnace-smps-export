@@ -54,8 +54,8 @@ class DivWorkPool;
 
 #define DIV_UNSTABLE
 
-#define DIV_VERSION "dev234"
-#define DIV_ENGINE_VERSION 234
+#define DIV_VERSION "dev236"
+#define DIV_ENGINE_VERSION 236
 // for imports
 #define DIV_VERSION_MOD 0xff01
 #define DIV_VERSION_FC 0xff02
@@ -155,7 +155,7 @@ struct DivChannelState {
   int panDepth, panRate, panPos, panSpeed;
   int sampleOff;
   unsigned char arp, arpStage, arpTicks, panL, panR, panRL, panRR, lastVibrato, lastPorta, cutType;
-  bool doNote, legato, portaStop, keyOn, keyOff, nowYouCanStop, stopOnOff, releasing;
+  bool doNote, legato, portaStop, keyOn, keyOff, stopOnOff, releasing;
   bool arpYield, delayLocked, inPorta, scheduledSlideReset, shorthandPorta, wasShorthandPorta, noteOnInhibit, resetArp, sampleOffSet;
   bool wentThroughNote, goneThroughNote;
 
@@ -212,7 +212,6 @@ struct DivChannelState {
     portaStop(false),
     keyOn(false),
     keyOff(false),
-    nowYouCanStop(true),
     stopOnOff(false),
     releasing(false),
     arpYield(false),
@@ -713,6 +712,8 @@ class DivEngine {
     int lastNBIns, lastNBOuts, lastNBSize;
     std::atomic<size_t> processTime;
 
+    float chipPeak[DIV_MAX_CHIPS][DIV_MAX_OUTPUTS];
+
     void runExportThread();
     void nextBuf(float** in, float** out, int inChans, int outChans, unsigned int size);
     DivInstrument* getIns(int index, DivInstrumentType fallbackType=DIV_INS_FM);
@@ -736,7 +737,7 @@ class DivEngine {
     SafeWriter* saveDMF(unsigned char version);
     // save as .fur.
     // if notPrimary is true then the song will not be altered
-    SafeWriter* saveFur(bool notPrimary=false, bool newPatternFormat=true);
+    SafeWriter* saveFur(bool notPrimary=false);
     // return a ROM exporter.
     DivROMExport* buildROM(DivROMExportOptions sys);
     // dump to VGM.
@@ -943,6 +944,10 @@ class DivEngine {
 
     // get effective sample rate
     int getEffectiveSampleRate(int rate);
+
+    // convert between old and new note/octave format
+    short splitNoteToNote(short note, short octave);
+    void noteToSplitNote(short note, short& outNote, short& outOctave);
 
     // is FM system
     bool isFMSystem(DivSystem sys);
@@ -1559,6 +1564,7 @@ class DivEngine {
       memset(walked,0,8192);
       memset(oscBuf,0,DIV_MAX_OUTPUTS*(sizeof(float*)));
       memset(exportChannelMask,1,DIV_MAX_CHANS*sizeof(bool));
+      memset(chipPeak,0,DIV_MAX_CHIPS*DIV_MAX_OUTPUTS*sizeof(float));
 
       for (int i=0; i<DIV_MAX_CHIP_DEFS; i++) {
         sysFileMapFur[i]=DIV_SYSTEM_NULL;
