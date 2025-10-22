@@ -24,6 +24,7 @@
 #include "../engine/workPool.h"
 #include "../engine/waveSynth.h"
 #include "imgui.h"
+#include "imgui_internal.h"
 #include "imgui_impl_sdl2.h"
 #include <SDL.h>
 #include <fftw3.h>
@@ -1468,8 +1469,8 @@ struct FurnaceGUIFindQuery {
     insMode(GUI_QUERY_IGNORE),
     volMode(GUI_QUERY_IGNORE),
     effectCount(0),
-    note(0),
-    noteMax(0),
+    note(108),
+    noteMax(108),
     ins(0),
     insMax(0),
     vol(0),
@@ -2003,7 +2004,6 @@ class FurnaceGUI {
     int iCannotWait;
     int orderButtonPos;
     int compress;
-    int newPatternFormat;
     int renderClearPos;
     int insertBehavior;
     int pullDeleteRow;
@@ -2063,6 +2063,7 @@ class FurnaceGUI {
     int songNotesWrap;
     int rackShowLEDs;
     int sampleImportInstDetune;
+    int mixerStyle;
     String mainFontPath;
     String headFontPath;
     String patFontPath;
@@ -2257,7 +2258,6 @@ class FurnaceGUI {
       iCannotWait(0),
       orderButtonPos(2),
       compress(1),
-      newPatternFormat(1),
       renderClearPos(0),
       insertBehavior(1),
       pullDeleteRow(1),
@@ -2317,6 +2317,7 @@ class FurnaceGUI {
       songNotesWrap(0),
       rackShowLEDs(1),
       sampleImportInstDetune(0),
+      mixerStyle(1),
       mainFontPath(""),
       headFontPath(""),
       patFontPath(""),
@@ -2863,6 +2864,9 @@ class FurnaceGUI {
   void renderFMPreviewOPZ(const DivInstrumentFM& params, int pos=0);
   void renderFMPreviewESFM(const DivInstrumentFM& params, const DivInstrumentESFM& esfmParams, int pos=0);
 
+  void VerticalText(const char* fmt, ...);
+  void VerticalText(float maxSize, bool centered, const char* fmt, ...);
+
   // combo with locale
   static bool LocalizedComboGetter(void* data, int idx, const char** out_text);
 
@@ -2880,6 +2884,7 @@ class FurnaceGUI {
   bool NoteSelector(int* value, bool showOffRel, int octaveMin=-5, int octaveMax=9);
 
   // mixer stuff
+  bool chipMixer(int which, ImVec2 size);
   ImVec2 calcPortSetSize(String label, int ins, int outs);
   bool portSet(String label, unsigned int portSetID, int ins, int outs, int activeIns, int activeOuts, int& clickedPort, std::map<unsigned int,ImVec2>& portPos);
 
@@ -2988,8 +2993,10 @@ class FurnaceGUI {
   void drawTutorial();
   void drawXYOsc();
   void drawUserPresets();
+
   float drawSystemChannelInfo(const DivSysDef* whichDef, int keyHitOffset=-1, float width=-1.0f);
   void drawSystemChannelInfoText(const DivSysDef* whichDef);
+  void drawVolMeterInternal(ImDrawList* dl, ImRect rect, float* data, int chans, bool aspectRatio);
 
   void assignActionMap(std::map<int,int>& actionMap, int first, int last);
   void drawKeybindSettingsTableRow(FurnaceGUIActions actionIdx);
@@ -3146,9 +3153,9 @@ class FurnaceGUI {
     void showWarning(String what, FurnaceGUIWarnings type);
     void showError(String what);
     String getLastError();
-    const char* noteNameNormal(short note, short octave);
-    const char* noteName(short note, short octave);
-    bool decodeNote(const char* what, short& note, short& octave);
+    const char* noteNameNormal(short note);
+    const char* noteName(short note);
+    bool decodeNote(const char* what, short& note);
     void bindEngine(DivEngine* eng);
     void enableSafeMode();
     void updateScroll(int amount);
