@@ -6258,7 +6258,7 @@ bool FurnaceGUI::loop() {
       ImGui::EndPopup();
     }
 
-    if (ImGui::BeginPopupModal(_("Export"),NULL,ImGuiWindowFlags_NoMove|ImGuiWindowFlags_NoScrollWithMouse|ImGuiWindowFlags_NoScrollbar|ImGuiWindowFlags_AlwaysAutoResize)) {
+    if (ImGui::BeginPopupModal(_("Export"),NULL,ImGuiWindowFlags_NoMove|ImGuiWindowFlags_NoScrollWithMouse|ImGuiWindowFlags_AlwaysAutoResize)) {
       ImGui::SetWindowPos(ImVec2(((canvasW)-ImGui::GetWindowSize().x)*0.5,((canvasH)-ImGui::GetWindowSize().y)*0.5));
       drawExport();
       ImGui::EndPopup();

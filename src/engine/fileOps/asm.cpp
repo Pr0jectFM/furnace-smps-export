@@ -28,63 +28,50 @@ enum smpsVersion {
 };
 
 // get tempo with Sonic 1's algorithm
-void spmToTempo1(SafeWriter* w, DivSubSong* s) {
+void spmToTempo(SafeWriter* w, DivSubSong*& s, int tempoVer) {
+  float frames = (60 * s->speeds.val[0] * (s->timeBase + 1)) / s->hz;
+  std::function<int(int)> tempoFct = [frames](int div) {return 0; };
+  std::function<float(int, int)> approxFct = [s](int div, int tempo) {return 0; };
+  switch (tempoVer) {
+  case 0:
+    tempoFct = [frames](int div) {return int(round(1 / (1 - div / frames))); };
+    approxFct = [s](int div, int tempo) {return (60 * 60) / (s->hilightA * div * (tempo / (tempo - 1.0))); };
+    break;
+  case 1:
+    tempoFct = [frames](int div) {return div * 256.0 / frames; };
+    approxFct = [s](int div, int tempo) {return (60 * 60) / (s->hilightA * 256.0 * div / tempo); };
+    break;
+  case 2:
+    tempoFct = [frames](int div) {return 256 - div * 256.0 / frames; };
+    approxFct = [s](int div, int tempo) {return (60 * 60) / (s->hilightA * 256.0 * div / (256 - tempo)); };
+  }
   int tempo = 0;
   float approx = 0;
-  float frames = (60 * s->speeds.val[0] * (s->timeBase + 1)) / s->hz;
-  int div = 1;
-  int tempo1 = round(1 / (1 - div / frames));
-  float approx1 = (60 * 60) / (s->hilightA * div * (tempo1 / (tempo1 - 1.0)));
-  div = 2;
-  int tempo2 = round(1 / (1 - div / frames));
-  float approx2 = (60 * 60) / (s->hilightA * div * (tempo2 / (tempo2 - 1.0)));
+  int tempo1 = tempoFct(1);
+  float approx1 = approxFct(1, tempo1);
+  int tempo2 = tempoFct(2);
+  float approx2 = approxFct(2, tempo2);
   float given = (s->hz * 60) / (s->speeds.val[0] * s->hilightA * (s->timeBase + 1));
 
+  int div;
   if ((abs(approx2 - given) / given) > (abs(approx1 - given) / given) || (tempo2 < 2)) {
     div = 1;
     approx = approx1;
     tempo = tempo1;
   }
   else {
+    div = 2;
     approx = approx2;
     tempo = tempo2;
   }
   w->writeText(fmt::sprintf("$%.2X, $%.2X\n", div, tempo));
-  w->writeText(fmt::sprintf(";\tGiven Tempo = %f BPM\n", given));
-  w->writeText(fmt::sprintf(";\tApproximated Tempo = %f BPM\n", approx));
-}
-
-// get tempo with Sonic 2's algorithm
-void spmToTempo2(SafeWriter* w, DivSubSong* s) {
-  float frames = (60 * s->speeds.val[0] * (s->timeBase + 1)) / s->hz;
-  uint8_t div = 2;
-  if (frames <= 2)
-    div = 1;
-  int tempo = div * 256.0 / frames;
-  w->writeText(fmt::sprintf("$%.2X, $%.2X\n", div, tempo));
-  float given = (s->hz * 60) / (s->speeds.val[0] * s->hilightA * (s->timeBase + 1));
-  float approx = (60 * 60) / (s->hilightA * 256.0 * div / tempo);
-  w->writeText(fmt::sprintf(";\tGiven Tempo = %f BPM\n", given));
-  w->writeText(fmt::sprintf(";\tApproximated Tempo = %f BPM\n", approx));
-}
-
-// get tempo with Sonic 3's algorithm
-void spmToTempo3(SafeWriter* w, DivSubSong* s) {
-  float frames = (60 * s->speeds.val[0] * (s->timeBase + 1)) / s->hz;
-  uint8_t div = 2;
-  if (frames <= 2)
-    div = 1;
-  int tempo = 256 - div * 256.0 / frames;
-  w->writeText(fmt::sprintf("$%.2X, $%.2X\n", div, tempo));
-  float given = (s->hz * 60) / (s->speeds.val[0] * s->hilightA * (s->timeBase + 1));
-  float approx = (60 * 60) / (s->hilightA * 256.0 * div / (256 - tempo));
-  w->writeText(fmt::sprintf(";\tGiven Tempo = %f BPM\n", given));
-  w->writeText(fmt::sprintf(";\tApproximated Tempo = %f BPM\n", approx));
+  w->writeText(fmt::sprintf(";\tGiven Tempo = %.2f BPM\n", given));
+  w->writeText(fmt::sprintf(";\tApproximated Tempo = %.2f BPM\n", approx));
 }
 
 // Gets the channel number and outputs the name of the channel
 String smpsChanName(int num) {
-  // To Do: account for FM6 and PSG3 modes
+  // To Do: account for FM6, DAC2, and PSG3 modes
   switch (num) {
   case 0:
   case 1:
@@ -509,7 +496,45 @@ enum chNames {
   chPSG3,
   chNoise
 };
+/*
+void smpsChanNum(DivSong*& song, DivSubSong*& s, smpsVars& vars, smpsTempVars& temp, int chans) {
+  bool enabled[11];
+  bool fm6 = false;
+  // check which channels have notes
+  for (int channel = 0; channel < chans; channel++) {
+    enabled[channel] = false;
+    for (int orders = 0; orders < s->ordersLen; orders++) {
+      DivPattern* p = s->pat[channel].getPattern(s->orders.ord[channel][orders], false);
+      for (int step = temp.steps; step < vars.lenTable[1][temp.order] + 1; step++) {
+        if (p->data[step][0] != 0 && p->data[step][1] != 0) {
+          enabled[channel] = true;
+          goto NextChannel;
+        }
+      }
+    }
+  NextChannel:
+    continue;
+  }
 
+  // check if FM6 is in use
+  int channel = chFM6;
+  for (int orders = 0; orders < s->ordersLen; orders++) {
+    DivPattern* p = s->pat[channel].getPattern(s->orders.ord[channel][orders], false);
+    for (int step = temp.steps; step < vars.lenTable[1][temp.order] + 1; step++) {
+      if (p->data[step][2] >= 0) {
+        break;
+      }
+    }
+  }
+
+  // create channel array
+
+  int order[] = {
+    chFM1, chFM2, chFM3, chFM4, chFM5
+  };
+  return;
+};
+*/
 // Variables used for timers
 enum smpsTimers {
   timePitch,
@@ -557,16 +582,8 @@ static void writeHeader(SafeWriter* w, smpsVars& vars, DivSubSong*& s, DivSMPSOp
     w->writeText(fmt::sprintf("\n\t%s\t%s_Voices", vars.symCommands[smpsVoice], options.label));
   w->writeText(fmt::sprintf("\n\t%s\t$%.2X, $%.2X", vars.symCommands[smpsChan], 6, 3));
   w->writeText(fmt::sprintf("\n\t%s\t", vars.symCommands[smpsTempo]));
-  switch (options.tempo) {
-  case 0:
-    spmToTempo1(w, s);
-    break;
-  case 1:
-    spmToTempo2(w, s);
-    break;
-  default:
-    spmToTempo3(w, s);
-  }
+  spmToTempo(w, s, options.tempo);
+
   if (options.style == verAMPS) {
     w->writeText(fmt::sprintf("\n\t%s\t%s_DAC1", vars.symCommands[smpsDAC], options.label));
     w->writeText(fmt::sprintf("\n\t%s\t%s_DAC2", vars.symCommands[smpsDAC], options.label));
@@ -927,6 +944,7 @@ static void getTimer(DivPattern* p, smpsVars& vars, smpsTempVars& temp, DivSubSo
         --temp.timers[timer];
       }
     }
+
     // check for instrument changes
     if (p->data[step][2] >= 0 && p->data[step][2] != temp.lastIns) {
       if (temp.channel < chFM6) {
@@ -1080,7 +1098,6 @@ SafeWriter* DivEngine::saveASM(DivSMPSOptions options) {
       break;
     case verSource:
       std::copy(smpsSymSource, smpsSymSource + smpsSymLen, vars.symCommands);
-      break;
   }
 
   int i = 0;

@@ -435,6 +435,48 @@ static const int smpsPresetOptions[5][6] = {
   {3, 0, 0, 0, 0, 0}
 };
 
+void spmToTempo(DivSubSong*& s, int tempoVer) {
+  float frames = (60 * s->speeds.val[0] * (s->timeBase + 1)) / s->hz;
+  std::function<int(int)> tempoFct = [frames](int div) {return 0; };
+  std::function<float(int, int)> approxFct = [s](int div, int tempo) {return 0; };
+  switch (tempoVer) {
+  case 0:
+    tempoFct = [frames](int div) {return int(round(1 / (1 - div / frames))); };
+    approxFct = [s](int div, int tempo) {return (60 * 60) / (s->hilightA * div * (tempo / (tempo - 1.0))); };
+    break;
+  case 1:
+    tempoFct = [frames](int div) {return div * 256.0 / frames; };
+    approxFct = [s](int div, int tempo) {return (60 * 60) / (s->hilightA * 256.0 * div / tempo); };
+    break;
+  case 2:
+    tempoFct = [frames](int div) {return 256 - div * 256.0 / frames; };
+    approxFct = [s](int div, int tempo) {return (60 * 60) / (s->hilightA * 256.0 * div / (256 - tempo)); };
+  }
+  int tempo = 0;
+  float approx = 0;
+  int tempo1 = tempoFct(1);
+  float approx1 = approxFct(1, tempo1);
+  int tempo2 = tempoFct(2);
+  float approx2 = approxFct(2, tempo2);
+  float given = (s->hz * 60) / (s->speeds.val[0] * s->hilightA * (s->timeBase + 1));
+
+  if ((abs(approx2 - given) / given) > (abs(approx1 - given) / given) || (tempo2 < 2)) {
+    approx = approx1;
+    tempo = tempo1;
+  }
+  else {
+    approx = approx2;
+    tempo = tempo2;
+  }
+  ImGui::Text(_(fmt::sprintf("Given Tempo = %.2f BPM\n", given).c_str()));
+  ImGui::Text(_(fmt::sprintf("Approximated Tempo = %.2f BPM\n", approx).c_str()));
+
+  if (approx >= given)
+    ImGui::Text(_(fmt::sprintf("Result will be %.2f BPM (%.2f percent) faster", approx - given, 100 * (approx - given) / given).c_str()));
+  else
+    ImGui::Text(_(fmt::sprintf("Result will be %.2f BPM (%.2f percent) slower", given - approx, 100 * (given - approx) / given).c_str()));
+}
+
 void FurnaceGUI::drawExportASM(bool onWindow) {
   exitDisabledTimer=1;
   ImGui::Text(
@@ -447,13 +489,14 @@ void FurnaceGUI::drawExportASM(bool onWindow) {
   if (ImGui::BeginCombo("##Preset", smpsPresets[smpsSettings.preset])) {
     for (int i = 0; i < 5; i++) {
       if (ImGui::Selectable(smpsPresets[i], smpsSettings.preset == i)) {
-        smpsSettings.preset = i;
-        smpsSettings.style = smpsPresetOptions[i][0];
-        smpsSettings.tempo = smpsPresetOptions[i][1];
-        smpsSettings.vibrato = smpsPresetOptions[i][2];
-        smpsSettings.psgPitch = smpsPresetOptions[i][3];
-        smpsSettings.pitchEnv = smpsPresetOptions[i][4];
-        smpsSettings.portamento = smpsPresetOptions[i][5];
+          smpsSettings.preset = i;
+          smpsSettings.style = smpsPresetOptions[i][0];
+          smpsSettings.tempo = smpsPresetOptions[i][1];
+          smpsSettings.vibrato = smpsPresetOptions[i][2];
+          smpsSettings.psgPitch = smpsPresetOptions[i][3];
+          smpsSettings.pitchEnv = smpsPresetOptions[i][4];
+          smpsSettings.portamento = smpsPresetOptions[i][5];
+
       }
     }
     ImGui::EndCombo();
@@ -461,27 +504,33 @@ void FurnaceGUI::drawExportASM(bool onWindow) {
 
   ImGui::Separator();
   ImGui::Text(_("SMPS2ASM Version:"));
-  ImGui::RadioButton(_("Flamewing"), smpsSettings.style==0);
-  ImGui::RadioButton(_("MD Music Player"), smpsSettings.style==1);
-  ImGui::RadioButton(_("AMPS##ampsstyle"), smpsSettings.style==2);
-  ImGui::RadioButton(_("SMPS Source"), smpsSettings.style==3);
+  ImGui::RadioButton(_("Flamewing"), &smpsSettings.style, 0);
+  ImGui::RadioButton(_("MD Music Player"), &smpsSettings.style, 1);
+  ImGui::RadioButton(_("AMPS##ampsstyle"), &smpsSettings.style, 2);
+  ImGui::RadioButton(_("SMPS Source"), &smpsSettings.style, 3);
   ImGui::Text(_("Tempo Algorithm:"));
-  ImGui::RadioButton(_("Sonic 1"), smpsSettings.tempo==0);
-  ImGui::RadioButton(_("Sonic 2"), smpsSettings.tempo==1);
-  ImGui::RadioButton(_("Sonic 3 & Knuckles"), smpsSettings.tempo==2);
+  ImGui::RadioButton(_("Sonic 1"), &smpsSettings.tempo, 0);
+  ImGui::RadioButton(_("Sonic 2"), &smpsSettings.tempo, 1);
+  ImGui::RadioButton(_("Sonic 3 & Knuckles"), &smpsSettings.tempo, 2);
   ImGui::Text(_("Vibrato Variation:"));
-  ImGui::RadioButton(_("SMPS 68k##68kvib"), smpsSettings.vibrato==0);
-  ImGui::RadioButton(_("SMPS Z80##z80vib"), smpsSettings.vibrato==1);
-  ImGui::RadioButton(_("AMPS##ampsvib"), smpsSettings.vibrato==2);
+  ImGui::RadioButton(_("SMPS 68k##68kvib"), &smpsSettings.vibrato, 0);
+  ImGui::RadioButton(_("SMPS Z80##z80vib"), &smpsSettings.vibrato, 1);
+  ImGui::RadioButton(_("AMPS##ampsvib"), &smpsSettings.vibrato, 2);
   ImGui::Text(_("PSG Pitch:"));
-  ImGui::RadioButton(_("SMPS 68k##68kpit"), smpsSettings.psgPitch==0);
-  ImGui::RadioButton(_("SMPS Z80##z80pit"), smpsSettings.psgPitch==1);
+  ImGui::RadioButton(_("SMPS 68k##68kpit"), &smpsSettings.psgPitch, 0);
+  ImGui::RadioButton(_("SMPS Z80##z80pit"), &smpsSettings.psgPitch, 1);
   ImGui::Text(_("Pitch Envelopes:"));
-  ImGui::RadioButton(_("Disabled"), smpsSettings.pitchEnv==0);
-  ImGui::RadioButton(_("Enabled"), smpsSettings.pitchEnv==1);
+  ImGui::RadioButton(_("Disabled"), &smpsSettings.pitchEnv, 0);
+  ImGui::RadioButton(_("Enabled"), &smpsSettings.pitchEnv, 1);
   ImGui::Text(_("Portamento:"));
-  ImGui::RadioButton(_("Modulation"), smpsSettings.portamento==0);
-  ImGui::RadioButton(_("Portamento"), smpsSettings.portamento==1);
+  ImGui::RadioButton(_("Modulation"), &smpsSettings.portamento, 0);
+  ImGui::RadioButton(_("Portamento"), &smpsSettings.portamento, 1);
+  ImGui::Separator();
+
+  DivSubSong* s = e->song.subsong[0];
+
+  spmToTempo(s, smpsSettings.tempo);
+
   if (onWindow) {
     ImGui::Separator();
     if (ImGui::Button(_("Cancel"),ImVec2(200.0f*dpiScale,0))) ImGui::CloseCurrentPopup();
