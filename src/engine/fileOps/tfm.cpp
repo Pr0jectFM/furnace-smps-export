@@ -254,10 +254,16 @@ void TFMParsePattern(struct TFMParsePatternInfo info) {
         if (patDataBuf[k]==0) continue;
         else if (patDataBuf[k]==1) {
           // note off
-          pat->newData[k][DIV_PAT_NOTE]=DIV_NOTE_OFF;
+          pat->data[k][0]=100;
         } else {
           unsigned char invertedNote=~patDataBuf[k];
-          pat->newData[k][DIV_PAT_NOTE]=invertedNote+60;
+          pat->data[k][0]=invertedNote%12;
+          pat->data[k][1]=(invertedNote/12)-1;
+
+          if (pat->data[k][0]==0) {
+            pat->data[k][0]=12;
+            pat->data[k][1]--;
+          }
         }
       }
 
@@ -267,7 +273,7 @@ void TFMParsePattern(struct TFMParsePatternInfo info) {
       logD("parsing volumes of pattern %d channel %d",i,j);
       for (int k=0; k<256; k++) {
         if (patDataBuf[k]==0) continue;
-        else pat->newData[k][DIV_PAT_VOL]=0x60+patDataBuf[k];
+        else pat->data[k][3]=0x60+patDataBuf[k];
       }
 
       // instrument
@@ -276,7 +282,7 @@ void TFMParsePattern(struct TFMParsePatternInfo info) {
       logD("parsing instruments of pattern %d channel %d",i,j);
       for (int k=0; k<256; k++) {
         if (patDataBuf[k]==0) continue;
-        pat->newData[k][DIV_PAT_INS]=info.insNumMaps[patDataBuf[k]-1];
+        pat->data[k][2]=info.insNumMaps[patDataBuf[k]-1];
       }
 
       // effects
@@ -294,76 +300,76 @@ void TFMParsePattern(struct TFMParsePatternInfo info) {
           case 0:
             // arpeggio or no effect (if effect val is 0)
             if (effectVal[k]==0) break;
-            pat->newData[k][DIV_PAT_FX(l)]=effectNum[k];
-            pat->newData[k][DIV_PAT_FXVAL(l)]=effectVal[k];
+            pat->data[k][4+(l*2)]=effectNum[k];
+            pat->data[k][5+(l*2)]=effectVal[k];
             break;
           case 1:
             // pitch slide up
           case 2:
             // pitch slide down
-            pat->newData[k][DIV_PAT_FX(l)]=effectNum[k];
+            pat->data[k][4+(l*2)]=effectNum[k];
             if (effectVal[k]) {
               lastSlide=effectVal[k];
-              pat->newData[k][DIV_PAT_FXVAL(l)]=effectVal[k];
+              pat->data[k][5+(l*2)]=effectVal[k];
             } else {
-              pat->newData[k][DIV_PAT_FXVAL(l)]=lastSlide;
+              pat->data[k][5+(l*2)]=lastSlide;
             }
             break;
           case 3:
             // portamento
           case 4:
             // vibrato
-            pat->newData[k][DIV_PAT_FXVAL(l)]=0;
+            pat->data[k][5+(l*2)]=0;
             if (effectVal[k]&0xF0) {
-              pat->newData[k][DIV_PAT_FXVAL(l)]|=effectVal[k]&0xF0;
+              pat->data[k][5+(l*2)]|=effectVal[k]&0xF0;
             } else {
-              pat->newData[k][DIV_PAT_FXVAL(l)]|=lastVibrato&0xF0;
+              pat->data[k][5+(l*2)]|=lastVibrato&0xF0;
             }
             if (effectVal[k]&0x0F) {
-              pat->newData[k][DIV_PAT_FXVAL(l)]|=effectVal[k]&0x0F;
+              pat->data[k][5+(l*2)]|=effectVal[k]&0x0F;
             } else {
-              pat->newData[k][DIV_PAT_FXVAL(l)]|=lastVibrato&0x0F;
+              pat->data[k][5+(l*2)]|=lastVibrato&0x0F;
             }
-            pat->newData[k][DIV_PAT_FX(l)]=effectNum[k];
-            lastVibrato=pat->newData[k][DIV_PAT_FXVAL(l)];
+            pat->data[k][4+(l*2)]=effectNum[k];
+            lastVibrato=pat->data[k][5+(l*2)];
             break;
           case 5:
             // poramento + volume slide
-            pat->newData[k][DIV_PAT_FX(l)]=0x06;
-            pat->newData[k][DIV_PAT_FXVAL(l)]=effectVal[k];
+            pat->data[k][4+(l*2)]=0x06;
+            pat->data[k][5+(l*2)]=effectVal[k];
             break;
           case 6:
             // vibrato + volume slide
-            pat->newData[k][DIV_PAT_FX(l)]=0x05;
-            pat->newData[k][DIV_PAT_FXVAL(l)]=effectVal[k];
+            pat->data[k][4+(l*2)]=0x05;
+            pat->data[k][5+(l*2)]=effectVal[k];
             break;
           case 8:
             // modify TL of operator 1
-            pat->newData[k][DIV_PAT_FX(l)]=0x12;
-            pat->newData[k][DIV_PAT_FXVAL(l)]=effectVal[k];
+            pat->data[k][4+(l*2)]=0x12;
+            pat->data[k][5+(l*2)]=effectVal[k];
             break;
           case 9:
             // modify TL of operator 2
-            pat->newData[k][DIV_PAT_FX(l)]=0x13;
-            pat->newData[k][DIV_PAT_FXVAL(l)]=effectVal[k];
+            pat->data[k][4+(l*2)]=0x13;
+            pat->data[k][5+(l*2)]=effectVal[k];
             break;
           case 10:
             // volume slide
-            pat->newData[k][DIV_PAT_FX(l)]=0xA;
-            pat->newData[k][DIV_PAT_FXVAL(l)]=effectVal[k];
+            pat->data[k][4+(l*2)]=0xA;
+            pat->data[k][5+(l*2)]=effectVal[k];
             break;
           case 11:
             // multi-frequency mode of CH3 control
             // TODO
           case 12:
             // modify TL of operator 3
-            pat->newData[k][DIV_PAT_FX(l)]=0x14;
-            pat->newData[k][DIV_PAT_FXVAL(l)]=effectVal[k];
+            pat->data[k][4+(l*2)]=0x14;
+            pat->data[k][5+(l*2)]=effectVal[k];
             break;
           case 13:
             // modify TL of operator 4
-            pat->newData[k][DIV_PAT_FX(l)]=0x15;
-            pat->newData[k][DIV_PAT_FXVAL(l)]=effectVal[k];
+            pat->data[k][4+(l*2)]=0x15;
+            pat->data[k][5+(l*2)]=effectVal[k];
             break;
           case 14:
             switch (effectVal[k]>>4) {
@@ -372,18 +378,18 @@ void TFMParsePattern(struct TFMParsePatternInfo info) {
             case 2:
             case 3:
               // modify multiplier of operators
-              pat->newData[k][DIV_PAT_FX(l)]=0x16;
-              pat->newData[k][DIV_PAT_FXVAL(l)]=((effectVal[k]&0xF0)+0x100)|(effectVal[k]&0xF);
+              pat->data[k][4+(l*2)]=0x16;
+              pat->data[k][5+(l*2)]=((effectVal[k]&0xF0)+0x100)|(effectVal[k]&0xF);
               break;
             case 8:
               // pan
-              pat->newData[k][DIV_PAT_FX(l)]=0x80;
+              pat->data[k][4+(l*2)]=0x80;
               if ((effectVal[k]&0xF)==1) {
-                pat->newData[k][DIV_PAT_FXVAL(l)]=0;
+                pat->data[k][5+(l*2)]=0;
               } else if ((effectVal[k]&0xF)==2) {
-                pat->newData[k][DIV_PAT_FXVAL(l)]=0xFF;
+                pat->data[k][5+(l*2)]=0xFF;
               } else {
-                pat->newData[k][DIV_PAT_FXVAL(l)]=0x80;
+                pat->data[k][5+(l*2)]=0x80;
               }
               break;
             }
@@ -401,9 +407,9 @@ void TFMParsePattern(struct TFMParsePatternInfo info) {
               speed.interleaveFactor=effectVal[k]&0xF;
             } else if ((effectVal[k]>>4)==(effectVal[k]&0xF)) {
               // if both speeds are equal
-              pat->newData[k][DIV_PAT_FX(l)]=0x0F;
+              pat->data[k][4+(l*2)]=0x0F;
               unsigned char speedSet=effectVal[k]>>4;
-              pat->newData[k][DIV_PAT_FXVAL(l)]=speedSet;
+              pat->data[k][5+(l*2)]=speedSet;
               break;
             } else {
               speed.speedEven=effectVal[k]>>4;
@@ -412,8 +418,8 @@ void TFMParsePattern(struct TFMParsePatternInfo info) {
 
             auto speedIndex = speeds.find(speed);
             if (speedIndex != speeds.end()) {
-              pat->newData[k][DIV_PAT_FX(l)]=0x09;
-              pat->newData[k][DIV_PAT_FXVAL(l)]=speedIndex->second;
+              pat->data[k][4+(l*2)]=0x09;
+              pat->data[k][5+(l*2)]=speedIndex->second;
               break;
             }
             if (speed.interleaveFactor>8) {
@@ -431,8 +437,8 @@ void TFMParsePattern(struct TFMParsePatternInfo info) {
             info.ds->grooves.push_back(groove);
             speeds[speed]=speedGrooveIndex;
 
-            pat->newData[k][DIV_PAT_FX(l)]=0x09;
-            pat->newData[k][DIV_PAT_FXVAL(l)]=speedGrooveIndex;
+            pat->data[k][4+(l*2)]=0x09;
+            pat->data[k][5+(l*2)]=speedGrooveIndex;
             speedGrooveIndex++;
             break;
           }
@@ -441,8 +447,8 @@ void TFMParsePattern(struct TFMParsePatternInfo info) {
 
         // put a "jump to next pattern" effect if the pattern is smaller than the maximum pattern length
         if (info.patLens[i]!=0 && info.patLens[i]<info.ds->subsong[0]->patLen) {
-          pat->newData[info.patLens[i]-1][DIV_PAT_FX(0)+(usedEffectsCol*4)]=0x0D;
-          pat->newData[info.patLens[i]-1][DIV_PAT_FXVAL(0)+(usedEffectsCol*4)]=0x00;
+          pat->data[info.patLens[i]-1][4+(usedEffectsCol*4)]=0x0D;
+          pat->data[info.patLens[i]-1][5+(usedEffectsCol*4)]=0x00;
         }
       }
     }
@@ -467,30 +473,28 @@ void TFMParsePattern(struct TFMParsePatternInfo info) {
         unsigned char truePatLen=(info.patLens[info.orderList[i]]<info.ds->subsong[0]->patLen) ? info.patLens[info.orderList[i]] : info.ds->subsong[0]->patLen;
 
         // default instrument
-        if (i==0 && pat->newData[0][DIV_PAT_INS]==-1) pat->newData[0][DIV_PAT_INS]=0;
+        if (i==0 && pat->data[0][2]==-1) pat->data[0][2]=0;
 
         for (int k=0; k<truePatLen; k++) {
-          // TODO: -1 check? does it still work after refactor?
-          if (chArpeggio[j] && pat->newData[k][DIV_PAT_FX(l)]!=0x00 && pat->newData[k][DIV_PAT_NOTE]!=-1) {
-            pat->newData[k][DIV_PAT_FX(usedEffectsCol)+(l*2)]=0x00;
-            pat->newData[k][DIV_PAT_FXVAL(usedEffectsCol)+(l*2)]=0;
+          if (chArpeggio[j] && pat->data[k][4+(l*2)]!=0x00 && pat->data[k][0]!=-1) {
+            pat->data[k][4+usedEffectsCol*2+(l*2)]=0x00;
+            pat->data[k][5+usedEffectsCol*2+(l*2)]=0;
             chArpeggio[j]=false;
-          } else if (chPorta[j] && pat->newData[k][DIV_PAT_FX(l)]!=0x03 && pat->newData[k][DIV_PAT_FX(l)]!=0x01 && pat->newData[k][DIV_PAT_FX(l)]!=0x02) {
-            pat->newData[k][DIV_PAT_FX(usedEffectsCol)+(l*2)]=0x03;
-            pat->newData[k][DIV_PAT_FXVAL(usedEffectsCol)+(l*2)]=0;
+          } else if (chPorta[j] && pat->data[k][4+(l*2)]!=0x03 && pat->data[k][4+(l*2)]!=0x01 && pat->data[k][4+(l*2)]!=0x02) {
+            pat->data[k][4+usedEffectsCol*2+(l*2)]=0x03;
+            pat->data[k][5+usedEffectsCol*2+(l*2)]=0;
             chPorta[j]=false;
-          } else if (chVibrato[j] && pat->newData[k][DIV_PAT_FX(l)]!=0x04 && pat->newData[k][DIV_PAT_NOTE]!=-1) {
-            pat->newData[k][DIV_PAT_FX(usedEffectsCol)+(l*2)]=0x04;
-            pat->newData[k][DIV_PAT_FXVAL(usedEffectsCol)+(l*2)]=0;
+          } else if (chVibrato[j] && pat->data[k][4+(l*2)]!=0x04 && pat->data[k][0]!=-1) {
+            pat->data[k][4+usedEffectsCol*2+(l*2)]=0x04;
+            pat->data[k][5+usedEffectsCol*2+(l*2)]=0;
             chVibrato[j]=false;
-          } else if (chVolumeSlide[j] && pat->newData[k][DIV_PAT_FX(l)]!=0x0A) {
-            pat->newData[k][DIV_PAT_FX(usedEffectsCol)+(l*2)]=0x0A;
-            pat->newData[k][DIV_PAT_FXVAL(usedEffectsCol)+(l*2)]=0;
+          } else if (chVolumeSlide[j] && pat->data[k][4+(l*2)]!=0x0A) {
+            pat->data[k][4+usedEffectsCol*2+(l*2)]=0x0A;
+            pat->data[k][5+usedEffectsCol*2+(l*2)]=0;
             chVolumeSlide[j]=false;
           }
 
-          // TODO: looks like we have a bug here! it should be DIV_PAT_FX(l), right?
-          switch (pat->newData[k][DIV_PAT_FX(0)+l]) {
+          switch (pat->data[k][4+l]) {
           case 0:
             chArpeggio[j]=true;
             break;
@@ -523,16 +527,16 @@ void TFMParsePattern(struct TFMParsePatternInfo info) {
       lastPat->copyOn(newPat);
 
       info.ds->subsong[0]->orders.ord[i][info.ds->subsong[0]->ordersLen - 1] = info.maxPat;
-      newPat->newData[info.patLens[lastPatNum]-1][DIV_PAT_FX(usedEffectsCol*2)] = 0x0B;
-      newPat->newData[info.patLens[lastPatNum]-1][DIV_PAT_FXVAL(usedEffectsCol*2)] = info.loopPos;
+      newPat->data[info.patLens[lastPatNum]-1][4+(usedEffectsCol*4)] = 0x0B;
+      newPat->data[info.patLens[lastPatNum]-1][5+(usedEffectsCol*4)] = info.loopPos;
       info.ds->subsong[0]->pat[i].data[info.maxPat] = newPat;
     }
   } else {
     for (int i=0;i<6;i++) {
       int lastPatNum=info.ds->subsong[0]->orders.ord[i][info.ds->subsong[0]->ordersLen - 1];
       DivPattern* lastPat=info.ds->subsong[0]->pat[i].getPattern(lastPatNum, false);
-      lastPat->newData[info.patLens[lastPatNum]-1][DIV_PAT_FX(usedEffectsCol*2)] = 0x0B;
-      lastPat->newData[info.patLens[lastPatNum]-1][DIV_PAT_FXVAL(usedEffectsCol*2)] = info.loopPos;
+      lastPat->data[info.patLens[lastPatNum]-1][4+(usedEffectsCol*4)] = 0x0B;
+      lastPat->data[info.patLens[lastPatNum]-1][5+(usedEffectsCol*4)] = info.loopPos;
     }
   }
 }

@@ -97,54 +97,66 @@ void FurnaceGUI::enableSafeMode() {
   safeMode=true;
 }
 
-const char* FurnaceGUI::noteName(short note) {
-  if (note==DIV_NOTE_OFF) {
+const char* FurnaceGUI::noteName(short note, short octave) {
+  if (note==100) {
     return noteOffLabel;
-  } else if (note==DIV_NOTE_REL) { // note off and envelope release
+  } else if (note==101) { // note off and envelope release
     return noteRelLabel;
-  } else if (note==DIV_MACRO_REL) { // envelope release only
+  } else if (note==102) { // envelope release only
     return macroRelLabel;
-  } else if (note==-1) {
+  } else if (octave==0 && note==0) {
     return emptyLabel;
-  } else if (note==DIV_NOTE_NULL_PAT) {
+  } else if (note==0 && octave!=0) {
     return "BUG";
   }
-  if (note<0 || note>=180) {
+  int seek=(note+(signed char)octave*12)+60;
+  if (seek<0 || seek>=180) {
     return "???";
   }
   if (settings.flatNotes) {
-    if (settings.germanNotation) return noteNamesGF[note];
-    return noteNamesF[note];
+    if (settings.germanNotation) return noteNamesGF[seek];
+    return noteNamesF[seek];
   }
-  if (settings.germanNotation) return noteNamesG[note];
-  return noteNames[note];
+  if (settings.germanNotation) return noteNamesG[seek];
+  return noteNames[seek];
 }
 
-bool FurnaceGUI::decodeNote(const char* what, short& note) {
+bool FurnaceGUI::decodeNote(const char* what, short& note, short& octave) {
   if (strlen(what)!=3) return false;
   if (strcmp(what,"...")==0) {
-    note=-1;
+    note=0;
+    octave=0;
     return true;
   }
   if (strcmp(what,"???")==0) {
-    note=DIV_NOTE_NULL_PAT;
+    note=0;
+    octave=0;
     return true;
   }
   if (strcmp(what,"OFF")==0) {
-    note=DIV_NOTE_OFF;
+    note=100;
+    octave=0;
     return true;
   }
   if (strcmp(what,"===")==0) {
-    note=DIV_NOTE_REL;
+    note=101;
+    octave=0;
     return true;
   }
   if (strcmp(what,"REL")==0) {
-    note=DIV_MACRO_REL;
+    note=102;
+    octave=0;
     return true;
   }
   for (int i=0; i<180; i++) {
     if (strcmp(what,noteNames[i])==0) {
-      note=i;
+      if ((i%12)==0) {
+        note=12;
+        octave=(unsigned char)((i/12)-6);
+      } else {
+        note=i%12;
+        octave=(unsigned char)((i/12)-5);
+      }
       return true;
     }
   }
@@ -427,42 +439,6 @@ bool FurnaceGUI::isCtrlWheelModifierHeld() const {
   }
 }
 
-void FurnaceGUI::VerticalText(const char* fmt, ...) {
-  va_list args;
-  va_start(args, fmt);
-  ImVec2 pos=ImGui::GetCursorScreenPos();
-  ImDrawList* dl=ImGui::GetWindowDrawList();
-  int vtxBegin, vtxEnd;
-  vtxBegin=dl->_VtxCurrentIdx;
-  char text[4096];
-  vsnprintf(text, 4096, fmt, args);
-  ImVec2 size=ImGui::CalcTextSize(text);
-  dl->AddText(pos, ImGui::GetColorU32(ImGuiCol_Text), text);
-  vtxEnd=dl->_VtxCurrentIdx;
-  ImGui::ShadeVertsTransformPos(dl, vtxBegin, vtxEnd, pos+ImVec2(size.x,0), 0, -1, ImGui::GetCursorScreenPos());
-  ImGui::Dummy(ImVec2(size.y,size.x));
-}
-
-void FurnaceGUI::VerticalText(float maxSize, bool centered, const char* fmt, ...) {
-  va_list args;
-  va_start(args, fmt);
-  ImVec2 pos=ImGui::GetWindowPos();
-  ImDrawList* dl=ImGui::GetWindowDrawList();
-  int vtxBegin, vtxEnd;
-  vtxBegin=dl->_VtxCurrentIdx;
-  char text[4096];
-  vsnprintf(text, 4096, fmt, args);
-  const char* textEol=ImGui::FindRenderedTextEnd(text);
-  ImVec2 size=ImGui::CalcTextSize(text);
-  dl->PushClipRect(pos,pos+ImGui::GetWindowSize());
-  ImGui::RenderTextEllipsis(dl,pos,pos+ImVec2(maxSize,ImGui::GetFontSize()),maxSize,text,textEol,&size);
-  dl->PopClipRect();
-  vtxEnd=dl->_VtxCurrentIdx;
-  float ySize=(size.x>maxSize)?maxSize:size.x;
-  ImGui::ShadeVertsTransformPos(dl, vtxBegin, vtxEnd, pos, 0, -1, ImGui::GetCursorScreenPos()+ImVec2(0,(size.x+ySize)/2+(centered?(maxSize-size.x)/2.0f:0)));
-  ImGui::Dummy(ImVec2(size.y,centered?maxSize:ySize));
-}
-
 bool FurnaceGUI::CWSliderScalar(const char* label, ImGuiDataType data_type, void* p_data, const void* p_min, const void* p_max, const char* format, ImGuiSliderFlags flags) {
   flags^=ImGuiSliderFlags_AlwaysClamp;
   if (ImGui::SliderScalar(label,data_type,p_data,p_min,p_max,format,flags)) {
@@ -561,53 +537,53 @@ bool FurnaceGUI::InvCheckbox(const char* label, bool* value) {
 bool FurnaceGUI::NoteSelector(int* value, bool showOffRel, int octaveMin, int octaveMax) {
   bool ret=false, calcNote=false;
   char tempID[64];
-  if (*value==DIV_MACRO_REL) {
+  if (*value==130) {
     snprintf(tempID,64,"%s##MREL",macroRelLabel);
-  } else if (*value==DIV_NOTE_REL) {
+  } else if (*value==129) {
     snprintf(tempID,64,"%s##NREL",noteRelLabel);
-  } else if (*value==DIV_NOTE_OFF) {
+  } else if (*value==128) {
     snprintf(tempID,64,"%s##NOFF",noteOffLabel);
-  } else if (*value>=0 && *value<180) {
-    snprintf(tempID,64,"%c%c",noteNames[60+(*value%12)][0],(noteNames[60+(*value%12)][1]=='-')?' ':noteNames[60+(*value%12)][1]);
+  } else if (*value>=-60 && *value<120) {
+    snprintf(tempID,64,"%c%c",noteNames[*value%12+72][0],(noteNames[*value%12+72][1]=='-')?' ':noteNames[*value%12+72][1]);
   } else {
     snprintf(tempID,64,"???");
     *value=0;
   }
   float width=ImGui::GetContentRegionAvail().x/2-ImGui::GetStyle().FramePadding.x;
   ImGui::SetNextItemWidth(width);
-  int note=(*value)%12;
-  int oct=-5;
-  if (*value<180) oct=(*value-note-60)/12;
+  int note=(*value+60)%12;
+  int oct=0;
+  if (*value<120) oct=(*value-note)/12;
   ImGui::BeginGroup();
   ImGui::PushID(value);
   if (ImGui::BeginCombo("##NoteSelectorNote",tempID)) {
     for (int j=0; j<12; j++) {
-      snprintf(tempID,64,"%c%c",noteNames[60+j][0],(noteNames[60+j][1]=='-')?' ':noteNames[60+j][1]);
-      if (ImGui::Selectable(tempID,note==j && *value<180)) {
+      snprintf(tempID,64,"%c%c",noteNames[j+72][0],(noteNames[j+72][1]=='-')?' ':noteNames[j+72][1]);
+      if (ImGui::Selectable(tempID,note==j && *value<128)) {
         note=j;
         calcNote=true;
       }
-      if (note==j && *value<180) ImGui::SetItemDefaultFocus();
+      if (note==j && *value<120) ImGui::SetItemDefaultFocus();
     }
     if (showOffRel) {
-      if (ImGui::Selectable(noteOffLabel,*value==DIV_NOTE_OFF)) {
-        *value=DIV_NOTE_OFF;
+      if (ImGui::Selectable(noteOffLabel,*value==128)) {
+        *value=128;
         ret=true;
       }
-      if (ImGui::Selectable(noteRelLabel,*value==DIV_NOTE_REL)) {
-        *value=DIV_NOTE_REL;
+      if (ImGui::Selectable(noteRelLabel,*value==129)) {
+        *value=129;
         ret=true;
       }
-      if (ImGui::Selectable(macroRelLabel,*value==DIV_MACRO_REL)) {
-        *value=DIV_MACRO_REL;
+      if (ImGui::Selectable(macroRelLabel,*value==130)) {
+        *value=130;
         ret=true;
       }
-      if (*value>=DIV_NOTE_OFF && *value<=DIV_MACRO_REL) ImGui::SetItemDefaultFocus();
+      if (*value>=128 && *value<=130) ImGui::SetItemDefaultFocus();
     }
     ImGui::EndCombo();
   }
   ImGui::SameLine();
-  if (*value<180) {
+  if (*value<120) {
     ImGui::SetNextItemWidth(width/2);
     if (ImGui::InputScalar("##NoteSelectorOctave",ImGuiDataType_S32,&oct)) {
       if (oct<octaveMin) oct=octaveMin;
@@ -616,7 +592,7 @@ bool FurnaceGUI::NoteSelector(int* value, bool showOffRel, int octaveMin, int oc
     }
   }
   if (calcNote) {
-    *value=(oct+5)*12+note;
+    *value=oct*12+note;
     ret=true;
   }
   ImGui::PopID();
@@ -1383,39 +1359,48 @@ void FurnaceGUI::noteInput(int num, int key, int vol) {
   prepareUndo(GUI_UNDO_PATTERN_EDIT);
 
   if (key==GUI_NOTE_OFF) { // note off
-    pat->newData[y][DIV_PAT_NOTE]=DIV_NOTE_OFF;
+    pat->data[y][0]=100;
+    pat->data[y][1]=0;
     removeIns=true;
   } else if (key==GUI_NOTE_OFF_RELEASE) { // note off + env release
-    pat->newData[y][DIV_PAT_NOTE]=DIV_NOTE_REL;
+    pat->data[y][0]=101;
+    pat->data[y][1]=0;
     removeIns=true;
   } else if (key==GUI_NOTE_RELEASE) { // env release only
-    pat->newData[y][DIV_PAT_NOTE]=DIV_MACRO_REL;
+    pat->data[y][0]=102;
+    pat->data[y][1]=0;
     removeIns=true;
   } else {
-    pat->newData[y][DIV_PAT_NOTE]=num+60;
+    pat->data[y][0]=num%12;
+    pat->data[y][1]=num/12;
+    if (pat->data[y][0]==0) {
+      pat->data[y][0]=12;
+      pat->data[y][1]--;
+    }
+    pat->data[y][1]=(unsigned char)pat->data[y][1];
     if (latchIns==-2) {
       if (curIns>=(int)e->song.ins.size()) curIns=-1;
       if (curIns>=0) {
-        pat->newData[y][DIV_PAT_INS]=curIns;
+        pat->data[y][2]=curIns;
       }
     } else if (latchIns!=-1 && !e->song.ins.empty()) {
-      pat->newData[y][DIV_PAT_INS]=MIN(((int)e->song.ins.size())-1,latchIns);
+      pat->data[y][2]=MIN(((int)e->song.ins.size())-1,latchIns);
     }
     int maxVol=e->getMaxVolumeChan(ch);
     if (latchVol!=-1) {
-      pat->newData[y][DIV_PAT_VOL]=MIN(maxVol,latchVol);
+      pat->data[y][3]=MIN(maxVol,latchVol);
     } else if (vol!=-1) {
-      pat->newData[y][DIV_PAT_VOL]=e->mapVelocity(ch,pow((float)vol/127.0f,midiMap.volExp));
+      pat->data[y][3]=e->mapVelocity(ch,pow((float)vol/127.0f,midiMap.volExp));
     }
-    if (latchEffect!=-1) pat->newData[y][DIV_PAT_FX(0)]=latchEffect;
-    if (latchEffectVal!=-1) pat->newData[y][DIV_PAT_FXVAL(0)]=latchEffectVal;
+    if (latchEffect!=-1) pat->data[y][4]=latchEffect;
+    if (latchEffectVal!=-1) pat->data[y][5]=latchEffectVal;
   }
   if (removeIns) {
     if (settings.removeInsOff) {
-      pat->newData[y][DIV_PAT_INS]=-1;
+      pat->data[y][2]=-1;
     }
     if (settings.removeVolOff) {
-      pat->newData[y][DIV_PAT_VOL]=-1;
+      pat->data[y][3]=-1;
     }
   }
   editAdvance();
@@ -1434,27 +1419,26 @@ void FurnaceGUI::valueInput(int num, bool direct, int target) {
 
   DivPattern* pat=e->curPat[ch].getPattern(e->curOrders->ord[ch][ord],true);
   prepareUndo(GUI_UNDO_PATTERN_EDIT);
-  if (target==-1) target=cursor.xFine;
+  if (target==-1) target=cursor.xFine+1;
   if (direct) {
-    pat->newData[y][target]=num&0xff;
+    pat->data[y][target]=num&0xff;
   } else {
-    if (pat->newData[y][target]==-1) pat->newData[y][target]=0;
+    if (pat->data[y][target]==-1) pat->data[y][target]=0;
     if (!settings.pushNibble && !curNibble) {
-      pat->newData[y][target]=num;
+      pat->data[y][target]=num;
     } else {
-      pat->newData[y][target]=((pat->newData[y][target]<<4)|num)&0xff;
+      pat->data[y][target]=((pat->data[y][target]<<4)|num)&0xff;
     }
   }
-  // TODO: shouldn't this be target?
-  if (cursor.xFine==DIV_PAT_INS) { // instrument
-    if (pat->newData[y][target]>=(int)e->song.ins.size()) {
-      pat->newData[y][target]&=0x0f;
-      if (pat->newData[y][target]>=(int)e->song.ins.size()) {
-        pat->newData[y][target]=(int)e->song.ins.size()-1;
+  if (cursor.xFine==1) { // instrument
+    if (pat->data[y][target]>=(int)e->song.ins.size()) {
+      pat->data[y][target]&=0x0f;
+      if (pat->data[y][target]>=(int)e->song.ins.size()) {
+        pat->data[y][target]=(int)e->song.ins.size()-1;
       }
     }
     if (settings.absorbInsInput) {
-      curIns=pat->newData[y][target];
+      curIns=pat->data[y][target];
       wavePreviewInit=true;
       updateFMPreview=true;
     }
@@ -1470,18 +1454,18 @@ void FurnaceGUI::valueInput(int num, bool direct, int target) {
       }
     }
     makeUndo(GUI_UNDO_PATTERN_EDIT);
-  } else if (cursor.xFine==DIV_PAT_VOL) {
+  } else if (cursor.xFine==2) {
     if (curNibble) {
-      if (pat->newData[y][target]>e->getMaxVolumeChan(ch)) pat->newData[y][target]=e->getMaxVolumeChan(ch);
+      if (pat->data[y][target]>e->getMaxVolumeChan(ch)) pat->data[y][target]=e->getMaxVolumeChan(ch);
     } else {
-      pat->newData[y][target]&=15;
+      pat->data[y][target]&=15;
     }
     if (direct) {
       curNibble=false;
     } else {
       if (e->getMaxVolumeChan(ch)<16) {
         curNibble=false;
-        if (pat->newData[y][target]>e->getMaxVolumeChan(ch)) pat->newData[y][target]=e->getMaxVolumeChan(ch);
+        if (pat->data[y][target]>e->getMaxVolumeChan(ch)) pat->data[y][target]=e->getMaxVolumeChan(ch);
         editAdvance();
       } else {
         curNibble=!curNibble;
@@ -2370,6 +2354,7 @@ void FurnaceGUI::openFileDialog(FurnaceGUIFileDialogs type) {
       break;
   }
   if (hasOpened) curFileDialog=type;
+  //ImGui::GetIO().ConfigFlags|=ImGuiConfigFlags_NavEnableKeyboard;
 }
 
 int FurnaceGUI::save(String path, int dmfVersion) {
@@ -2379,7 +2364,7 @@ int FurnaceGUI::save(String path, int dmfVersion) {
     if (dmfVersion<24) dmfVersion=24;
     w=e->saveDMF(dmfVersion);
   } else {
-    w=e->saveFur(false);
+    w=e->saveFur(false,settings.newPatternFormat);
   }
   if (w==NULL) {
     lastError=e->getLastError();
@@ -3186,10 +3171,10 @@ void FurnaceGUI::editOptions(bool topMenu) {
   ImGui::SameLine();
   if (ImGui::Button(_("Set"))) {
     DivPattern* pat=e->curPat[cursor.xCoarse].getPattern(e->curOrders->ord[cursor.xCoarse][curOrder],true);
-    latchIns=pat->newData[cursor.y][DIV_PAT_INS];
-    latchVol=pat->newData[cursor.y][DIV_PAT_VOL];
-    latchEffect=pat->newData[cursor.y][DIV_PAT_FX(0)];
-    latchEffectVal=pat->newData[cursor.y][DIV_PAT_FXVAL(0)];
+    latchIns=pat->data[cursor.y][2];
+    latchVol=pat->data[cursor.y][3];
+    latchEffect=pat->data[cursor.y][4];
+    latchEffectVal=pat->data[cursor.y][5];
     latchTarget=0;
     latchNibble=false;
   }
@@ -4908,50 +4893,46 @@ bool FurnaceGUI::loop() {
           DivPattern* p=e->curPat[cursor.xCoarse].getPattern(e->curOrders->ord[cursor.xCoarse][curOrder],false);
           if (cursor.xFine>=0) switch (cursor.xFine) {
             case 0: // note
-              if (p->newData[cursor.y][DIV_PAT_NOTE]>=0) {
-                if (p->newData[cursor.y][DIV_PAT_NOTE]==DIV_NOTE_OFF) {
+              if (p->data[cursor.y][0]>0) {
+                if (p->data[cursor.y][0]==100) {
                   info=fmt::sprintf(_("Note off (cut)"));
-                } else if (p->newData[cursor.y][DIV_PAT_NOTE]==DIV_NOTE_REL) {
+                } else if (p->data[cursor.y][0]==101) {
                   info=fmt::sprintf(_("Note off (release)"));
-                } else if (p->newData[cursor.y][DIV_PAT_NOTE]==DIV_MACRO_REL) {
+                } else if (p->data[cursor.y][0]==102) {
                   info=fmt::sprintf(_("Macro release only"));
                 } else {
-                  info=fmt::sprintf(_("Note on: %s"),noteName(p->newData[cursor.y][DIV_PAT_NOTE]));
+                  info=fmt::sprintf(_("Note on: %s"),noteName(p->data[cursor.y][0],p->data[cursor.y][1]));
                 }
                 hasInfo=true;
               }
               break;
             case 1: // instrument
-              if (p->newData[cursor.y][DIV_PAT_INS]>-1) {
-                if (p->newData[cursor.y][DIV_PAT_INS]>=(int)e->song.ins.size()) {
-                  info=fmt::sprintf(_("Ins %d: <invalid>"),p->newData[cursor.y][DIV_PAT_INS]);
+              if (p->data[cursor.y][2]>-1) {
+                if (p->data[cursor.y][2]>=(int)e->song.ins.size()) {
+                  info=fmt::sprintf(_("Ins %d: <invalid>"),p->data[cursor.y][2]);
                 } else {
-                  DivInstrument* ins=e->getIns(p->newData[cursor.y][DIV_PAT_INS]);
-                  info=fmt::sprintf(_("Ins %d: %s"),p->newData[cursor.y][DIV_PAT_INS],ins->name);
+                  DivInstrument* ins=e->getIns(p->data[cursor.y][2]);
+                  info=fmt::sprintf(_("Ins %d: %s"),p->data[cursor.y][2],ins->name);
                 }
                 hasInfo=true;
               }
               break;
             case 2: // volume
-              if (p->newData[cursor.y][DIV_PAT_VOL]>-1) {
+              if (p->data[cursor.y][3]>-1) {
                 int maxVol=e->getMaxVolumeChan(cursor.xCoarse);
-                if (maxVol<1 || p->newData[cursor.y][DIV_PAT_VOL]>maxVol) {
-                  info=fmt::sprintf(_("Set volume: %d (%.2X, INVALID!)"),p->newData[cursor.y][DIV_PAT_VOL],p->newData[cursor.y][DIV_PAT_VOL]);
+                if (maxVol<1 || p->data[cursor.y][3]>maxVol) {
+                  info=fmt::sprintf(_("Set volume: %d (%.2X, INVALID!)"),p->data[cursor.y][3],p->data[cursor.y][3]);
                 } else {
-                  float realVol=e->getGain(cursor.xCoarse,p->newData[cursor.y][DIV_PAT_VOL]);
-                  info=fmt::sprintf(_("Set volume: %d (%.2X, %d%%)"),p->newData[cursor.y][DIV_PAT_VOL],p->newData[cursor.y][DIV_PAT_VOL],(int)(realVol*100.0f));
+                  float realVol=e->getGain(cursor.xCoarse,p->data[cursor.y][3]);
+                  info=fmt::sprintf(_("Set volume: %d (%.2X, %d%%)"),p->data[cursor.y][3],p->data[cursor.y][3],(int)(realVol*100.0f));
                 }
                 hasInfo=true;
               }
               break;
             default: // effect
-              if (cursor.xFine<DIV_MAX_COLS) {
-                if (p->newData[cursor.y][cursor.xFine]>-1) {
-                  info=e->getEffectDesc(p->newData[cursor.y][cursor.xFine],cursor.xCoarse,true);
-                  hasInfo=true;
-                }
-              } else {
-                info=_("Error!");
+              int actualCursor=((cursor.xFine+1)&(~1));
+              if (p->data[cursor.y][actualCursor]>-1) {
+                info=e->getEffectDesc(p->data[cursor.y][actualCursor],cursor.xCoarse,true);
                 hasInfo=true;
               }
               break;
@@ -6294,9 +6275,7 @@ bool FurnaceGUI::loop() {
 
     centerNextWindow(_("Warning"),canvasW,canvasH);
     if (ImGui::BeginPopupModal(_("Warning"),NULL,ImGuiWindowFlags_AlwaysAutoResize)) {
-      ImGui::PushTextWrapPos(canvasW);
-      ImGui::TextUnformatted(warnString.c_str());
-      ImGui::PopTextWrapPos();
+      ImGui::Text("%s",warnString.c_str());
       switch (warnAction) {
         case GUI_WARN_QUIT:
           if (ImGui::Button(_("Yes"))) {
@@ -6562,7 +6541,11 @@ bool FurnaceGUI::loop() {
               e->lockEngine([this]() {
                 for (int i=0; i<e->getTotalChannelCount(); i++) {
                   DivPattern* pat=e->curPat[i].getPattern(e->curOrders->ord[i][curOrder],true);
-                  memset(pat->newData,-1,DIV_MAX_ROWS*DIV_MAX_COLS*sizeof(short));
+                  memset(pat->data,-1,DIV_MAX_ROWS*DIV_MAX_COLS*sizeof(short));
+                  for (int j=0; j<DIV_MAX_ROWS; j++) {
+                    pat->data[j][0]=0;
+                    pat->data[j][1]=0;
+                  }
                 }
               });
               MARK_MODIFIED;
@@ -7329,7 +7312,7 @@ bool FurnaceGUI::loop() {
               }
             }
             logD("saving backup...");
-            SafeWriter* w=e->saveFur(true);
+            SafeWriter* w=e->saveFur(true,true);
             logV("writing file...");
 
             if (w!=NULL) {
@@ -8004,8 +7987,6 @@ bool FurnaceGUI::init() {
   prepareLayout();
 
   ImGui::GetIO().ConfigFlags|=ImGuiConfigFlags_DockingEnable;
-  //ImGui::GetIO().ConfigFlags|=ImGuiConfigFlags_NavEnableKeyboard;
-  //ImGui::GetIO().ConfigFlags&=~ImGuiConfigFlags_NavCaptureKeyboard;
   toggleMobileUI(mobileUI,true);
 
   firstFrame=true;
@@ -8864,7 +8845,7 @@ FurnaceGUI::FurnaceGUI():
   queryReplaceNoteMode(0),
   queryReplaceInsMode(0),
   queryReplaceVolMode(0),
-  queryReplaceNote(108),
+  queryReplaceNote(0),
   queryReplaceIns(0),
   queryReplaceVol(0),
   queryReplaceNoteDo(false),

@@ -27,7 +27,6 @@
 #include <algorithm>
 #include <chrono>
 #include <imgui.h>
-#include <imgui_internal.h>
 #ifdef _WIN32
 #include <windows.h>
 #include <shlwapi.h>
@@ -978,6 +977,7 @@ void FurnaceFilePicker::drawFileList(ImVec2& tableSize, bool& acknowledged) {
 
       // file list
       entryLock.lock();
+      int index=0;
       listClipper.Begin(filteredEntries.size(),rowHeight);
       while (listClipper.Step()) {
         for (int _i=listClipper.DisplayStart; _i<listClipper.DisplayEnd; _i++) {
@@ -1003,7 +1003,7 @@ void FurnaceFilePicker::drawFileList(ImVec2& tableSize, bool& acknowledged) {
           // name
           ImGui::TableNextColumn();
           ImGui::PushStyleColor(ImGuiCol_Text,ImGui::GetColorU32(style->color));
-          ImGui::PushID(_i);
+          ImGui::PushID(index++);
           if (ImGui::Selectable(style->icon.c_str(),i->isSelected,ImGuiSelectableFlags_AllowDoubleClick|ImGuiSelectableFlags_SpanAllColumns|ImGuiSelectableFlags_SpanAvailWidth)) {
             bool doNotAcknowledge=false;
             if ((ImGui::IsKeyDown(ImGuiKey_LeftShift) || ImGui::IsKeyDown(ImGuiKey_RightShift)) && multiSelect) {
@@ -1054,13 +1054,12 @@ void FurnaceFilePicker::drawFileList(ImVec2& tableSize, bool& acknowledged) {
           ImGui::PopID();
           ImGui::SameLine();
           
-          // why? can't I just not format?
-          ImGui::TextNoHashHide("%s",i->name.c_str());
+          ImGui::TextUnformatted(i->name.c_str());
 
           // type
           if (displayType) {
             ImGui::TableNextColumn();
-            ImGui::TextNoHashHide("%s",i->ext.c_str());
+            ImGui::TextUnformatted(i->ext.c_str());
           }
 
           // size
@@ -1173,7 +1172,7 @@ void FurnaceFilePicker::drawBookmarks(ImVec2& tableSize, String& newDir) {
       ImGui::TableNextRow();
       ImGui::TableNextColumn();
       ImGui::PushID(200000+index);
-      if (ImGui::Selectable(iName.c_str(),iPath==path,ImGuiSelectableFlags_NoHashTextHide)) {
+      if (ImGui::Selectable(iName.c_str(),iPath==path)) {
         newDir=iPath;
       }
       if (ImGui::BeginPopupContextItem("BookmarkOpts")) {
@@ -1424,7 +1423,7 @@ bool FurnaceFilePicker::draw(ImGuiWindowFlags winFlags) {
           // create button
           ImGui::PushID(100000+pathLevel);
           ImGui::SameLine();
-          if (ImGui::ButtonEx(nextButton.c_str(),ImVec2(0,0),ImGuiButtonFlags_NoHashTextHide)) {
+          if (ImGui::Button(nextButton.c_str())) {
             newDir=pathAsOfNow;
           }
           pathLevel++;
