@@ -1,3 +1,77 @@
+# Furnace SMPS2ASM Exporter
+
+This is a fork of Tildearrow's Furnace tracker which adds the option to export to SMPS2ASM.
+SMPS (Sample Music Playback System) is a family of sound drivers used by a variety of games on the Sega Genesis, among other consoles.
+SMPS2ASM is a format for disassembling SMPS data so that it can more easily be edited and be made portable between variations of SMPS drivers.
+The aim of this fork is to allow Sega Genesis songs to be converted to files that can run in SMPS drivers with as much accuracy as the driver allows and without requiring the user to tweak the result post-export.
+There are a variety of options to choose from when esporting, including several variations on the SMPS2ASM format, such as [Flamewing's version](https://github.com/Brainulator9/SMPS2ASM-flamewing), the one used for [MD Music Player](https://github.com/Awuwunya/SMPS2ASM2), one compatible with the [AMPS sound driver](https://github.com/Awuwunya/AMPS), and the one used in the original [SMPS source code](https://github.com/superctr/SMPS).
+
+## How to use
+
+Exporting your Furnace module to an SMPS2ASM files is simply a matter of choosing "file/export..." and selecting SMPS2ASM, choosing your options, and hitting "Export".
+However, in order to ensure that no adjustments need to be made post-export, some considerations will need to be made beforehand to ensure that the result is accurate and makes full use of your chosen sound driver:
+- The maximum speed a song can play at is one step per frame, which comes out to about 360 BPM on NTSC systems on 300 BPM on PAL systems. This is just because most games run the sound driver once per frame.
+- FM instruments are song specific, but PSG envelopes and PCM samples are universal. This means that Furnace can only reference them and use placeholders rather than convert them directly.
+  - The template files provided include recreations of the PSG envelopes and PCM samples used in some specific variations of SMPS. You must either restrict your options to the ones provided by these templates, or modify the sound driver of the game you're exporting to as well as the SMPS2ASM constants file to add the new PSG envelopes and samples that you want to use.
+- PSG envelopes will be named after their instrument's name, so the names must be set to valid envelope names
+  - In order to ensure accuracy, the volume macro should reflect the volume envelope being represented.
+  - Semicolons can be used for assembly comments, allowing the user to use their custom instrument name
+  - e.g. fTone_02 ; Pedal Hi-Hat
+- PCM samples should be named after a valid drum name. These always start with a lowercase "d" followed by a capital letter. If this naming format isn't followed, then instead, corresponding note names will be used.
+- It is up to the user to optimize their song in order to minimize the files size
+  - This can include removing redundant patterns
+
+## To do
+
+Before the 1.0 release:
+- Set the default to be the title of the song
+- Header values
+- Dynamic number of channels
+- Split FM6 from PCM
+- DualPCM support
+- Combine PSG3 and Noise channels
+- PCM sample names
+- Effects
+  - 01 Pitch slide up
+  - 02 Pitch slide down
+  - 03 Portamento
+  - 04 Vibrato
+  - 07 Tremolo
+  - 0A Volume slide
+  - 17 Toggle legacy PCM mode
+  - E5 Detune
+  - EB Legacy Sample Bank
+  - F1 Volume Change Up
+  - F2 Volume Change Down
+  - F3 Volume Slide Up
+  - F4 Volume Slide Down
+- Macros
+  - Pitch
+  - Volume
+  - Panning
+- Source SMPS style
+  - Header
+  - Effect format
+- Reset vibrato after pitch slide
+- Template files for each preset
+  - Sonic 1
+  - Sonic 2
+  - Sonic 3
+  - AMPS
+  - SMPS Source
+- Use selected subsong
+- Update to work with Furnace's new note data format
+
+Post 1.0 release:
+- SMS export
+- Effects
+  - 00 Arpeggio
+- Multiple speeds/grooves
+- SFX option
+
+Below is unchanged from the original README.md
+
+---
 # Furnace (chiptune tracker)
 
 ![screenshot](papers/screenshot3.png)
