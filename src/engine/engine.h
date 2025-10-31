@@ -132,16 +132,23 @@ struct DivAudioExportOptions {
 
 struct DivSMPSOptions {
   String label;
-  int preset, style, tempo, vibrato, psgPitch, pitchEnv, portamento;
+  int stepSz, preset, style, tempo, vibrato, psgPitch, pitchEnv, portamento;
+  uint8_t div, speed;
+  float given, approx;
   DivSMPSOptions():
     label(""),
+    stepSz(3),
     preset(0),
     style(0),
     tempo(0),
     vibrato(0),
     psgPitch(0),
     pitchEnv(0),
-    portamento(0) {
+    portamento(0),
+    div(1),
+    speed(0),
+    given(0),
+    approx(0) {
   }
 };
 

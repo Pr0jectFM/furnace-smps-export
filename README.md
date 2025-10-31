@@ -21,12 +21,14 @@ However, in order to ensure that no adjustments need to be made post-export, som
 - It is up to the user to optimize their song in order to minimize the files size
   - This can include removing redundant patterns
 
+## Bugs
+- In some cases (either 1 order long song or no FM channels), the PSG volume resets to $C0 (occurs in Warning)
+- In some cases, the pattern lengths are a little bit off (occurs in SkBZ2)
+
 ## To do
 
 Before the 1.0 release:
-- Set the default to be the title of the song
 - Header values
-- Dynamic number of channels
 - Split FM6 from PCM
 - DualPCM support
 - Combine PSG3 and Noise channels
@@ -54,13 +56,10 @@ Before the 1.0 release:
   - Effect format
 - Reset vibrato after pitch slide
 - Template files for each preset
-  - Sonic 1
-  - Sonic 2
-  - Sonic 3
   - AMPS
   - SMPS Source
-- Use selected subsong
 - Update to work with Furnace's new note data format
+- Test to ensure that patterns are the correct length
 
 Post 1.0 release:
 - SMS export
@@ -68,6 +67,7 @@ Post 1.0 release:
   - 00 Arpeggio
 - Multiple speeds/grooves
 - SFX option
+- Use selected subsong
 
 Below is unchanged from the original README.md
 
