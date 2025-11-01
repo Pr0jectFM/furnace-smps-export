@@ -435,27 +435,48 @@ static void smpsFindLoop(DivSubSong* s, smpsVars& vars) {
   return;
 }
 
+// channel types
+enum smpsChanType {
+  typeNull,
+  typeEmpty,
+  typeFM,
+  typePCM,
+  typePSG,
+  typeNoise
+};
+
 // get the list of chans that are in use
 void smpsChanNum(DivSong& song, DivSubSong*& s, smpsVars& vars) {
   // check which channels have notes
   for (int channel = 0; channel < vars.chans; channel++) {
     int type;
-    vars.chanOn[channel] = 0;
+    vars.chanOn[channel] = typeNull;
     // check channel type
-    if (channel < 6) type = 1;
-    else if (channel == 9 + (song.system[0] == DIV_SYSTEM_YM2612_DUALPCM)) type = 4;
-    else if (channel > 5 + (song.system[0] == DIV_SYSTEM_YM2612_DUALPCM)) type = 3;
-    else type = 2;
+    if (channel < 6) type = typeFM;
+    else if (channel == 9 + (song.system[0] == DIV_SYSTEM_YM2612_DUALPCM)) type = typeNoise;
+    else if (channel > 5 + (song.system[0] == DIV_SYSTEM_YM2612_DUALPCM)) type = typePSG;
+    else type = typePCM;
     // look for notes
     for (int orders = 0; orders < s->ordersLen; orders++) {
       DivPattern* p = s->pat[channel].getPattern(s->orders.ord[channel][orders], false);
       for (int step = vars.lenTable[0][orders]; step <= vars.lenTable[1][orders]; step++) {
-        if (p->data[step][0] != 0 && p->data[step][1] != 0) {
+        if (p->data[step][0] != 0 || p->data[step][1] != 0) {
           vars.chanOn[channel] = type;
+          // if noise channel and other PSG channels are null, set them to empty
+          if (type == typeNoise) {
+            if (vars.chanOn[channel - 2] == typeNull)
+              vars.chanOn[channel - 2] = typeEmpty;
+            if (vars.chanOn[channel - 3] == typeNull)
+              vars.chanOn[channel - 3] = typeEmpty;
+          }
           goto NextChannel;
         }
       }
     }
+    // set PCM channels to be empty
+    if (channel == 5 || (channel == 6 && song.system[0] == DIV_SYSTEM_YM2612_DUALPCM))
+      if (vars.chanOn[channel] == typeNull)
+        vars.chanOn[channel] = typeEmpty;
   NextChannel:
     continue;
   }
@@ -474,7 +495,7 @@ void smpsChanNum(DivSong& song, DivSubSong*& s, smpsVars& vars) {
         }
       }
     }
-    vars.chanOn[channel] = 2;
+    vars.chanOn[channel] = typePCM;
   }
 Done:
   return;
@@ -624,14 +645,15 @@ static void writeHeader(SafeWriter* w, smpsVars& vars, DivSubSong*& s, DivSMPSOp
   w->writeText(fmt::sprintf(";\tGiven Tempo = %.2f BPM\n", options.given));
   w->writeText(fmt::sprintf(";\tApproximated Tempo = %.2f BPM\n\n", options.approx));
 
-  if (chansFM > 0 && vars.chanOn[5] != 0) {
+  if (chansFM > 0 && vars.chanOn[5] != typeNull) {
     if (options.style == verAMPS) {
       w->writeText(fmt::sprintf("\t%s\t%s_DAC1\n", vars.symCommands[smpsDAC], options.label));
-      w->writeText(fmt::sprintf("\t%s\t%s_DAC2\n", vars.symCommands[smpsDAC], options.label));
     }
     else
       w->writeText(fmt::sprintf("\t%s\t%s_DAC\n", vars.symCommands[smpsDAC], options.label));
   }
+  if (chansFM > 0 && vars.chanOn[6] != typeNull && options.style == verAMPS)
+    w->writeText(fmt::sprintf("\t%s\t%s_DAC2\n", vars.symCommands[smpsDAC], options.label));
   for (int i = 1; i <= chansFM; i++)
     w->writeText(fmt::sprintf("\t%s\t%s_FM%d,\t$%.2X, $%.2X\n", vars.symCommands[smpsFM], options.label, i, 0, 0));
   for (int i = 1; i <= chansPSG; i++)
@@ -796,7 +818,7 @@ static String smpsCommands(const uint8_t effect, const uint8_t value, smpsVars &
       vars.vib[1] = 0x01;
       // (TickRate/(64×VibratoSpeed))
       vars.vib[3] = round(s->hz * (0x0F - value / 0x10) / (vars.vib[1] * 64 * 2));
-      if (vars.chanOn[temp.channel] < 3) {
+      if (vars.chanOn[temp.channel] < typePSG) {
         vars.vib[2] = round(8.0 * vars.vib[1] * (value & 0x0F) / (0x0F - value / 0x10));
       } else {
         vars.vib[2] = round(5.0 * vars.vib[1] * (value & 0x0F) / (0x0F - value / 0x10));
@@ -936,12 +958,12 @@ static void getTimer(DivPattern* p, smpsVars& vars, smpsTempVars& temp, DivSubSo
 
     // check for instrument changes
     if (p->data[step][2] >= 0 && p->data[step][2] != temp.lastIns) {
-      if (vars.chanOn[temp.channel] == 1) {
+      if (vars.chanOn[temp.channel] == typeFM) {
         temp.effects[temp.numEffects] = fmt::sprintf("\n\t%s\t$%.2X", vars.symCommands[smpsSetVoice], vars.fmVoices[p->data[step][2]]);
         temp.numEffects++;
         found = true;
       }
-      else if (vars.chanOn[temp.channel] > 2) {
+      else if (vars.chanOn[temp.channel] > typePCM) {
         temp.effects[temp.numEffects] = fmt::sprintf("\n\t%s\t%s", vars.symCommands[smpsVolEnv], vars.psgVoices[p->data[step][2]]);
         temp.numEffects++;
         found = true;
@@ -950,12 +972,12 @@ static void getTimer(DivPattern* p, smpsVars& vars, smpsTempVars& temp, DivSubSo
     }
     // check for changes in pitch or volume
     if (p->data[step][3] >= 0 && p->data[step][3] != temp.lastVol) {
-      if (vars.chanOn[temp.channel] == 1) {
+      if (vars.chanOn[temp.channel] == typeFM) {
         temp.effects[temp.numEffects] = fmt::sprintf("\n\t%s\t$%.2X", vars.symCommands[smpsAltVolFM], uint8_t(-(p->data[step][3] - temp.lastVol)));
         temp.numEffects++;
         found = true;
       }
-      else if (vars.chanOn[temp.channel] > 2) {
+      else if (vars.chanOn[temp.channel] > typePCM) {
         temp.effects[temp.numEffects] = fmt::sprintf("\n\t%s\t$%.2X", vars.symCommands[smpsAltVolPSG], uint8_t(-(p->data[step][3] - temp.lastVol)));
         temp.numEffects++;
         found = true;
@@ -1016,9 +1038,9 @@ String getNote(smpsVars& vars, smpsTempVars& temp) {
       temp.note -= 12;
       temp.octave++;
     }
-    if (vars.chanOn[temp.channel] > 2)
+    if (vars.chanOn[temp.channel] > typePCM)
       temp.octave--;
-    if (vars.chanOn[temp.channel] > 2 && (temp.octave > 5 || (temp.octave == 5 && temp.note >= 5)))
+    if (vars.chanOn[temp.channel] > typePCM && (temp.octave > 5 || (temp.octave == 5 && temp.note >= 5)))
       return fmt::sprintf("%s", "nMaxPSG");
     else
       return fmt::sprintf("%s%d", vars.notesSet[temp.note], temp.octave);
@@ -1124,8 +1146,8 @@ SafeWriter* DivEngine::saveASM(DivSMPSOptions options) {
     std::copy(notesSource, notesSource + 13, vars.notesSet);
 
   for (int l = 0; l < chans; l++) {
-    if (vars.chanOn[l] == 0) continue;
-    if (vars.chanOn[l] == 4 && vars.chanOn[l - 1] == 3) break;
+    if (vars.chanOn[l] == typeNull) continue;
+    if (vars.chanOn[l] == typeNoise && vars.chanOn[l - 1] == typePSG) break;
     // Write order list
     if (vars.loopPat >= 0)
       w->writeText(fmt::sprintf("\n%s_%s:", options.label, smpsChanName(l)));
@@ -1135,7 +1157,7 @@ SafeWriter* DivEngine::saveASM(DivSMPSOptions options) {
 
     // get the volume at the beginning of each pattern
     uint8_t startVols[0x101];
-    if (vars.chanOn[l] < 3)
+    if (vars.chanOn[l] < typePSG)
       startVols[0] = 0x7F;
     else
       startVols[0] = 0x0F;
@@ -1160,7 +1182,7 @@ SafeWriter* DivEngine::saveASM(DivSMPSOptions options) {
     // Before jumping, reset volume
     uint8_t diffVol = (startVols[vars.endPat + 1] - startVols[vars.loopPat]);
     if (diffVol != 0)
-      if (vars.chanOn[l] < 2)
+      if (vars.chanOn[l] == typeFM)
         w->writeText(fmt::sprintf("\n\t%s\t$%.2X", vars.symCommands[smpsAltVolFM], diffVol));
       else
         w->writeText(fmt::sprintf("\n\t%s\t$%.2X", vars.symCommands[smpsAltVolPSG], diffVol));

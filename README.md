@@ -4,7 +4,7 @@ This is a fork of Tildearrow's Furnace tracker which adds the option to export t
 SMPS (Sample Music Playback System) is a family of sound drivers used by a variety of games on the Sega Genesis, among other consoles.
 SMPS2ASM is a format for disassembling SMPS data so that it can more easily be edited and be made portable between variations of SMPS drivers.
 The aim of this fork is to allow Sega Genesis songs to be converted to files that can run in SMPS drivers with as much accuracy as the driver allows and without requiring the user to tweak the result post-export.
-There are a variety of options to choose from when esporting, including several variations on the SMPS2ASM format, such as [Flamewing's version](https://github.com/Brainulator9/SMPS2ASM-flamewing), the one used for [MD Music Player](https://github.com/Awuwunya/SMPS2ASM2), one compatible with the [AMPS sound driver](https://github.com/Awuwunya/AMPS), and the one used in the original [SMPS source code](https://github.com/superctr/SMPS).
+There are a variety of options to choose from when exporting, including several variations on the SMPS2ASM format, such as [Flamewing's version](https://github.com/Brainulator9/SMPS2ASM-flamewing), the one used for [MD Music Player](https://github.com/Awuwunya/SMPS2ASM2), one compatible with the [AMPS sound driver](https://github.com/Awuwunya/AMPS), and the one used in the original [SMPS source code](https://github.com/superctr/SMPS).
 
 ## How to use
 
