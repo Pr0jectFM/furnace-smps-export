@@ -36,6 +36,9 @@
 #ifdef HAVE_PA
 #include "../audio/pa.h"
 #endif
+#ifdef HAVE_ASIO
+#include "../audio/asio.h"
+#endif
 #include "../audio/pipe.h"
 #include <math.h>
 #include <float.h>
@@ -49,13 +52,13 @@ void process(void* u, float** in, float** out, int inChans, int outChans, unsign
 const char* DivEngine::getEffectDesc(unsigned char effect, int chan, bool notNull) {
   switch (effect) {
     case 0x00:
-      return _("00xy: Arpeggio");
+      return _("00xy: Arpeggio (x: semitones; y: semitones)");
     case 0x01:
-      return _("01xx: Pitch slide up");
+      return _("01xx: Pitch slide up (xx: speed)");
     case 0x02:
-      return _("02xx: Pitch slide down");
+      return _("02xx: Pitch slide down (xx: speed)");
     case 0x03:
-      return _("03xx: Portamento");
+      return _("03xx: Portamento (xx: speed)");
     case 0x04:
       return _("04xy: Vibrato (x: speed; y: depth)");
     case 0x05:
@@ -198,15 +201,9 @@ const char* DivEngine::getEffectDesc(unsigned char effect, int chan, bool notNul
   return notNull?_("Invalid effect"):NULL;
 }
 
-void DivEngine::walkSong(int& loopOrder, int& loopRow, int& loopEnd) {
+void DivEngine::calcSongTimestamps() {
   if (curSubSong!=NULL) {
-    curSubSong->walk(loopOrder,loopRow,loopEnd,chans,song.jumpTreatment,song.ignoreJumpAtEnd);
-  }
-}
-
-void DivEngine::findSongLength(int loopOrder, int loopRow, double fadeoutLen, int& rowsForFadeout, bool& hasFFxx, std::vector<int>& orders, int& length) {
-  if (curSubSong!=NULL) {
-    curSubSong->findLength(loopOrder,loopRow,fadeoutLen,rowsForFadeout,hasFFxx,orders,song.grooves,length,chans,song.jumpTreatment,song.ignoreJumpAtEnd);
+    curSubSong->calcTimestamps(chans,song.grooves,song.jumpTreatment,song.ignoreJumpAtEnd,song.brokenSpeedSel,song.delayBehavior);
   }
 }
 
@@ -563,6 +560,7 @@ void DivEngine::createNew(const char* description, String sysName, bool inBase64
   BUSY_BEGIN;
   renderSamples();
   reset();
+  calcSongTimestamps();
   BUSY_END;
 }
 
@@ -600,6 +598,7 @@ void DivEngine::createNewFromDefaults() {
   BUSY_BEGIN;
   renderSamples();
   reset();
+  calcSongTimestamps();
   BUSY_END;
 }
 
@@ -1544,22 +1543,20 @@ String DivEngine::getPlaybackDebugInfo() {
     "midiTimeDrift: %f\n"
     "changeOrd: %d\n"
     "changePos: %d\n"
-    "totalSeconds: %d\n"
-    "totalTicks: %d\n"
+    "totalTime: %s\n"
     "totalTicksR: %d\n"
     "curMidiClock: %d\n"
     "curMidiTime: %d\n"
     "totalCmds: %d\n"
     "lastCmds: %d\n"
     "cmdsPerSecond: %d\n"
-    "globalPitch: %d\n"
     "extValue: %d\n"
     "tempoAccum: %d\n"
     "totalProcessed: %d\n"
     "bufferPos: %d\n",
     curOrder,prevOrder,curRow,prevRow,ticks,subticks,totalLoops,lastLoopPos,nextSpeed,divider,cycles,clockDrift,
-    midiClockCycles,midiClockDrift,midiTimeCycles,midiTimeDrift,changeOrd,changePos,totalSeconds,totalTicks,
-    totalTicksR,curMidiClock,curMidiTime,totalCmds,lastCmds,cmdsPerSecond,globalPitch,
+    midiClockCycles,midiClockDrift,midiTimeCycles,midiTimeDrift,changeOrd,changePos,totalTime.toString(),
+    totalTicksR,curMidiClock,curMidiTime,totalCmds,lastCmds,cmdsPerSecond,
     (int)extValue,(int)tempoAccum,(int)totalProcessed,(int)bufferPos
   );
 }
@@ -1678,6 +1675,37 @@ void DivEngine::getCommandStream(std::vector<DivCommand>& where) {
   BUSY_END;
 }
 
+DivFilePlayer* DivEngine::getFilePlayer() {
+  if (curFilePlayer==NULL) {
+    BUSY_BEGIN_SOFT;
+    curFilePlayer=new DivFilePlayer;
+    curFilePlayer->setOutputRate(got.rate);
+    BUSY_END;
+  }
+  return curFilePlayer;
+}
+
+bool DivEngine::getFilePlayerSync() {
+  return filePlayerSync;
+}
+
+void DivEngine::setFilePlayerSync(bool doSync) {
+  filePlayerSync=doSync;
+}
+
+TimeMicros DivEngine::getFilePlayerCue() {
+  return filePlayerCue;
+}
+
+void DivEngine::setFilePlayerCue(TimeMicros cue) {
+  filePlayerCue=cue;
+}
+
+void DivEngine::syncFilePlayer() {
+  if (curFilePlayer==NULL) return;
+  curFilePlayer->setPosSeconds(totalTime+filePlayerCue);
+}
+
 void DivEngine::playSub(bool preserveDrift, int goalRow) {
   logV("playSub() called");
   std::chrono::high_resolution_clock::time_point timeStart=std::chrono::high_resolution_clock::now();
@@ -1708,10 +1736,10 @@ void DivEngine::playSub(bool preserveDrift, int goalRow) {
   midiTimeDrift=0;
   if (!preserveDrift) {
     ticks=1;
+    subticks=0;
     tempoAccum=0;
-    totalTicks=0;
-    totalTicksOff=0;
-    totalSeconds=0;
+    totalTime=TimeMicros(0,0);
+    totalTimeDrift=0;
     totalTicksR=0;
     curMidiClock=0;
     curMidiTime=0;
@@ -1801,6 +1829,7 @@ void DivEngine::playSub(bool preserveDrift, int goalRow) {
   cmdStream.clear();
   std::chrono::high_resolution_clock::time_point timeEnd=std::chrono::high_resolution_clock::now();
   logV("playSub() took %dµs",std::chrono::duration_cast<std::chrono::microseconds>(timeEnd-timeStart).count());
+  logV("and landed us at %s (%d ticks, %d:%d.%d)",totalTime.toString(),totalTicksR,curOrder,curRow,ticks);
 }
 
 /*
@@ -1812,7 +1841,7 @@ int DivEngine::calcBaseFreq(double clock, double divider, int note, bool period)
 }*/
 
 double DivEngine::calcBaseFreq(double clock, double divider, int note, bool period) {
-  if (song.linearPitch==2) { // full linear
+  if (song.linearPitch) { // linear
     return (note<<7);
   }
   double base=(period?(song.tuning*0.0625):song.tuning)*pow(2.0,(float)(note+3)/12.0);
@@ -1862,7 +1891,7 @@ double DivEngine::calcBaseFreq(double clock, double divider, int note, bool peri
   return bf|((block)<<(bits));
 
 int DivEngine::calcBaseFreqFNumBlock(double clock, double divider, int note, int bits, int fixedBlock) {
-  if (song.linearPitch==2) { // full linear
+  if (song.linearPitch) { // linear
     return (note<<7);
   }
   int bf=calcBaseFreq(clock,divider,note,false);
@@ -1874,7 +1903,8 @@ int DivEngine::calcBaseFreqFNumBlock(double clock, double divider, int note, int
 }
 
 int DivEngine::calcFreq(int base, int pitch, int arp, bool arpFixed, bool period, int octave, int pitch2, double clock, double divider, int blockBits, int fixedBlock) {
-  if (song.linearPitch==2) {
+  // linear pitch
+  if (song.linearPitch) {
     // do frequency calculation here
     int nbase=base+pitch+pitch2;
     if (!song.oldArpStrategy) {
@@ -1898,24 +1928,7 @@ int DivEngine::calcFreq(int base, int pitch, int arp, bool arpFixed, bool period
       return bf;
     }
   }
-  if (song.linearPitch==1) {
-    // global pitch multiplier
-    int whatTheFuck=(1024+(globalPitch<<6)-(globalPitch<0?globalPitch-6:0));
-    if (whatTheFuck<1) whatTheFuck=1; // avoids division by zero but please kill me
-    if (song.pitchMacroIsLinear) {
-      pitch+=pitch2;
-    }
-    pitch+=2048;
-    if (pitch<0) pitch=0;
-    if (pitch>4095) pitch=4095;
-    int ret=period?
-              ((base*(reversePitchTable[pitch]))/whatTheFuck):
-              (((base*(pitchTable[pitch]))>>10)*whatTheFuck)/1024;
-    if (!song.pitchMacroIsLinear) {
-      ret+=period?(-pitch2):pitch2;
-    }
-    return ret;
-  }
+  // non-linear pitch
   return period?
            base-pitch-pitch2:
            base+((pitch*octave)>>1)+pitch2;
@@ -2044,6 +2057,12 @@ bool DivEngine::play() {
     output->midiOut->send(TAMidiMessage(TA_MIDI_MACHINE_PLAY,0,0));
   }
   bool didItPlay=playing;
+  if (didItPlay) {
+    if (curFilePlayer && filePlayerSync) {
+      syncFilePlayer();
+      curFilePlayer->play();
+    }
+  }
   BUSY_END;
   return didItPlay;
 }
@@ -2060,15 +2079,28 @@ bool DivEngine::playToRow(int row) {
     keyHit[i]=false;
   }
   bool didItPlay=playing;
+  if (didItPlay) {
+    if (curFilePlayer && filePlayerSync) {
+      syncFilePlayer();
+      curFilePlayer->play();
+    }
+  }
   BUSY_END;
   return didItPlay;
 }
 
 void DivEngine::stepOne(int row) {
+  if (curFilePlayer && filePlayerSync) {
+    curFilePlayer->stop();
+  }
+
   if (!isPlaying()) {
     BUSY_BEGIN_SOFT;
     freelance=false;
     playSub(false,row);
+    if (curFilePlayer && filePlayerSync) {
+      syncFilePlayer();
+    }
     for (int i=0; i<DIV_MAX_CHANS; i++) {
       keyHit[i]=false;
     }
@@ -2113,6 +2145,10 @@ void DivEngine::stop() {
         output->midiOut->send(TAMidiMessage(0x80|(i&15),chan[i].curMidiNote,0));
       }
     }
+  }
+
+  if (curFilePlayer && filePlayerSync) {
+    curFilePlayer->stop();
   }
 
   // reset all chan oscs
@@ -2207,7 +2243,7 @@ void DivEngine::reset() {
     chan[i]=DivChannelState();
     if (i<chans) chan[i].volMax=(disCont[dispatchOfChan[i]].dispatch->dispatch(DivCommand(DIV_CMD_GET_VOLMAX,dispatchChanOfChan[i]))<<8)|0xff;
     chan[i].volume=chan[i].volMax;
-    if (song.linearPitch==0) chan[i].vibratoFine=4;
+    if (!song.linearPitch) chan[i].vibratoFine=4;
   }
   extValue=0;
   extValuePresent=0;
@@ -2222,7 +2258,6 @@ void DivEngine::reset() {
   elapsedBeats=0;
   nextSpeed=speeds.val[0];
   divider=curSubSong->hz;
-  globalPitch=0;
   for (int i=0; i<song.systemLen; i++) {
     disCont[i].dispatch->reset();
     disCont[i].clear();
@@ -2496,12 +2531,8 @@ void DivEngine::virtualTempoChanged() {
   BUSY_END;
 }
 
-int DivEngine::getTotalSeconds() {
-  return totalSeconds;
-}
-
-int DivEngine::getTotalTicks() {
-  return totalTicks;
+TimeMicros DivEngine::getCurTime() {
+  return totalTime;
 }
 
 bool DivEngine::getRepeatPattern() {
@@ -3089,6 +3120,10 @@ void DivEngine::addOrder(int pos, bool duplicate, bool where) {
     prevOrder=curOrder;
     if (playing && !freelance) {
       playSub(false);
+      if (curFilePlayer && filePlayerSync) {
+        syncFilePlayer();
+        curFilePlayer->play();
+      }
     }
   }
   BUSY_END;
@@ -3141,6 +3176,10 @@ void DivEngine::deepCloneOrder(int pos, bool where) {
     if (pos<=curOrder) curOrder++;
     if (playing && !freelance) {
       playSub(false);
+      if (curFilePlayer && filePlayerSync) {
+        syncFilePlayer();
+        curFilePlayer->play();
+      }
     }
   }
   BUSY_END;
@@ -3161,6 +3200,10 @@ void DivEngine::deleteOrder(int pos) {
   if (curOrder>=curSubSong->ordersLen) curOrder=curSubSong->ordersLen-1;
   if (playing && !freelance) {
     playSub(false);
+    if (curFilePlayer && filePlayerSync) {
+      syncFilePlayer();
+      curFilePlayer->play();
+    }
   }
   BUSY_END;
 }
@@ -3184,6 +3227,10 @@ void DivEngine::moveOrderUp(int& pos) {
   pos--;
   if (playing && !freelance) {
     playSub(false);
+    if (curFilePlayer && filePlayerSync) {
+      syncFilePlayer();
+      curFilePlayer->play();
+    }
   }
   BUSY_END;
 }
@@ -3207,6 +3254,10 @@ void DivEngine::moveOrderDown(int& pos) {
   pos++;
   if (playing && !freelance) {
     playSub(false);
+    if (curFilePlayer && filePlayerSync) {
+      syncFilePlayer();
+      curFilePlayer->play();
+    }
   }
   BUSY_END;
 }
@@ -3408,6 +3459,12 @@ void DivEngine::autoPatchbay() {
     }
   }
 
+  // file player
+  song.patchbay.reserve(DIV_MAX_OUTPUTS);
+  for (unsigned int j=0; j<DIV_MAX_OUTPUTS; j++) {
+    song.patchbay.push_back(0xffc00000|j|(j<<16));
+  }
+
   // wave/sample preview
   song.patchbay.reserve(DIV_MAX_OUTPUTS);
   for (unsigned int j=0; j<DIV_MAX_OUTPUTS; j++) {
@@ -3515,7 +3572,74 @@ void DivEngine::noteOff(int chan) {
   BUSY_END;
 }
 
-bool DivEngine::autoNoteOn(int ch, int ins, int note, int vol) {
+int DivEngine::getViableChannel(int chan, int off, int ins) {
+  // if the offset is zero, we don't have to do anything
+  if (off==0) return chan;
+
+  // if there isn't an instrument, just offset chan by off
+  if (ins==-1) {
+    return (chan+off)%chans;
+  }
+  
+  bool isViable[DIV_MAX_CHANS];
+  bool isAtLeastOneViable=false;
+  int finalChan=chan;
+  int finalChanType=getChannelType(finalChan);
+
+  // this is a copy of the routine in autoNoteOn...... I am lazy
+  DivInstrument* insInst=getIns(ins);
+  for (int i=0; i<chans; i++) {
+    if (ins==-1 || ins>=song.insLen || getPreferInsType(i)==insInst->type || (getPreferInsType(i)==DIV_INS_NULL && finalChanType==DIV_CH_NOISE) || getPreferInsSecondType(i)==insInst->type) {
+      if (insInst->type==DIV_INS_OPL) {
+        if (insInst->fm.ops==2 || getChannelType(i)==DIV_CH_OP) {
+          isViable[i]=true;
+          isAtLeastOneViable=true;
+        } else {
+          isViable[i]=false;
+        }
+      } else {
+        isViable[i]=true;
+        isAtLeastOneViable=true;
+      }
+    } else {
+      isViable[i]=false;
+    }
+  }
+
+  // screw it if none of the channels are viable
+  if (!isAtLeastOneViable) {
+    return (chan+off)%chans;
+  }
+
+  // now offset (confined to viable channels)
+  int channelsCycled=0;
+  int i=(chan+1)%chans;
+  int attempts=0;
+  while (true) {
+    if (isViable[i]) {
+      channelsCycled++;
+      if (channelsCycled==off) {
+        // we found it
+        return i;
+      }
+    }
+
+    if (++i>=chans) {
+      i=0;
+    }
+
+    // fail-safe
+    if (++attempts>1024) {
+      logE("getViableChannel(): too many attempts!");
+      break;
+    }
+  }
+
+  // fail-safe
+  return (chan+off)%chans;
+}
+
+bool DivEngine::autoNoteOn(int ch, int ins, int note, int vol, int transpose) {
   bool isViable[DIV_MAX_CHANS];
   bool canPlayAnyway=false;
   bool notInViableChannel=false;
@@ -3558,7 +3682,7 @@ bool DivEngine::autoNoteOn(int ch, int ins, int note, int vol) {
     if ((!midiPoly) || (isViable[finalChan] && chan[finalChan].midiNote==-1 && (insInst->type==DIV_INS_OPL || getChannelType(finalChan)==finalChanType || notInViableChannel))) {
       chan[finalChan].midiNote=note;
       chan[finalChan].midiAge=midiAgeCounter++;
-      pendingNotes.push_back(DivNoteEvent(finalChan,ins,note,vol,true));
+      pendingNotes.push_back(DivNoteEvent(finalChan,ins,note+transpose,vol,true));
       return true;
     }
     if (++finalChan>=chans) {
@@ -3579,7 +3703,7 @@ bool DivEngine::autoNoteOn(int ch, int ins, int note, int vol) {
 
   chan[candidate].midiNote=note;
   chan[candidate].midiAge=midiAgeCounter++;
-  pendingNotes.push_back(DivNoteEvent(candidate,ins,note,vol,true));
+  pendingNotes.push_back(DivNoteEvent(candidate,ins,note+transpose,vol,true));
   return true;
 }
 
@@ -3619,6 +3743,11 @@ void DivEngine::setOrder(unsigned char order) {
   prevOrder=curOrder;
   if (playing && !freelance) {
     playSub(false);
+
+    if (curFilePlayer && filePlayerSync) {
+      syncFilePlayer();
+      curFilePlayer->play();
+    }
   }
   BUSY_END;
 }
@@ -3639,6 +3768,10 @@ void DivEngine::updateSysFlags(int system, bool restart, bool render) {
   if (restart) {
     if (isPlaying()) {
       playSub(false);
+      if (curFilePlayer && filePlayerSync) {
+        syncFilePlayer();
+        curFilePlayer->play();
+      }
     } else if (freelance) {
       reset();
     }
@@ -3700,6 +3833,9 @@ bool DivEngine::switchMaster(bool full) {
     for (int i=0; i<song.systemLen; i++) {
       disCont[i].setRates(got.rate);
       disCont[i].setQuality(lowQuality,dcHiPass);
+    }
+    if (curFilePlayer!=NULL) {
+      curFilePlayer->setOutputRate(got.rate);
     }
     if (!output->setRun(true)) {
       logE("error while activating audio!");
@@ -3787,6 +3923,21 @@ TAAudioDesc& DivEngine::getAudioDescGot() {
   return got;
 }
 
+TAAudioDeviceStatus DivEngine::getAudioDeviceStatus() {
+  if (output==NULL) return TA_AUDIO_DEVICE_OK;
+  return output->getDeviceStatus();
+}
+
+void DivEngine::acceptAudioDeviceStatus() {
+  if (output==NULL) return;
+  output->acceptDeviceStatus();
+}
+
+int DivEngine::audioBackendCommand(TAAudioCommand which) {
+  if (output==NULL) return -1;
+  return output->specialCommand(which);
+}
+
 std::vector<String>& DivEngine::getAudioDevices() {
   return audioDevs;
 }
@@ -3872,9 +4023,8 @@ void DivEngine::quitDispatch() {
   nextSpeed=3;
   changeOrd=-1;
   changePos=0;
-  totalTicks=0;
-  totalTicksOff=0;
-  totalSeconds=0;
+  totalTime=TimeMicros(0,0);
+  totalTimeDrift=0;
   totalTicksR=0;
   curMidiClock=0;
   curMidiTime=0;
@@ -3883,6 +4033,9 @@ void DivEngine::quitDispatch() {
   totalCmds=0;
   lastCmds=0;
   cmdsPerSecond=0;
+  if (filePlayerSync) {
+    if (curFilePlayer!=NULL) curFilePlayer->stop();
+  }
   for (int i=0; i<DIV_MAX_CHANS; i++) {
     isMuted[i]=0;
   }
@@ -3901,6 +4054,8 @@ bool DivEngine::initAudioBackend() {
       audioEngine=DIV_AUDIO_JACK;
     } else if (getConfString("audioEngine","SDL")=="PortAudio") {
       audioEngine=DIV_AUDIO_PORTAUDIO;
+    } else if (getConfString("audioEngine","SDL")=="ASIO") {
+      audioEngine=DIV_AUDIO_ASIO;
     } else {
       audioEngine=DIV_AUDIO_SDL;
     }
@@ -3962,6 +4117,21 @@ bool DivEngine::initAudioBackend() {
 #endif
 #else
       output=new TAAudioPA;
+#endif
+      break;
+    case DIV_AUDIO_ASIO:
+#ifndef HAVE_ASIO
+      logE("Furnace was not compiled with ASIO support!");
+      setConf("audioEngine","SDL");
+      saveConf();
+#ifdef HAVE_SDL2
+      output=new TAAudioSDL;
+#else
+      logE("Furnace was not compiled with SDL support either!");
+      output=new TAAudio;
+#endif
+#else
+      output=new TAAudioASIO;
 #endif
       break;
     case DIV_AUDIO_SDL:
@@ -4217,10 +4387,6 @@ bool DivEngine::init() {
   for (int i=0; i<128; i++) {
     tremTable[i]=255*0.5*(1.0-cos(((double)i/128.0)*(2*M_PI)));
   }
-  for (int i=0; i<4096; i++) {
-    reversePitchTable[i]=round(1024.0*pow(2.0,(2048.0-(double)i)/(12.0*128.0)));
-    pitchTable[i]=round(1024.0*pow(2.0,((double)i-2048.0)/(12.0*128.0)));
-  }
 
   for (int i=0; i<DIV_MAX_CHANS; i++) {
     isMuted[i]=0;
@@ -4231,6 +4397,10 @@ bool DivEngine::init() {
   renderSamples();
   reset();
   active=true;
+
+  if (curFilePlayer!=NULL) {
+    curFilePlayer->setOutputRate(got.rate);
+  }
 
   if (!haveAudio) {
     return false;
@@ -4262,6 +4432,10 @@ bool DivEngine::quit(bool saveConfig) {
     delete[] metroBuf;
     metroBuf=NULL;
     metroBufLen=0;
+  }
+  if (curFilePlayer!=NULL) {
+    delete curFilePlayer;
+    curFilePlayer=NULL;
   }
   if (yrw801ROM!=NULL) delete[] yrw801ROM;
   if (tg100ROM!=NULL) delete[] tg100ROM;

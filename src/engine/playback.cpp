@@ -1157,9 +1157,6 @@ void DivEngine::processRow(int i, bool afterDelay) {
         extValuePresent=true;
         dispatchCmd(DivCommand(DIV_CMD_EXTERNAL,i,effectVal));
         break;
-      case 0xef: // global pitch
-        globalPitch+=(signed char)(effectVal-0x80);
-        break;
       case 0xf0: // set Hz by tempo
         divider=(double)effectVal*2.0/5.0;
         if (divider<1) divider=1;
@@ -1327,7 +1324,7 @@ void DivEngine::processRow(int i, bool afterDelay) {
           chan[i].scheduledSlideReset=false;
           chan[i].inPorta=false;
           if (!song.arpNonPorta) dispatchCmd(DivCommand(DIV_CMD_PRE_PORTA,i,true,0));
-          dispatchCmd(DivCommand(DIV_CMD_NOTE_PORTA,i,chan[i].portaSpeed*(song.linearPitch==2?song.pitchSlideSpeed:1),chan[i].portaNote));
+          dispatchCmd(DivCommand(DIV_CMD_NOTE_PORTA,i,chan[i].portaSpeed*(song.linearPitch?song.pitchSlideSpeed:1),chan[i].portaNote));
           chan[i].portaNote=-1;
           chan[i].portaSpeed=-1;
           chan[i].inPorta=false;
@@ -1677,6 +1674,15 @@ bool DivEngine::nextTick(bool noAccum, bool inhibitLowLat) {
               prevOrder=curOrder;
               prevRow=curRow;
               playPosLock.unlock();
+
+              // also set the playback position and sync file player if necessary
+              TimeMicros rowTS=curSubSong->ts.getTimes(curOrder,curRow);
+              if (rowTS.seconds!=-1) {
+                totalTime=rowTS;
+              }
+              if (curFilePlayer && filePlayerSync) {
+                syncFilePlayer();
+              }
             }
             nextRow();
             break;
@@ -1888,7 +1894,15 @@ bool DivEngine::nextTick(bool noAccum, bool inhibitLowLat) {
         // portamento and pitch slides
         if (!song.noSlidesOnFirstTick || !firstTick) {
           if ((chan[i].keyOn || chan[i].keyOff) && chan[i].portaSpeed>0) {
-            if (dispatchCmd(DivCommand(DIV_CMD_NOTE_PORTA,i,chan[i].portaSpeed*(song.linearPitch==2?song.pitchSlideSpeed:1),chan[i].portaNote))==2 && chan[i].portaStop && song.targetResetsSlides) {
+            // send a portamento update command to the dispatch.
+            // it returns whether the portamento is complete and has reached the target note.
+            // COMPAT FLAG: pitch linearity
+            // - 0: none (pitch control and slides non-linear)
+            // - 1: full (pitch slides linear... we multiply the portamento speed by a user-defined multiplier)
+            // COMPAT FLAG: reset pitch slide/portamento upon reaching target (inverted in the GUI)
+            // - when disabled, portamento remains active after it has finished
+            if (dispatchCmd(DivCommand(DIV_CMD_NOTE_PORTA,i,chan[i].portaSpeed*(song.linearPitch?song.pitchSlideSpeed:1),chan[i].portaNote))==2 && chan[i].portaStop && song.targetResetsSlides) {
+              // if we are here, it means we reached the target and shall stop
               chan[i].portaSpeed=0;
               dispatchCmd(DivCommand(DIV_CMD_HINT_PORTA,i,CLAMP(chan[i].portaNote,-128,127),MAX(chan[i].portaSpeed,0)));
               chan[i].oldNote=chan[i].note;
@@ -2022,26 +2036,28 @@ bool DivEngine::nextTick(bool noAccum, bool inhibitLowLat) {
     if (stepPlay!=1) {
       if (!noAccum) {
         double dt=divider*tickMult;
-        if (skipping) {
-          dt*=(double)virtualTempoN/(double)MAX(1,virtualTempoD);
-        }
         totalTicksR++;
-        totalTicks+=1000000/dt;
-        totalTicksOff+=fmod(1000000.0,dt);
-        while (totalTicksOff>=dt) {
-          totalTicksOff-=dt;
-          totalTicks++;
+        totalTime.micros+=1000000/dt;
+        totalTimeDrift+=fmod(1000000.0,dt);
+        while (totalTimeDrift>=dt) {
+          totalTimeDrift-=dt;
+          totalTime.micros++;
         }
       }
-      if (totalTicks>=1000000) {
-        totalTicks-=1000000;
-        if (totalSeconds<0x7fffffff) totalSeconds++;
+      if (totalTime.micros>=1000000) {
+        totalTime.micros-=1000000;
+        // who's gonna play a song for 68 years?
+        if (totalTime.seconds<0x7fffffff) totalTime.seconds++;
         cmdsPerSecond=totalCmds-lastCmds;
         lastCmds=totalCmds;
       }
     }
 
-    if (consoleMode && !disableStatusOut && subticks<=1 && !skipping) fprintf(stderr,"\x1b[2K> %d:%.2d:%.2d.%.2d  %.2x/%.2x:%.3d/%.3d  %4dcmd/s\x1b[G",totalSeconds/3600,(totalSeconds/60)%60,totalSeconds%60,totalTicks/10000,curOrder,curSubSong->ordersLen,curRow,curSubSong->patLen,cmdsPerSecond);
+    // print status in console mode
+    if (consoleMode && !disableStatusOut && subticks<=1 && !skipping) {
+      String timeFormatted=totalTime.toString(2,TA_TIME_FORMAT_HMS);
+      fprintf(stderr,"\x1b[2K> %s  %.2x/%.2x:%.3d/%.3d  %4dcmd/s\x1b[G",timeFormatted.c_str(),curOrder,curSubSong->ordersLen,curRow,curSubSong->patLen,cmdsPerSecond);
+    }
   }
 
   if (haltOn==DIV_HALT_TICK) halted=true;
@@ -2483,6 +2499,19 @@ void DivEngine::nextBuf(float** in, float** out, int inChans, int outChans, unsi
           totalSeconds=0;*/
           lastLoopPos=size-runLeftG;
           logD("last loop pos: %d for a size of %d and runLeftG of %d",lastLoopPos,size,runLeftG);
+          // if file player is synchronized then set its position to that of the loop row
+          if (curFilePlayer && filePlayerSync) {
+            if (curFilePlayer->isPlaying()) {
+              TimeMicros rowTS=curSubSong->ts.loopStartTime;
+
+              if (rowTS.seconds==-1) {
+                logW("that row isn't supposed to play. report this now!");
+              }
+
+              curFilePlayer->setPosSeconds(rowTS+filePlayerCue,lastLoopPos);
+            }
+          }
+          // increase total loop count
           totalLoops++;
           if (remainingLoops>0) {
             remainingLoops--;
@@ -2583,7 +2612,7 @@ void DivEngine::nextBuf(float** in, float** out, int inChans, int outChans, unsi
 
     //logD("attempts: %d",attempts);
     if (attempts>=(int)(size+10)) {
-      logE("hang detected! stopping! at %d seconds %d micro (%d>=%d)",totalSeconds,totalTicks,attempts,(int)size);
+      logE("hang detected! stopping! at %s (%d>=%d)",totalTime.toString(),attempts,(int)size);
       freelance=false;
       playing=false;
       extValuePresent=false;
@@ -2603,6 +2632,23 @@ void DivEngine::nextBuf(float** in, float** out, int inChans, int outChans, unsi
       },&disCont[i]);*/
     }
     renderPool->wait();
+  }
+
+  // process file player
+  // resize file player audio buffer if necessary
+  if (filePlayerBufLen<size) {
+    for (int i=0; i<DIV_MAX_OUTPUTS; i++) {
+      if (filePlayerBuf[i]!=NULL) delete[] filePlayerBuf[i];
+      filePlayerBuf[i]=new float[size];
+    }
+    filePlayerBufLen=size;
+  }
+  if (curFilePlayer!=NULL && !exporting) {
+    curFilePlayer->mix(filePlayerBuf,outChans,size);
+  } else {
+    for (int i=0; i<DIV_MAX_OUTPUTS; i++) {
+      memset(filePlayerBuf[i],0,size*sizeof(float));
+    }
   }
 
   // process metronome
@@ -2637,7 +2683,20 @@ void DivEngine::nextBuf(float** in, float** out, int inChans, int outChans, unsi
     }
   }
 
-  // resolve patchbay
+  // calculate volume of reference file player (so we can attenuate the rest according to the mix slider)
+  // -1 to 0: player volume goes from 0% to 100%
+  // 0 to +1: tracker volume goes from 100% to 0%
+  float refPlayerVol=1.0f;
+  if (curFilePlayer!=NULL) {
+    // only if the player window is open
+    if (curFilePlayer->getActive()) {
+      refPlayerVol=1.0f-curFilePlayer->getVolume();
+      if (refPlayerVol<0.0f) refPlayerVol=0.0f;
+      if (refPlayerVol>1.0f) refPlayerVol=1.0f;
+    }
+  }
+
+  // now mix everything (resolve patchbay)
   for (unsigned int i: song.patchbay) {
     const unsigned short srcPort=i>>16;
     const unsigned short destPort=i&0xffff;
@@ -2657,7 +2716,7 @@ void DivEngine::nextBuf(float** in, float** out, int inChans, int outChans, unsi
       // chip outputs
       if (srcPortSet<song.systemLen && playing && !halted) {
         if (srcSubPort<disCont[srcPortSet].dispatch->getOutputCount()) {
-          float vol=song.systemVol[srcPortSet]*disCont[srcPortSet].dispatch->getPostAmp()*song.masterVol;
+          float vol=song.systemVol[srcPortSet]*disCont[srcPortSet].dispatch->getPostAmp()*song.masterVol*refPlayerVol;
 
           switch (destSubPort&3) {
             case 0:
@@ -2677,6 +2736,11 @@ void DivEngine::nextBuf(float** in, float** out, int inChans, int outChans, unsi
           for (size_t j=0; j<size; j++) {
             out[destSubPort][j]+=((float)disCont[srcPortSet].bbOut[srcSubPort][j]/32768.0)*vol;
           }
+        }
+      } else if (srcPortSet==0xffc) {
+        // file player
+        for (size_t j=0; j<size; j++) {
+          out[destSubPort][j]+=filePlayerBuf[srcSubPort][j];
         }
       } else if (srcPortSet==0xffd) {
         // sample preview
@@ -2706,6 +2770,38 @@ void DivEngine::nextBuf(float** in, float** out, int inChans, int outChans, unsi
   }
   oscSize=size;
 
+  // get per-chip peaks
+  float decay=2.f*size/got.rate;
+  for (int i=0; i<song.systemLen; i++) {
+    DivDispatch* disp=disCont[i].dispatch;
+    if (disp==NULL) continue;
+    for (int j=0; j<disp->getOutputCount(); j++) {
+      if (disCont[i].bbOut[j]==NULL) continue;
+      chipPeak[i][j]*=1.0-decay;
+      float peak=chipPeak[i][j];
+      for (unsigned int k=0; k<size; k++) {
+        float out=disCont[i].bbOut[j][k]*song.systemVol[i]*disp->getPostAmp()/32768.0f; // TODO: PARSE PANNING, FRONT/REAR AND PATCHBAY
+        // switch (j) {
+        //   case 0:
+        //     out*=MIN(1.0f,1.0f-song.systemPan[i])*MIN(1.0f,1.0f+song.systemPanFR[i]);
+        //     break;
+        //   case 1:
+        //     out*=MIN(1.0f,1.0f+song.systemPan[i])*MIN(1.0f,1.0f+song.systemPanFR[i]);
+        //     break;
+        //   case 2:
+        //     out*=MIN(1.0f,1.0f-song.systemPan[i])*MIN(1.0f,1.0f-song.systemPanFR[i]);
+        //     break;
+        //   case 3:
+        //     out*=MIN(1.0f,1.0f+song.systemPan[i])*MIN(1.0f,1.0f-song.systemPanFR[i]);
+        //     break;
+        //   default: break;
+        // }
+        if (out>peak) peak=out;
+      }
+      chipPeak[i][j]+=(peak-chipPeak[i][j])*0.9;
+    }
+  }
+
   // force mono audio (if enabled)
   if (forceMono && outChans>1) {
     for (size_t i=0; i<size; i++) {
@@ -2724,8 +2820,8 @@ void DivEngine::nextBuf(float** in, float** out, int inChans, int outChans, unsi
   if (clampSamples) {
     for (size_t i=0; i<size; i++) {
       for (int j=0; j<outChans; j++) {
-        if (out[j][i]<-1.0) out[j][i]=-1.0;
-        if (out[j][i]>1.0) out[j][i]=1.0;
+        if (out[j][i]<-0.9999) out[j][i]=-0.9999;
+        if (out[j][i]>0.9999) out[j][i]=0.9999;
       }
     }
   }

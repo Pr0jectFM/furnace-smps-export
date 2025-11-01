@@ -844,6 +844,39 @@ void FurnaceGUI::autoDetectSystem() {
   }
 }
 
+void FurnaceGUI::setCurIns(int newIns) {
+  curIns=newIns;
+  memset(multiIns,-1,7*sizeof(int));
+}
+
+bool FurnaceGUI::setMultiIns(int newIns) {
+  // set primary instrument if not set (or if polyphony is mono)
+  if (curIns<0 || noteInputMode==GUI_NOTE_INPUT_MONO) {
+    setCurIns(newIns);
+    return true;
+  }
+  // don't allow using the primary instrument twice
+  if (curIns==newIns) return false;
+  for (int i=0; i<7; i++) {
+    // don't allow using an instrument more than once
+    if (multiIns[i]==newIns) return false;
+    // if slot is empty, assign instrument to it
+    if (multiIns[i]==-1) {
+      multiIns[i]=newIns;
+      return true;
+    }
+  }
+  // no more slots available
+  return false;
+}
+
+bool FurnaceGUI::isMultiInsActive() {
+  for (int i=0; i<7; i++) {
+    if (multiIns[i]>=0) return true;
+  }
+  return false;
+}
+
 void FurnaceGUI::updateROMExportAvail() {
   memset(romExportAvail,0,sizeof(bool)*DIV_ROM_MAX);
   romExportExists=false;
@@ -1254,7 +1287,6 @@ void FurnaceGUI::play(int row) {
     chanOscChan[i].pitch=0.0f;
   }
   memset(chanOscBright,0,DIV_MAX_CHANS*sizeof(float));
-  e->walkSong(loopOrder,loopRow,loopEnd);
   memset(lastIns,-1,sizeof(int)*DIV_MAX_CHANS);
   if (wasFollowing) {
     followPattern=true;
@@ -1273,6 +1305,7 @@ void FurnaceGUI::play(int row) {
   }
   curNibble=false;
   orderNibble=false;
+  chordInputOffset=0;
   activeNotes.clear();
 }
 
@@ -1285,10 +1318,10 @@ void FurnaceGUI::setOrder(unsigned char order, bool forced) {
 
 void FurnaceGUI::stop() {
   bool wasPlaying=e->isPlaying();
-  e->walkSong(loopOrder,loopRow,loopEnd);
   e->stop();
   curNibble=false;
   orderNibble=false;
+  chordInputOffset=0;
   if (followPattern && wasPlaying) {
     nextScroll=-1.0f;
     nextAddScroll=0.0f;
@@ -1309,6 +1342,11 @@ void FurnaceGUI::previewNote(int refChan, int note, bool autoNote) {
   e->setMidiBaseChan(refChan);
   e->synchronized([this,note]() {
     if (!e->autoNoteOn(-1,curIns,note)) failedNoteOn=true;
+    for (int mi=0; mi<7; mi++) {
+      if (multiIns[mi]!=-1) {
+        e->autoNoteOn(-1,multiIns[mi],note,-1,multiInsTranspose[mi]);
+      }
+    }
   });
 }
 
@@ -1331,12 +1369,23 @@ void FurnaceGUI::stopPreviewNote(SDL_Scancode scancode, bool autoNote) {
   }
 }
 
-void FurnaceGUI::noteInput(int num, int key, int vol) {
+void FurnaceGUI::noteInput(int num, int key, int vol, int chanOff) {
   int ch=cursor.xCoarse;
   int ord=curOrder;
   int y=cursor.y;
   int tick=0;
   int speed=0;
+
+  if (chanOff>0 && noteInputMode==GUI_NOTE_INPUT_CHORD) {
+    ch=e->getViableChannel(ch,chanOff,curIns);
+    if ((!e->isPlaying() || !followPattern)) {
+      y-=editStep;
+      while (y<0) {
+        if (--ord<0) ord=0;
+        y+=e->curSubSong->patLen;
+      }
+    }
+  }
 
   if (e->isPlaying() && !e->isStepping() && followPattern) {
     e->getPlayPosTick(ord,y,tick,speed);
@@ -1351,12 +1400,12 @@ void FurnaceGUI::noteInput(int num, int key, int vol) {
     }
   }
 
-  logV("chan %d, %d:%d %d/%d",ch,ord,y,tick,speed);
+  logV("noteInput: chan %d, offset %d, %d:%d %d/%d",ch,chanOff,ord,y,tick,speed);
 
   DivPattern* pat=e->curPat[ch].getPattern(e->curOrders->ord[ch][ord],true);
   bool removeIns=false;
 
-  prepareUndo(GUI_UNDO_PATTERN_EDIT);
+  prepareUndo(GUI_UNDO_PATTERN_EDIT,UndoRegion(ord,ch,y,ord,ch,y));
 
   if (key==GUI_NOTE_OFF) { // note off
     pat->data[y][0]=100;
@@ -1403,8 +1452,10 @@ void FurnaceGUI::noteInput(int num, int key, int vol) {
       pat->data[y][3]=-1;
     }
   }
-  editAdvance();
-  makeUndo(GUI_UNDO_PATTERN_EDIT);
+  if ((!e->isPlaying() || !followPattern) && (chanOff<1 || noteInputMode!=GUI_NOTE_INPUT_CHORD)) {
+    editAdvance();
+  }
+  makeUndo(GUI_UNDO_PATTERN_EDIT,UndoRegion(ord,ch,y,ord,ch,y));
   curNibble=false;
 }
 
@@ -1412,6 +1463,8 @@ void FurnaceGUI::valueInput(int num, bool direct, int target) {
   int ch=cursor.xCoarse;
   int ord=curOrder;
   int y=cursor.y;
+
+  logV("valueInput: chan %d, %d:%d",ch,ord,y);
 
   if (e->isPlaying() && !e->isStepping() && followPattern) {
     e->getPlayPos(ord,y);
@@ -1438,7 +1491,7 @@ void FurnaceGUI::valueInput(int num, bool direct, int target) {
       }
     }
     if (settings.absorbInsInput) {
-      curIns=pat->data[y][target];
+      setCurIns(pat->newData[y][target]);
       wavePreviewInit=true;
       updateFMPreview=true;
     }
@@ -1522,7 +1575,6 @@ void FurnaceGUI::orderInput(int num) {
         }
       }
     }
-    e->walkSong(loopOrder,loopRow,loopEnd);
     makeUndo(GUI_UNDO_CHANGE_ORDER);
   }
 }
@@ -1721,8 +1773,9 @@ void FurnaceGUI::keyDown(SDL_Event& ev) {
               if (num>119) num=119; // B-9
 
               if (edit) {
-                noteInput(num,key);
+                noteInput(num,key,-1,chordInputOffset);
               }
+              chordInputOffset++;
             }
           } else if (edit) { // value
             auto it=valueKeys.find(ev.key.keysym.sym);
@@ -1818,7 +1871,8 @@ void FurnaceGUI::keyDown(SDL_Event& ev) {
 }
 
 void FurnaceGUI::keyUp(SDL_Event& ev) {
-  // nothing for now
+  // this is very, very lazy... but it works.
+  chordInputOffset=0;
 }
 
 bool dirExists(String s) {
@@ -1943,7 +1997,7 @@ void FurnaceGUI::openFileDialog(FurnaceGUIFileDialogs type) {
               if (curIns!=-2) {
                 prevIns=curIns;
               }
-              curIns=-2;
+              setCurIns(-2);
             }
           }
           for (DivInstrument* i: instruments) delete i;
@@ -2081,7 +2135,7 @@ void FurnaceGUI::openFileDialog(FurnaceGUIFileDialogs type) {
       if (!dirExists(workingDirAudioExport)) workingDirAudioExport=getHomeDir();
       hasOpened=fileDialog->openSave(
         _("Export Audio"),
-        {_("Wave file"), "*.wav"},
+        {audioExportFilterName, "*"+audioExportFilterExt},
         workingDirAudioExport,
         dpiScale,
         (settings.autoFillSave)?shortName:""
@@ -2091,7 +2145,7 @@ void FurnaceGUI::openFileDialog(FurnaceGUIFileDialogs type) {
       if (!dirExists(workingDirAudioExport)) workingDirAudioExport=getHomeDir();
       hasOpened=fileDialog->openSave(
         _("Export Audio"),
-        {_("Wave file"), "*.wav"},
+        {audioExportFilterName, "*"+audioExportFilterExt},
         workingDirAudioExport,
         dpiScale,
         (settings.autoFillSave)?shortName:""
@@ -2101,7 +2155,7 @@ void FurnaceGUI::openFileDialog(FurnaceGUIFileDialogs type) {
       if (!dirExists(workingDirAudioExport)) workingDirAudioExport=getHomeDir();
       hasOpened=fileDialog->openSave(
         _("Export Audio"),
-        {_("Wave file"), "*.wav"},
+        {audioExportFilterName, "*"+audioExportFilterExt},
         workingDirAudioExport,
         dpiScale,
         (settings.autoFillSave)?shortName:""
@@ -2303,6 +2357,17 @@ void FurnaceGUI::openFileDialog(FurnaceGUIFileDialogs type) {
          _("all files"), "*"},
         workingDirROM,
         dpiScale
+      );
+      break;
+    case GUI_FILE_MUSIC_OPEN:
+      if (!dirExists(workingDirMusic)) workingDirMusic=getHomeDir();
+      hasOpened=fileDialog->openLoad(
+        _("Open Audio File"),
+        audioLoadFormats,
+        workingDirMusic,
+        dpiScale,
+        NULL,
+        false
       );
       break;
     case GUI_FILE_TEST_OPEN:
@@ -2543,7 +2608,7 @@ int FurnaceGUI::load(String path) {
   }
   pushRecentFile(path);
   // walk song
-  e->walkSong(loopOrder,loopRow,loopEnd);
+  e->calcSongTimestamps();
   // do not auto-play a backup
   if (path.find(backupPath)!=0) {
     if (settings.playOnLoad==2 || (settings.playOnLoad==1 && wasPlaying)) {
@@ -2701,20 +2766,11 @@ int FurnaceGUI::loadStream(String path) {
 
 
 void FurnaceGUI::exportAudio(String path, DivAudioExportModes mode) {
-  songOrdersLengths.clear();
+  e->calcSongTimestamps();
+  DivSongTimestamps& ts=e->curSubSong->ts;
 
-  int loopOrder=0;
-  int loopRow=0;
-  int loopEnd=0;
-  e->walkSong(loopOrder,loopRow,loopEnd);
-
-  e->findSongLength(loopOrder,loopRow,audioExportOptions.fadeOut,songFadeoutSectionLength,songHasSongEndCommand,songOrdersLengths,songLength); // for progress estimation
-
-  songLoopedSectionLength=songLength;
-  for (int i=0; i<loopOrder && i<(int)songOrdersLengths.size(); i++) {
-    songLoopedSectionLength-=songOrdersLengths[i];
-  }
-  songLoopedSectionLength-=loopRow;
+  songLength=ts.totalTime.toDouble();
+  double loopLength=songLength-(ts.loopStartTime.seconds+(double)ts.loopStartTime.micros/1000000.0);
 
   e->saveAudio(path.c_str(),audioExportOptions);
 
@@ -2722,19 +2778,15 @@ void FurnaceGUI::exportAudio(String path, DivAudioExportModes mode) {
   e->getTotalAudioFiles(totalFiles);
   int totalLoops=0;
 
-  lengthOfOneFile=songLength;
-
-  if (!songHasSongEndCommand) {
+  if (ts.isLoopable) {
     e->getTotalLoops(totalLoops);
-
-    lengthOfOneFile+=songLoopedSectionLength*totalLoops;
-    lengthOfOneFile+=songFadeoutSectionLength; // account for fadeout
+    songLength+=loopLength*totalLoops;
+    songLength+=audioExportOptions.fadeOut;
   }
 
-  totalLength=lengthOfOneFile*totalFiles;
+  totalLength=songLength*totalFiles;
 
   curProgress=0.0f;
-
   displayExporting=true;
 }
 
@@ -3836,6 +3888,8 @@ bool FurnaceGUI::loop() {
   DECLARE_METRIC(log)
   DECLARE_METRIC(effectList)
   DECLARE_METRIC(userPresets)
+  DECLARE_METRIC(refPlayer)
+  DECLARE_METRIC(multiInsSetup)
   DECLARE_METRIC(popup)
 
 #ifdef IS_MOBILE
@@ -3857,6 +3911,7 @@ bool FurnaceGUI::loop() {
 
   while (!quit) {
     SDL_Event ev;
+    SelectionPoint prevCursor=cursor;
     if (e->isPlaying()) {
       WAKE_UP;
     }
@@ -3991,6 +4046,9 @@ bool FurnaceGUI::loop() {
           break;
         case SDL_KEYUP:
           // for now
+          if (!ImGui::GetIO().WantCaptureKeyboard || (newFilePicker->isOpened() && !ImGui::GetIO().WantTextInput)) {
+            keyUp(ev);
+          }
           insEditMayBeDirty=true;
           if (introPos<11.0 && introSkip<0.5 && !shortIntro) {
             introSkipDo=false;
@@ -4019,7 +4077,7 @@ bool FurnaceGUI::loop() {
                 instrumentCount=e->addInstrumentPtr(i);
               }
               if (instrumentCount>=0 && settings.selectAssetOnLoad) {
-                curIns=instrumentCount-1;
+                setCurIns(instrumentCount-1);
               }
               nextWindow=GUI_WINDOW_INS_LIST;
               MARK_MODIFIED;
@@ -4174,14 +4232,19 @@ bool FurnaceGUI::loop() {
         if (action!=0) {
           doAction(action);
         } else switch (msg.type&0xf0) {
+          case TA_MIDI_NOTE_OFF:
+            chordInputOffset=0;
+            break;
           case TA_MIDI_NOTE_ON:
             if (midiMap.valueInputStyle==0 || midiMap.valueInputStyle>3 || cursor.xFine==0) {
               if (midiMap.noteInput && edit && msg.data[1]!=0) {
                 noteInput(
                   msg.data[0]-12,
                   0,
-                  midiMap.volInput?msg.data[1]:-1
+                  midiMap.volInput?msg.data[1]:-1,
+                  chordInputOffset
                 );
+                chordInputOffset++;
               }
             } else {
               if (edit && msg.data[1]!=0) {
@@ -4208,8 +4271,8 @@ bool FurnaceGUI::loop() {
             break;
           case TA_MIDI_PROGRAM:
             if (midiMap.programChange && !(midiMap.directChannel && midiMap.directProgram)) {
-              curIns=msg.data[0];
-              if (curIns>=(int)e->song.ins.size()) curIns=e->song.ins.size()-1;
+              setCurIns(msg.data[0]);
+              if (curIns>=(int)e->song.ins.size()) setCurIns(e->song.ins.size()-1);
               wavePreviewInit=true;
               updateFMPreview=true;
             }
@@ -4328,6 +4391,17 @@ bool FurnaceGUI::loop() {
       });
     }
 
+    // recover from audio resets
+    TAAudioDeviceStatus audioStatus=e->getAudioDeviceStatus();
+    if (audioStatus!=TA_AUDIO_DEVICE_OK) {
+      logI("audio device reset!");
+      e->acceptAudioDeviceStatus();
+
+      if (!e->switchMaster(false)) {
+        showError(_("audio device has reset or has been disconnected! check audio settings."));
+      }
+    }
+
     // recover from dead graphics
     if (rend->isDead() || killGraphics) {
       killGraphics=false;
@@ -4437,6 +4511,8 @@ bool FurnaceGUI::loop() {
         IMPORT_CLOSE(memoryOpen);
         IMPORT_CLOSE(csPlayerOpen);
         IMPORT_CLOSE(userPresetsOpen);
+        IMPORT_CLOSE(refPlayerOpen);
+        IMPORT_CLOSE(multiInsSetupOpen);
       } else if (pendingLayoutImportStep==1) {
         // let the UI settle
       } else if (pendingLayoutImportStep==2) {
@@ -4627,6 +4703,7 @@ bool FurnaceGUI::loop() {
                 showError(fmt::sprintf(_("cannot add chip! (%s)"),e->getLastError()));
               } else {
                 MARK_MODIFIED;
+                recalcTimestamps=true;
               }
               ImGui::CloseCurrentPopup();
               if (e->song.autoSystem) {
@@ -4656,6 +4733,7 @@ bool FurnaceGUI::loop() {
                 if (picked!=DIV_SYSTEM_NULL) {
                   if (e->changeSystem(i,picked,preserveChanPos)) {
                     MARK_MODIFIED;
+                    recalcTimestamps=true;
                     if (e->song.autoSystem) {
                       autoDetectSystem();
                     }
@@ -4680,6 +4758,7 @@ bool FurnaceGUI::loop() {
                   showError(fmt::sprintf(_("cannot remove chip! (%s)"),e->getLastError()));
                 } else {
                   MARK_MODIFIED;
+                  recalcTimestamps=true;
                 }
                 if (e->song.autoSystem) {
                   autoDetectSystem();
@@ -4809,6 +4888,8 @@ bool FurnaceGUI::loop() {
         if (ImGui::MenuItem(_("effect list"),BIND_FOR(GUI_ACTION_WINDOW_EFFECT_LIST),effectListOpen)) effectListOpen=!effectListOpen;
         if (ImGui::MenuItem(_("play/edit controls"),BIND_FOR(GUI_ACTION_WINDOW_EDIT_CONTROLS),editControlsOpen)) editControlsOpen=!editControlsOpen;
         if (ImGui::MenuItem(_("piano/input pad"),BIND_FOR(GUI_ACTION_WINDOW_PIANO),pianoOpen)) pianoOpen=!pianoOpen;
+        if (ImGui::MenuItem(_("reference music player"),BIND_FOR(GUI_ACTION_WINDOW_REF_PLAYER),refPlayerOpen)) refPlayerOpen=!refPlayerOpen;
+        if (ImGui::MenuItem(_("multi-ins setup"),BIND_FOR(GUI_ACTION_WINDOW_MULTI_INS_SETUP),multiInsSetupOpen)) multiInsSetupOpen=!multiInsSetupOpen;
         if (spoilerOpen) if (ImGui::MenuItem(_("spoiler"),NULL,spoilerOpen)) spoilerOpen=!spoilerOpen;
 
         ImGui::EndMenu();
@@ -4827,8 +4908,7 @@ bool FurnaceGUI::loop() {
       }
       ImGui::PushStyleColor(ImGuiCol_Text,uiColors[GUI_COLOR_PLAYBACK_STAT]);
       if (e->isPlaying() && settings.playbackTime) {
-        int totalTicks=e->getTotalTicks();
-        int totalSeconds=e->getTotalSeconds();
+        TimeMicros totalTime=e->getCurTime();
 
         String info;
 
@@ -4857,32 +4937,10 @@ bool FurnaceGUI::loop() {
 
         info+=_("| ");
 
-        if (totalSeconds==0x7fffffff) {
+        if (totalTime.seconds==0x7fffffff) {
           info+=_("Don't you have anything better to do?");
         } else {
-          if (totalSeconds>=86400) {
-            int totalDays=totalSeconds/86400;
-            int totalYears=totalDays/365;
-            totalDays%=365;
-            int totalMonths=totalDays/30;
-            totalDays%=30;
-
-#ifdef HAVE_LOCALE
-            info+=fmt::sprintf(ngettext("%d year ","%d years ",totalYears),totalYears);
-            info+=fmt::sprintf(ngettext("%d month ","%d months ",totalMonths),totalMonths);
-            info+=fmt::sprintf(ngettext("%d day ","%d days ",totalDays),totalDays);
-#else
-            info+=fmt::sprintf(_GN("%d year ","%d years ",totalYears),totalYears);
-            info+=fmt::sprintf(_GN("%d month ","%d months ",totalMonths),totalMonths);
-            info+=fmt::sprintf(_GN("%d day ","%d days ",totalDays),totalDays);
-#endif
-          }
-
-          if (totalSeconds>=3600) {
-            info+=fmt::sprintf("%.2d:",(totalSeconds/3600)%24);
-          }
-
-          info+=fmt::sprintf("%.2d:%.2d.%.2d",(totalSeconds/60)%60,totalSeconds%60,totalTicks/10000);
+          info+=totalTime.toString(2,TA_TIME_FORMAT_AUTO_MS_ZERO);
         }
 
         ImGui::TextUnformatted(info.c_str());
@@ -4930,13 +4988,17 @@ bool FurnaceGUI::loop() {
               }
               break;
             default: // effect
+<<<<<<< HEAD
               int actualCursor=((cursor.xFine+1)&(~1));
               if (p->data[cursor.y][actualCursor]>-1) {
                 info=e->getEffectDesc(p->data[cursor.y][actualCursor],cursor.xCoarse,true);
+                }
+              } else {
+                info=_("Error!");
+>>>>>>> deee0f816c78ada4ae57e524378c1758388e2d75
                 hasInfo=true;
               }
               break;
-          }
         }
         if (hasInfo && (settings.statusDisplay==0 || settings.statusDisplay==2)) {
           ImGui::Text("| %s",info.c_str());
@@ -5027,6 +5089,8 @@ bool FurnaceGUI::loop() {
       MEASURE(memory,drawMemory());
       MEASURE(effectList,drawEffectList());
       MEASURE(userPresets,drawUserPresets());
+      MEASURE(refPlayer,drawRefPlayer());
+      MEASURE(multiInsSetup,drawMultiInsSetup());
       MEASURE(patManager,drawPatManager());
 
     } else {
@@ -5072,6 +5136,8 @@ bool FurnaceGUI::loop() {
       MEASURE(log,drawLog());
       MEASURE(effectList,drawEffectList());
       MEASURE(userPresets,drawUserPresets());
+      MEASURE(refPlayer,drawRefPlayer());
+      MEASURE(multiInsSetup,drawMultiInsSetup());
 
     }
 
@@ -5141,7 +5207,7 @@ bool FurnaceGUI::loop() {
             }
           }
         } else {
-          curIns=prevIns;
+          setCurIns(prevIns);
           wavePreviewInit=true;
           updateFMPreview=true;
         }
@@ -5224,6 +5290,9 @@ bool FurnaceGUI::loop() {
         case GUI_FILE_CMDSTREAM_OPEN:
           workingDirROM=fileDialog->getPath()+DIR_SEPARATOR_STR;
           break;
+        case GUI_FILE_MUSIC_OPEN:
+          workingDirMusic=fileDialog->getPath()+DIR_SEPARATOR_STR;
+          break;
         case GUI_FILE_TEST_OPEN:
         case GUI_FILE_TEST_OPEN_MULTI:
         case GUI_FILE_TEST_SAVE:
@@ -5259,11 +5328,15 @@ bool FurnaceGUI::loop() {
           if (curFileDialog==GUI_FILE_SAVE_DMF_LEGACY) {
             checkExtension(".dmf");
           }
-          if (curFileDialog==GUI_FILE_SAMPLE_SAVE ||
-              curFileDialog==GUI_FILE_EXPORT_AUDIO_ONE ||
+          if (curFileDialog==GUI_FILE_SAMPLE_SAVE) {
+            checkExtension(".wav");
+          }
+          if (curFileDialog==GUI_FILE_EXPORT_AUDIO_ONE ||
               curFileDialog==GUI_FILE_EXPORT_AUDIO_PER_SYS ||
               curFileDialog==GUI_FILE_EXPORT_AUDIO_PER_CHANNEL) {
-            checkExtension(".wav");
+            if (audioExportFilterExt!="*") {
+              checkExtension(audioExportFilterExt.c_str());
+            }
           }
           if (curFileDialog==GUI_FILE_INS_SAVE) {
             checkExtension(".fui");
@@ -5644,7 +5717,7 @@ bool FurnaceGUI::loop() {
                     MARK_MODIFIED;
                   }
                   if (instrumentCount>=0 && settings.selectAssetOnLoad) {
-                    curIns=instrumentCount-1;
+                    setCurIns(instrumentCount-1);
                   }
                 }
               }
@@ -5885,6 +5958,17 @@ bool FurnaceGUI::loop() {
                 showError(fmt::sprintf(_("Error while loading file! (%s)"),lastError));
               }
               break;
+            case GUI_FILE_MUSIC_OPEN:
+              e->synchronizedSoft([this,copyOfName]() {
+                bool wasPlaying=e->getFilePlayer()->isPlaying();
+                if (!e->getFilePlayer()->loadFile(copyOfName.c_str())) {
+                  showError(fmt::sprintf(_("Error while loading file!")));
+                } else if (wasPlaying && filePlayerSync && refPlayerOpen && e->isPlaying()) {
+                  e->syncFilePlayer();
+                  e->getFilePlayer()->play();
+                }
+              });
+              break;
             case GUI_FILE_TEST_OPEN:
               showWarning(fmt::sprintf(_("You opened: %s"),copyOfName),GUI_WARN_GENERIC);
               break;
@@ -6020,46 +6104,21 @@ bool FurnaceGUI::loop() {
       if (audioExportOptions.mode!=DIV_EXPORT_MODE_MANY_CHAN) {
         ImGui::Text(_("Please wait..."));
       }
-      float* progressLambda=&curProgress;
-      int curPosInRows=0;
-      int* curPosInRowsLambda=&curPosInRows;
-      int loopsLeft=0;
-      int* loopsLeftLambda=&loopsLeft;
-      int totalLoops=0;
-      int* totalLoopsLambda=&totalLoops;
       int curFile=0;
       int* curFileLambda=&curFile;
       if (e->isExporting()) {
         e->lockEngine(
-          [this, progressLambda, curPosInRowsLambda, curFileLambda, loopsLeftLambda, totalLoopsLambda] () {
-            int curRow=0; int curOrder=0;
-            e->getCurSongPos(curRow, curOrder);
+          [this, curFileLambda] () {
             *curFileLambda=0;
             e->getCurFileIndex(*curFileLambda);
-            *curPosInRowsLambda=curRow;
-            for (int i=0; i<MIN(curOrder,(int)songOrdersLengths.size()); i++) *curPosInRowsLambda+=songOrdersLengths[i];
-            if (!songHasSongEndCommand) {
-              e->getLoopsLeft(*loopsLeftLambda);
-              e->getTotalLoops(*totalLoopsLambda);
-              if ((*totalLoopsLambda)!=(*loopsLeftLambda)) { // we are going 2nd, 3rd, etc. time through the song
-                *curPosInRowsLambda-=(songLength-songLoopedSectionLength); // a hack so progress bar does not jump?
-              }
-              if (e->getIsFadingOut()) { // we are in fadeout??? why it works like that bruh
-                // LIVE WITH IT damn it
-                *curPosInRowsLambda-=(songLength-songLoopedSectionLength); // a hack so progress bar does not jump?
-              }
-            }
-            if (totalLength<0.1) {
-              // DON'T
-              *progressLambda=0;
-            } else {
-              *progressLambda=(float)((*curPosInRowsLambda)+((*totalLoopsLambda)-(*loopsLeftLambda))*songLength+lengthOfOneFile*(*curFileLambda))/(float)totalLength;
-            }
+            curProgress=(e->getCurTime().toDouble()+(songLength*(*curFileLambda)))/totalLength;
           }
         );
       }
 
-      ImGui::Text(_("Row %d of %d"),curPosInRows+((totalLoops)-(loopsLeft))*songLength,lengthOfOneFile);
+      if (curProgress<0.0f) curProgress=0.0f;
+      if (curProgress>1.0f) curProgress=1.0f;
+
       if (audioExportOptions.mode==DIV_EXPORT_MODE_MANY_CHAN) ImGui::Text(_("Channel %d of %d"),curFile+1,totalFiles);
 
       ImGui::ProgressBar(curProgress,ImVec2(320.0f*dpiScale,0),fmt::sprintf("%.2f%%",curProgress*100.0f).c_str());
@@ -6508,6 +6567,7 @@ bool FurnaceGUI::loop() {
               selStart.order=0;
               selEnd.order=0;
               MARK_MODIFIED;
+              recalcTimestamps=true;
               ImGui::CloseCurrentPopup();
             }
             if (ImGui::Button(_("Current subsong"))) {
@@ -6521,6 +6581,7 @@ bool FurnaceGUI::loop() {
               selStart.order=0;
               selEnd.order=0;
               MARK_MODIFIED;
+              recalcTimestamps=true;
               ImGui::CloseCurrentPopup();
             }
             if (ImGui::Button(_("Orders"))) {
@@ -6535,6 +6596,7 @@ bool FurnaceGUI::loop() {
               selStart.order=0;
               selEnd.order=0;
               MARK_MODIFIED;
+              recalcTimestamps=true;
               ImGui::CloseCurrentPopup();
             }
             if (ImGui::Button(_("Pattern"))) {
@@ -6550,6 +6612,7 @@ bool FurnaceGUI::loop() {
                 }
               });
               MARK_MODIFIED;
+              recalcTimestamps=true;
               ImGui::CloseCurrentPopup();
             }
             if (ImGui::Button(_("Instruments"))) {
@@ -6557,7 +6620,7 @@ bool FurnaceGUI::loop() {
               e->lockEngine([this]() {
                 e->song.clearInstruments();
               });
-              curIns=-1;
+              setCurIns(-1);
               MARK_MODIFIED;
               ImGui::CloseCurrentPopup();
             }
@@ -6593,6 +6656,7 @@ bool FurnaceGUI::loop() {
                 e->curSubSong->rearrangePatterns();
               });
               MARK_MODIFIED;
+              recalcTimestamps=true;
               ImGui::CloseCurrentPopup();
             }
             if (ImGui::Button(_("Remove unused patterns"))) {
@@ -6601,6 +6665,7 @@ bool FurnaceGUI::loop() {
                 e->curSubSong->removeUnusedPatterns();
               });
               MARK_MODIFIED;
+              recalcTimestamps=true;
               ImGui::CloseCurrentPopup();
             }
             if (ImGui::Button(_("Remove unused instruments"))) {
@@ -6654,6 +6719,7 @@ bool FurnaceGUI::loop() {
               selStart=cursor;
               selEnd=cursor;
               curOrder=0;
+              recalcTimestamps=true;
               MARK_MODIFIED;
             }
             ImGui::CloseCurrentPopup();
@@ -6672,6 +6738,7 @@ bool FurnaceGUI::loop() {
               MARK_MODIFIED;
             }
             updateROMExportAvail();
+            recalcTimestamps=true;
             ImGui::CloseCurrentPopup();
           }
           ImGui::SameLine();
@@ -6758,7 +6825,7 @@ bool FurnaceGUI::loop() {
         strncpy(temp,insTypes[i][0],1023);
         if (ImGui::MenuItem(temp)) {
           // create ins
-          curIns=e->addInstrument(-1,i);
+          setCurIns(e->addInstrument(-1,i));
           if (curIns==-1) {
             showError(_("too many instruments!"));
           } else {
@@ -7384,6 +7451,26 @@ bool FurnaceGUI::loop() {
       }
     }
 
+    if (recalcTimestamps) {
+      logV("need to recalc timestamps...");
+      e->calcSongTimestamps();
+      recalcTimestamps=false;
+    }
+
+    if (!e->isPlaying() && e->getFilePlayerSync()) {
+      if (cursor.y!=prevCursor.y || cursor.order!=prevCursor.order) {
+        DivFilePlayer* fp=e->getFilePlayer();
+        logV("cursor moved to %d:%d",cursor.order,cursor.y);
+        if (!fp->isPlaying()) {
+          TimeMicros rowTS=e->curSubSong->ts.getTimes(cursor.order,cursor.y);
+          if (rowTS.seconds!=-1) {
+            TimeMicros cueTime=e->getFilePlayerCue();
+            fp->setPosSeconds(cueTime+rowTS);
+          }
+        }
+      }
+    }
+
     sampleMapWaitingInput=(curWindow==GUI_WINDOW_INS_EDIT && sampleMapFocused);
     
     curWindowThreadSafe=curWindow;
@@ -7433,6 +7520,9 @@ bool FurnaceGUI::loop() {
             break;
         }
       }
+
+      // reset chord count just in case
+      chordInputOffset=0;
     }
 
     if (!settings.renderClearPos || renderBackend==GUI_BACKEND_METAL) {
@@ -7595,7 +7685,7 @@ bool FurnaceGUI::init() {
 
   initSystemPresets();
 
-  e->setAutoNotePoly(noteInputPoly);
+  e->setAutoNotePoly(noteInputMode!=GUI_NOTE_INPUT_MONO);
 
   SDL_SetHint(SDL_HINT_VIDEO_ALLOW_SCREENSAVER,"1");
 #if SDL_VERSION_ATLEAST(2,0,17)
@@ -8102,9 +8192,23 @@ bool FurnaceGUI::init() {
     // just in case
     if (strcmp(f.extension,"dmc")==0) continue;
     if (strcmp(f.extension,"brr")==0) continue;
-    audioLoadFormats.push_back(f.name);
-    audioLoadFormats.push_back(fmt::sprintf("*.%s",f.extension));
-    compatFormats+=fmt::sprintf("*.%s ",f.extension);
+
+    // special treatment for Ogg and MPEG
+    if (strcmp(f.extension,"oga")==0) {
+      supportsOgg=true;
+      audioLoadFormats.push_back(f.name);
+      audioLoadFormats.push_back("*.ogg *.oga *.opus");
+      compatFormats+="*.ogg *.oga *.opus ";
+    } else if (strcmp(f.extension,"m1a")==0) {
+      supportsMP3=true;
+      audioLoadFormats.push_back(f.name);
+      audioLoadFormats.push_back("*.m1a *.mp1 *.mp2 *.mp3");
+      compatFormats+="*.m1a *.mp1 *.mp2 *.mp3 ";
+    } else {
+      audioLoadFormats.push_back(f.name);
+      audioLoadFormats.push_back(fmt::sprintf("*.%s",f.extension));
+      compatFormats+=fmt::sprintf("*.%s ",f.extension);
+    }
   }
 #endif
 
@@ -8164,11 +8268,13 @@ void FurnaceGUI::syncState() {
   workingDirAudioExport=e->getConfString("lastDirAudioExport",workingDir);
   workingDirVGMExport=e->getConfString("lastDirVGMExport",workingDir);
   workingDirROMExport=e->getConfString("lastDirROMExport",workingDir);
+  workingDirROM=e->getConfString("lastDirROM",workingDir);
   workingDirFont=e->getConfString("lastDirFont",workingDir);
   workingDirColors=e->getConfString("lastDirColors",workingDir);
   workingDirKeybinds=e->getConfString("lastDirKeybinds",workingDir);
   workingDirLayout=e->getConfString("lastDirLayout",workingDir);
   workingDirConfig=e->getConfString("lastDirConfig",workingDir);
+  workingDirMusic=e->getConfString("lastDirMusic",workingDir);
   workingDirTest=e->getConfString("lastDirTest",workingDir);
 
   editControlsOpen=e->getConfBool("editControlsOpen",true);
@@ -8210,6 +8316,8 @@ void FurnaceGUI::syncState() {
   findOpen=e->getConfBool("findOpen",false);
   spoilerOpen=e->getConfBool("spoilerOpen",false);
   userPresetsOpen=e->getConfBool("userPresetsOpen",false);
+  refPlayerOpen=e->getConfBool("refPlayerOpen",false);
+  multiInsSetupOpen=e->getConfBool("multiInsSetupOpen",false);
 
   insListDir=e->getConfBool("insListDir",false);
   waveListDir=e->getConfBool("waveListDir",false);
@@ -8244,7 +8352,11 @@ void FurnaceGUI::syncState() {
   orderLock=e->getConfBool("orderLock",false);
   followOrders=e->getConfBool("followOrders",true);
   followPattern=e->getConfBool("followPattern",true);
-  noteInputPoly=e->getConfBool("noteInputPoly",true);
+  noteInputMode=e->getConfInt("noteInputMode",GUI_NOTE_INPUT_POLY);
+  if (noteInputMode!=GUI_NOTE_INPUT_MONO && noteInputMode!=GUI_NOTE_INPUT_POLY && noteInputMode!=GUI_NOTE_INPUT_CHORD) {
+    noteInputMode=GUI_NOTE_INPUT_POLY;
+  }
+  filePlayerSync=e->getConfBool("filePlayerSync",true);
   audioExportOptions.loops=e->getConfInt("exportLoops",0);
   if (audioExportOptions.loops<0) audioExportOptions.loops=0;
   audioExportOptions.fadeOut=e->getConfDouble("exportFadeOut",0.0);
@@ -8267,6 +8379,7 @@ void FurnaceGUI::syncState() {
   pianoOffsetEdit=e->getConfInt("pianoOffsetEdit",pianoOffsetEdit);
   pianoView=e->getConfInt("pianoView",pianoView);
   pianoInputPadMode=e->getConfInt("pianoInputPadMode",pianoInputPadMode);
+  pianoLabelsMode=e->getConfInt("pianoLabelsMode",pianoLabelsMode);
 
   chanOscCols=e->getConfInt("chanOscCols",3);
   chanOscAutoColsType=e->getConfInt("chanOscAutoColsType",0);
@@ -8327,11 +8440,13 @@ void FurnaceGUI::commitState(DivConfig& conf) {
   conf.set("lastDirAudioExport",workingDirAudioExport);
   conf.set("lastDirVGMExport",workingDirVGMExport);
   conf.set("lastDirROMExport",workingDirROMExport);
+  conf.set("lastDirROM",workingDirROM);
   conf.set("lastDirFont",workingDirFont);
   conf.set("lastDirColors",workingDirColors);
   conf.set("lastDirKeybinds",workingDirKeybinds);
   conf.set("lastDirLayout",workingDirLayout);
   conf.set("lastDirConfig",workingDirConfig);
+  conf.set("lastDirMusic",workingDirMusic);
   conf.set("lastDirTest",workingDirTest);
 
   // commit last open windows
@@ -8370,6 +8485,8 @@ void FurnaceGUI::commitState(DivConfig& conf) {
   conf.set("findOpen",findOpen);
   conf.set("spoilerOpen",spoilerOpen);
   conf.set("userPresetsOpen",userPresetsOpen);
+  conf.set("refPlayerOpen",refPlayerOpen);
+  conf.set("multiInsSetupOpen",multiInsSetupOpen);
 
   // commit dir state
   conf.set("insListDir",insListDir);
@@ -8400,7 +8517,8 @@ void FurnaceGUI::commitState(DivConfig& conf) {
   conf.set("followOrders",followOrders);
   conf.set("followPattern",followPattern);
   conf.set("orderEditMode",orderEditMode);
-  conf.set("noteInputPoly",noteInputPoly);
+  conf.set("noteInputMode",(int)noteInputMode);
+  conf.set("filePlayerSync",filePlayerSync);
   if (settings.persistFadeOut) {
     conf.set("exportLoops",audioExportOptions.loops);
     conf.set("exportFadeOut",audioExportOptions.fadeOut);
@@ -8422,6 +8540,7 @@ void FurnaceGUI::commitState(DivConfig& conf) {
   conf.set("pianoOffsetEdit",pianoOffsetEdit);
   conf.set("pianoView",pianoView);
   conf.set("pianoInputPadMode",pianoInputPadMode);
+  conf.set("pianoLabelsMode",pianoLabelsMode);
 
   // commit per-chan osc state
   conf.set("chanOscCols",chanOscCols);
@@ -8573,9 +8692,10 @@ FurnaceGUI::FurnaceGUI():
   preserveChanPos(false),
   sysDupCloneChannels(true),
   sysDupEnd(false),
-  noteInputPoly(true),
+  noteInputMode(GUI_NOTE_INPUT_POLY),
   notifyWaveChange(false),
   notifySampleChange(false),
+  recalcTimestamps(true),
   wantScrollListIns(false),
   wantScrollListWave(false),
   wantScrollListSample(false),
@@ -8597,15 +8717,18 @@ FurnaceGUI::FurnaceGUI():
   safeMode(false),
   midiWakeUp(true),
   makeDrumkitMode(false),
+  filePlayerSync(true),
   audioEngineChanged(false),
   settingsChanged(false),
   debugFFT(false),
+  debugRowTimestamps(false),
   vgmExportVersion(0x171),
   vgmExportTrailingTicks(-1),
   vgmExportCorrectedRate(44100),
   drawHalt(10),
   macroPointSize(16),
   waveEditStyle(0),
+  chordInputOffset(0),
   displayInsTypeListMakeInsSample(-1),
   makeDrumkitOctave(3),
   mobileEditPage(0),
@@ -8670,12 +8793,8 @@ FurnaceGUI::FurnaceGUI():
   patFont(NULL),
   bigFont(NULL),
   headFont(NULL),
-  songLength(0),
-  songLoopedSectionLength(0),
-  songFadeoutSectionLength(0),
-  songHasSongEndCommand(false),
-  lengthOfOneFile(0),
-  totalLength(0),
+  songLength(0.0),
+  totalLength(0.0),
   curProgress(0.0f),
   totalFiles(0),
   localeRequiresJapanese(false),
@@ -8701,9 +8820,6 @@ FurnaceGUI::FurnaceGUI():
   soloChan(-1),
   orderEditMode(0),
   orderCursor(-1),
-  loopOrder(-1),
-  loopRow(-1),
-  loopEnd(-1),
   isClipping(0),
   newSongCategory(0),
   latchTarget(0),
@@ -8725,6 +8841,7 @@ FurnaceGUI::FurnaceGUI():
   curPaletteChoice(0),
   curPaletteType(0),
   soloTimeout(0.0f),
+  mobileMultiInsToggle(false),
   purgeYear(2021),
   purgeMonth(4),
   purgeDay(4),
@@ -8773,6 +8890,8 @@ FurnaceGUI::FurnaceGUI():
   csPlayerOpen(false),
   cvOpen(false),
   userPresetsOpen(false),
+  refPlayerOpen(false),
+  multiInsSetupOpen(false),
   cvNotSerious(false),
   shortIntro(false),
   insListDir(false),
@@ -8853,6 +8972,8 @@ FurnaceGUI::FurnaceGUI():
   queryReplaceInsDo(false),
   queryReplaceVolDo(false),
   queryViewingResults(false),
+  supportsOgg(false),
+  supportsMP3(false),
   wavePreviewOn(false),
   wavePreviewKey((SDL_Scancode)0),
   wavePreviewNote(0),
@@ -8972,6 +9093,7 @@ FurnaceGUI::FurnaceGUI():
   resampleTarget(32000),
   resampleStrat(5),
   amplifyVol(100.0),
+  amplifyOff(0.0),
   sampleSelStart(-1),
   sampleSelEnd(-1),
   sampleInfo(true),
@@ -9055,6 +9177,9 @@ FurnaceGUI::FurnaceGUI():
   xyOscDecayTime(10.0f),
   xyOscIntensity(2.0f),
   xyOscThickness(2.0f),
+  fpCueInput(""),
+  fpCueInputFailed(false),
+  fpCueInputFailReason(""),
   followLog(true),
 #ifdef IS_MOBILE
   pianoOctaves(7),
@@ -9067,6 +9192,7 @@ FurnaceGUI::FurnaceGUI():
   pianoOffsetEdit(9),
   pianoView(PIANO_LAYOUT_AUTOMATIC),
   pianoInputPadMode(PIANO_INPUT_PAD_SPLIT_AUTO),
+  pianoLabelsMode(PIANO_LABELS_OCTAVE),
 #else
   pianoOctaves(7),
   pianoOctavesEdit(4),
@@ -9077,6 +9203,7 @@ FurnaceGUI::FurnaceGUI():
   pianoOffsetEdit(6),
   pianoView(PIANO_LAYOUT_STANDARD),
   pianoInputPadMode(PIANO_INPUT_PAD_DISABLE),
+  pianoLabelsMode(PIANO_LABELS_OCTAVE),
 #endif
   hasACED(false),
   waveGenBaseShape(0),
@@ -9105,6 +9232,8 @@ FurnaceGUI::FurnaceGUI():
   csExportResult(NULL),
   csExportTarget(false),
   csExportDone(false),
+  audioExportFilterName("???"),
+  audioExportFilterExt("*"),
   dmfExportVersion(0),
 
   curExportType(GUI_EXPORT_NONE),
@@ -9233,7 +9362,8 @@ FurnaceGUI::FurnaceGUI():
 
   memset(romExportAvail,0,sizeof(bool)*DIV_ROM_MAX);
 
-  songOrdersLengths.clear();
+  memset(multiIns,-1,7*sizeof(int));
+  memset(multiInsTranspose,0,7*sizeof(int));
 
   strncpy(noteOffLabel,"OFF",32);
   strncpy(noteRelLabel,"===",32);
