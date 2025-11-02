@@ -1219,8 +1219,7 @@ SafeWriter* DivEngine::saveASM(DivSMPSOptions options) {
     if (vars.chanOn[l] == typeNull) continue;
     if (vars.chanOn[l] == typeNoise && vars.chanOn[l - 1] == typePSG) break;
     // Write order list
-    if (vars.loopPat >= 0)
-      w->writeText(fmt::sprintf("\n%s_%s:", options.label, smpsChanName(l, options.style == verAMPS)));
+    w->writeText(fmt::sprintf("\n%s_%s:", options.label, smpsChanName(l, options.style == verAMPS)));
 
     if (vars.chanOn[l] == typeNoise)
       w->writeText(fmt::sprintf("\n\t%s\t$%.2X", vars.symCommands[smpsNoise], 0xE7));
