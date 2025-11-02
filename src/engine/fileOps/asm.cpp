@@ -935,7 +935,7 @@ static String smpsCommands(const uint8_t effect, const uint8_t value, smpsVars &
 
     // note cut
     case 0xEC:
-      return fmt::sprintf("\n\t%s\t\t%.2X", vars.symCommands[smpsGate], value);
+      return fmt::sprintf("\n\t%s\t\t$%.2X", vars.symCommands[smpsGate], value);
 
       // note delay
     case 0xED:
