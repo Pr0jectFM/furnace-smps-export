@@ -335,7 +335,7 @@ struct smpsVars {
   uint8_t fmVoices[0x100];
   String psgVoices[0x100];
   // pattern and song length
-  uint8_t loopPat;
+  int loopPat;
   uint8_t endPat;
   uint8_t lenTable[2][0x100];
   int endPlace;
@@ -346,7 +346,28 @@ struct smpsVars {
   uint8_t pan, noise, retrigger;
   int chans;
   uint8_t chanOn[11];
-
+  smpsVars():
+    loopPat(0),
+    endPat(0),
+    endPlace(0),
+    volRate(0),
+    pitchTarget(0),
+    pitchRate(0),
+    pan(0),
+    noise(0),
+    retrigger(0),
+    chans(0) {
+      for (int i = 0; i < smpsSymLen; i++) symCommands[i] = 0;
+      for (int i = 0; i < 13; i++) notesSet[i] = 0;
+      for (int i = 0; i < 0x100; i++) fmVoices[i] = 0;
+      for (int i = 0; i < 0x100; i++) psgVoices[i] = "";
+      for (int i = 0; i < 0x100; i++) {
+        lenTable[0][i] = 0;
+        lenTable[1][i] = 0;
+      }
+      for (int i = 0; i < 4; i++) vib[i] = 0;
+      for (int i = 0; i < 11; i++) chanOn[i] = 0;
+    }
 };
 
 // style names
@@ -623,6 +644,37 @@ struct smpsTempVars {
   bool hold, legato;
   bool wroteLen, wroteNote;
   bool noise;
+  smpsTempVars():
+    numEffects(0),
+    macroTimer(0),
+    lineCnt(0),
+    noteTime(0),
+    prevTime(0),
+    lastIns(0),
+    lastVol(0),
+    steps(0),
+    channel(0),
+    order(0),
+    note(0),
+    octave(0),
+    prevNote(0),
+    prevOctave(0),
+    redo(false),
+    noteString(""),
+    offset(0),
+    hold(false),
+    legato(false),
+    wroteLen(false),
+    wroteNote(false),
+    noise(false) {
+      for (int i = 0; i < 0x10; i++) effects[i] = "";
+      for (int i = 0; i < timeLen; i++) timers[i] = 0;
+      for (int i = 0; i < macLen; i++) {
+        macroVals[i][0] = 0;
+        macroVals[i][1] = 0;
+      }
+      
+  }
 };
 
 static void writeHeader(SafeWriter* w, smpsVars& vars, DivSubSong*& s, DivSMPSOptions& options) {
@@ -816,7 +868,7 @@ static String smpsCommands(const uint8_t effect, const uint8_t value, smpsVars &
           vars.vib[0] = 0x01;
       }
       vars.vib[1] = 0x01;
-      // (TickRate/(64×VibratoSpeed))
+      // (TickRate/(64*VibratoSpeed))
       vars.vib[3] = round(s->hz * (0x0F - value / 0x10) / (vars.vib[1] * 64 * 2));
       if (vars.chanOn[temp.channel] < typePSG) {
         vars.vib[2] = round(8.0 * vars.vib[1] * (value & 0x0F) / (0x0F - value / 0x10));
@@ -1180,7 +1232,7 @@ SafeWriter* DivEngine::saveASM(DivSMPSOptions options) {
     }
 
     // Before jumping, reset volume
-    uint8_t diffVol = (startVols[vars.endPat + 1] - startVols[vars.loopPat]);
+    uint8_t diffVol = (startVols[vars.endPat + 1] - startVols[vars.loopPat % 257]);
     if (diffVol != 0)
       if (vars.chanOn[l] == typeFM)
         w->writeText(fmt::sprintf("\n\t%s\t$%.2X", vars.symCommands[smpsAltVolFM], diffVol));
