@@ -1263,7 +1263,7 @@ SafeWriter* DivEngine::saveASM(DivSMPSOptions options) {
       for (int i = 0; i < numUniquePat; i++)
         if (patternsWritten[3][i] == orderNum)
           if (patternsWritten[0][i] == patStart && patternsWritten[1][i] == patLen && patternsWritten[2][i] == changeVol)
-            goto nextPattern;
+            goto nextPattern2;
       patternsWritten[0][numUniquePat] = patStart;
       patternsWritten[1][numUniquePat] = patLen;
       patternsWritten[2][numUniquePat] = changeVol;
@@ -1309,7 +1309,7 @@ SafeWriter* DivEngine::saveASM(DivSMPSOptions options) {
       }
       w->writeText(fmt::sprintf("\n\t%s\n", vars.symCommands[smpsRet]));
 
-    nextPattern:
+    nextPattern2:
       continue;
     }
   }
