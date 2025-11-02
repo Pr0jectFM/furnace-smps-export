@@ -481,7 +481,7 @@ void smpsChanNum(DivSong& song, DivSubSong*& s, smpsVars& vars) {
     for (int orders = 0; orders < s->ordersLen; orders++) {
       DivPattern* p = s->pat[channel].getPattern(s->orders.ord[channel][orders], false);
       for (int step = vars.lenTable[0][orders]; step <= vars.lenTable[1][orders]; step++) {
-        if (p->newData[step][DIV_PAT_NOTE] != 0) {
+        if (p->newData[step][DIV_PAT_NOTE] != -1) {
           vars.chanOn[channel] = type;
           // if noise channel and other PSG channels are null, set them to empty
           if (type == typeNoise) {
@@ -688,9 +688,9 @@ static void writeHeader(SafeWriter* w, smpsVars& vars, DivSubSong*& s, DivSMPSOp
   // Get the number of FM and PSG channels
   int chansFM = 0, chansPSG = 0;
   for (int i : vars.chanOn) {
-    if (i == 1) chansFM++;
-    if (i == 3) chansPSG++;
-    if (i == 4) { chansPSG = 3; break; }
+    if (i == typeFM) chansFM++;
+    if (i == typePSG) chansPSG++;
+    if (i == typeNoise) { chansPSG = 3; break; }
   }
   w->writeText(fmt::sprintf("\n\t%s\t$%.2X, $%.2X", vars.symCommands[smpsChan], chansFM + (options.style != verAMPS && chansFM != 0), chansPSG));
   w->writeText(fmt::sprintf("\n\t%s\t$%.2X, $%.2X\n", vars.symCommands[smpsTempo], options.div, options.speed));
@@ -1237,7 +1237,7 @@ SafeWriter* DivEngine::saveASM(DivSMPSOptions options) {
     if (vars.loopPat >= 0)
       w->writeText(fmt::sprintf("\n%s_%s:", options.label, smpsChanName(l)));
 
-    if (vars.chanOn[l] == 4)
+    if (vars.chanOn[l] == typeNoise)
       w->writeText(fmt::sprintf("\n\t%s\t$%.2X", vars.symCommands[smpsNoise], 0xE7));
 
     // get the volume at the beginning of each pattern
