@@ -416,32 +416,32 @@ static void smpsFindLoop(DivSubSong* s, smpsVars& vars) {
       for (int l = 0; l < 10; l++) {
         DivPattern* p = s->pat[l].getPattern(s->orders.ord[l][j], false);
         for (int m = 0; m < s->pat[l].effectCols; m++) {
-          if (p->data[k][4 + (m << 1)] == 0x0B) {
-            if (p->data[k][5 + (m << 1)] <= j) {
+          if (p->newData[k][DIV_PAT_FX(m)] == 0x0B) {
+            if (p->newData[k][DIV_PAT_FXVAL(m)] <= j) {
               // if looping
               vars.lenTable[1][j] = k + 1;
               vars.endPat = j;
               vars.endPlace = k;
-              vars.loopPat = p->data[k][5 + (m << 1)];
+              vars.loopPat = p->newData[k][DIV_PAT_FXVAL(m)];
               return;
             }
             else {
               // if skipping ahead
               vars.lenTable[1][j] = k + 1;
-              j = p->data[k][5 + (m << 1)];
+              j = p->newData[k][DIV_PAT_FXVAL(m)];
               k = 0;
               goto nextPattern;
             }
           }
-          else if (p->data[k][4 + (m << 1)] == 0x0D) {
+          else if (p->newData[k][DIV_PAT_FX(m)] == 0x0D) {
             // if going to the next order
             vars.lenTable[1][j] = k + 1;
             j++;
-            k = p->data[k][5 + (m << 1)];
+            k = p->newData[k][DIV_PAT_FXVAL(m)];
             vars.lenTable[0][j] = k;
             goto nextPattern;
           }
-          else if (p->data[k][4 + (m << 1)] == 0xFF) {
+          else if (p->newData[k][DIV_PAT_FX(m)] == 0xFF) {
             vars.lenTable[1][j] = k;
             vars.endPat = j;
             vars.endPlace = k - 1;
@@ -481,7 +481,7 @@ void smpsChanNum(DivSong& song, DivSubSong*& s, smpsVars& vars) {
     for (int orders = 0; orders < s->ordersLen; orders++) {
       DivPattern* p = s->pat[channel].getPattern(s->orders.ord[channel][orders], false);
       for (int step = vars.lenTable[0][orders]; step <= vars.lenTable[1][orders]; step++) {
-        if (p->data[step][0] != 0 || p->data[step][1] != 0) {
+        if (p->newData[step][DIV_PAT_NOTE] != 0) {
           vars.chanOn[channel] = type;
           // if noise channel and other PSG channels are null, set them to empty
           if (type == typeNoise) {
@@ -508,8 +508,8 @@ void smpsChanNum(DivSong& song, DivSubSong*& s, smpsVars& vars) {
     for (int orders = 0; orders < s->ordersLen; orders++) {
       DivPattern* p = s->pat[channel].getPattern(s->orders.ord[channel][orders], false);
       for (int step = vars.lenTable[0][orders]; step <= vars.lenTable[1][orders]; step++) {
-        if (p->data[step][2] >= 0) {
-          DivInstrument* ins = song.ins[p->data[step][2]];
+        if (p->newData[step][DIV_PAT_INS] >= 0) {
+          DivInstrument* ins = song.ins[p->newData[step][DIV_PAT_INS]];
           if (ins->type == DIV_INS_FM) {
             goto Done;
           }
@@ -637,7 +637,7 @@ struct smpsTempVars {
   uint8_t lastIns, lastVol;
   int steps;
   uint8_t channel, order;
-  int note, octave, prevNote, prevOctave;
+  short note, octave, prevNote, prevOctave;
   bool redo;
   String noteString;
   int offset;
@@ -976,6 +976,40 @@ static String smpsCommands(const uint8_t effect, const uint8_t value, smpsVars &
   }
 }
 
+void noteToSplitNote(short note, short& outNote, short& outOctave) {
+  switch (note) {
+  case DIV_NOTE_OFF:
+    outNote = 100;
+    outOctave = 0;
+    break;
+  case DIV_NOTE_REL:
+    outNote = 101;
+    outOctave = 0;
+    break;
+  case DIV_MACRO_REL:
+    outNote = 102;
+    outOctave = 0;
+    break;
+  case DIV_NOTE_NULL_PAT:
+    // "BUG" note!
+    outNote = 0;
+    outOctave = 1;
+    break;
+  case -1:
+    outNote = 0;
+    outOctave = 0;
+    break;
+  default:
+    outNote = note % 12;
+    outOctave = (unsigned char)(note - 60) / 12;
+    if (outNote == 0) {
+      outNote = 12;
+      outOctave--;
+    }
+    break;
+  }
+}
+
 // apply timer effects
 static void getTimer(DivPattern* p, smpsVars& vars, smpsTempVars& temp, DivSubSong* s, DivSMPSOptions &options) {
   for (int step = temp.steps; step < vars.lenTable[1][temp.order] + 1; step++) {
@@ -1009,37 +1043,37 @@ static void getTimer(DivPattern* p, smpsVars& vars, smpsTempVars& temp, DivSubSo
     }
 
     // check for instrument changes
-    if (p->data[step][2] >= 0 && p->data[step][2] != temp.lastIns) {
+    if (p->newData[step][DIV_PAT_INS] >= 0 && p->newData[step][DIV_PAT_INS] != temp.lastIns) {
       if (vars.chanOn[temp.channel] == typeFM) {
-        temp.effects[temp.numEffects] = fmt::sprintf("\n\t%s\t$%.2X", vars.symCommands[smpsSetVoice], vars.fmVoices[p->data[step][2]]);
+        temp.effects[temp.numEffects] = fmt::sprintf("\n\t%s\t$%.2X", vars.symCommands[smpsSetVoice], vars.fmVoices[p->newData[step][DIV_PAT_INS]]);
         temp.numEffects++;
         found = true;
       }
       else if (vars.chanOn[temp.channel] > typePCM) {
-        temp.effects[temp.numEffects] = fmt::sprintf("\n\t%s\t%s", vars.symCommands[smpsVolEnv], vars.psgVoices[p->data[step][2]]);
+        temp.effects[temp.numEffects] = fmt::sprintf("\n\t%s\t%s", vars.symCommands[smpsVolEnv], vars.psgVoices[p->newData[step][DIV_PAT_INS]]);
         temp.numEffects++;
         found = true;
       }
-      temp.lastIns = p->data[step][2];
+      temp.lastIns = p->newData[step][DIV_PAT_INS];
     }
     // check for changes in pitch or volume
-    if (p->data[step][3] >= 0 && p->data[step][3] != temp.lastVol) {
+    if (p->newData[step][DIV_PAT_VOL] >= 0 && p->newData[step][DIV_PAT_VOL] != temp.lastVol) {
       if (vars.chanOn[temp.channel] == typeFM) {
-        temp.effects[temp.numEffects] = fmt::sprintf("\n\t%s\t$%.2X", vars.symCommands[smpsAltVolFM], uint8_t(-(p->data[step][3] - temp.lastVol)));
+        temp.effects[temp.numEffects] = fmt::sprintf("\n\t%s\t$%.2X", vars.symCommands[smpsAltVolFM], uint8_t(-(p->newData[step][DIV_PAT_VOL] - temp.lastVol)));
         temp.numEffects++;
         found = true;
       }
       else if (vars.chanOn[temp.channel] > typePCM) {
-        temp.effects[temp.numEffects] = fmt::sprintf("\n\t%s\t$%.2X", vars.symCommands[smpsAltVolPSG], uint8_t(-(p->data[step][3] - temp.lastVol)));
+        temp.effects[temp.numEffects] = fmt::sprintf("\n\t%s\t$%.2X", vars.symCommands[smpsAltVolPSG], uint8_t(-(p->newData[step][DIV_PAT_VOL] - temp.lastVol)));
         temp.numEffects++;
         found = true;
       }
-      temp.lastVol = p->data[step][3];
+      temp.lastVol = p->newData[step][DIV_PAT_VOL];
     }
     // check effects
     for (int layer = 0; layer < s->pat[temp.channel].effectCols; layer++)
-      if (p->data[step][4 + (layer << 1)] >= 0) {
-        String line = smpsCommands(p->data[step][4 + (layer << 1)], p->data[step][5 + (layer << 1)], vars, s, options, temp);
+      if (p->newData[step][DIV_PAT_FX(layer)] >= 0) {
+        String line = smpsCommands(p->newData[step][DIV_PAT_FX(layer)], p->newData[step][DIV_PAT_FXVAL(layer)], vars, s, options, temp);
         if (line != "") {
           temp.effects[temp.numEffects] = line;
           temp.numEffects++;
@@ -1048,8 +1082,7 @@ static void getTimer(DivPattern* p, smpsVars& vars, smpsTempVars& temp, DivSubSo
       }
 
     // *checks notes*
-    temp.note = p->data[step][0];
-    temp.octave = p->data[step][1];
+    noteToSplitNote(p->newData[step][DIV_PAT_NOTE], temp.note, temp.octave);
     if (temp.note != 0 || temp.octave != 0) {
       temp.macroTimer = 0;
       found = true;
@@ -1216,9 +1249,9 @@ SafeWriter* DivEngine::saveASM(DivSMPSOptions options) {
     for (int j = 0; j < s->ordersLen; j++) {
       DivPattern* p = s->pat[l].getPattern(s->orders.ord[l][j], false);
       startVols[j + 1] = startVols[j];
-      for (int k = vars.lenTable[0][j]; k <= vars.lenTable[1][j]; k++) {
-        if (p->data[k][3] >= 0) {
-          startVols[j + 1] = p->data[k][3];
+      for (int step = vars.lenTable[0][j]; step <= vars.lenTable[1][j]; step++) {
+        if (p->newData[step][DIV_PAT_VOL] >= 0) {
+          startVols[j + 1] = p->newData[step][DIV_PAT_VOL];
         }
       }
     }

@@ -130,7 +130,10 @@ const char* patFonts[]={
 const char* audioBackends[]={
   "JACK",
   "SDL",
-  "PortAudio"
+  "PortAudio",
+  // pipe (invalid choice in GUI)
+  "Uhh, can you explain to me what exactly you were trying to do?",
+  "ASIO"
 };
 
 const char* audioQualities[]={
@@ -853,15 +856,6 @@ void FurnaceGUI::drawSettings() {
           settingsChanged=true;
         }
 
-        bool newPatternFormatB=settings.newPatternFormat;
-        if (ImGui::Checkbox(_("Use new pattern format when saving"),&newPatternFormatB)) {
-          settings.newPatternFormat=newPatternFormatB;
-          settingsChanged=true;
-        }
-        if (ImGui::IsItemHovered()) {
-          ImGui::SetTooltip(_("use a packed format which saves space when saving songs.\ndisable if you need compatibility with older Furnace and/or tools\nwhich do not support this format."));
-        }
-
         bool noDMFCompatB=settings.noDMFCompat;
         if (ImGui::Checkbox(_("Don't apply compatibility flags when loading .dmf"),&noDMFCompatB)) {
           settings.noDMFCompat=noDMFCompatB;
@@ -1163,7 +1157,7 @@ void FurnaceGUI::drawSettings() {
         }
         ImGui::Unindent();
 
-        if (ImGui::InputText(_("Default author name"), &settings.defaultAuthorName)) settingsChanged=true;
+        if (ImGui::InputText(_("Default author name"),&settings.defaultAuthorName)) settingsChanged=true;
 
         // SUBSECTION START-UP
         CONFIG_SUBSECTION(_("Start-up"));
@@ -1231,7 +1225,7 @@ void FurnaceGUI::drawSettings() {
           settingsChanged=true;
         }
         bool sampleImportInstDetuneB=settings.sampleImportInstDetune;
-        if (ImGui::Checkbox(_("Load sample fine tuning when importing a sample"), &sampleImportInstDetuneB)) {
+        if (ImGui::Checkbox(_("Load sample fine tuning when importing a sample"),&sampleImportInstDetuneB)) {
           settings.sampleImportInstDetune=sampleImportInstDetuneB;
           settingsChanged=true;
         }
@@ -1257,7 +1251,7 @@ void FurnaceGUI::drawSettings() {
         if (ImGui::BeginTable("##Output",2)) {
           ImGui::TableSetupColumn("##Label",ImGuiTableColumnFlags_WidthFixed);
           ImGui::TableSetupColumn("##Combo",ImGuiTableColumnFlags_WidthStretch);
-#if defined(HAVE_JACK) || defined(HAVE_PA)
+#if defined(HAVE_JACK) || defined(HAVE_PA) || defined(HAVE_ASIO)
           ImGui::TableNextRow();
           ImGui::TableNextColumn();
           ImGui::AlignTextToFramePadding();
@@ -1278,6 +1272,12 @@ void FurnaceGUI::drawSettings() {
 #ifdef HAVE_PA
             if (ImGui::Selectable("PortAudio",settings.audioEngine==DIV_AUDIO_PORTAUDIO)) {
               settings.audioEngine=DIV_AUDIO_PORTAUDIO;
+              settingsChanged=true;
+            }
+#endif
+#ifdef HAVE_ASIO
+            if (ImGui::Selectable("ASIO",settings.audioEngine==DIV_AUDIO_ASIO)) {
+              settings.audioEngine=DIV_AUDIO_ASIO;
               settingsChanged=true;
             }
 #endif
@@ -1344,6 +1344,15 @@ void FurnaceGUI::drawSettings() {
                 }
               }
               ImGui::EndCombo();
+            }
+          }
+
+          if (settings.audioEngine==DIV_AUDIO_ASIO) {
+            ImGui::SameLine();
+            if (ImGui::Button(_("Control panel"))) {
+              if (e->audioBackendCommand(TA_AUDIO_CMD_SETUP)!=1) {
+                showError(_("this driver doesn't have a control panel."));
+              }
             }
           }
 
@@ -3847,7 +3856,7 @@ void FurnaceGUI::drawSettings() {
         // SUBSECTION SONG COMMENTS
         CONFIG_SUBSECTION(_("Song Comments"));
         bool songNotesWrapB=settings.songNotesWrap;
-        if (ImGui::Checkbox(_("Wrap text"), &songNotesWrapB)) {
+        if (ImGui::Checkbox(_("Wrap text"),&songNotesWrapB)) {
           settings.songNotesWrap=songNotesWrapB;
           settingsChanged=true;
         }
@@ -3855,10 +3864,28 @@ void FurnaceGUI::drawSettings() {
         // SUBSECTION CHIP MANAGER
         CONFIG_SUBSECTION(_("Chip Manager"));
         bool rackShowLEDsB=settings.rackShowLEDs;
-        if (ImGui::Checkbox(_("Show channel indicators"), &rackShowLEDsB)) {
+        if (ImGui::Checkbox(_("Show channel indicators"),&rackShowLEDsB)) {
           settings.rackShowLEDs=rackShowLEDsB;
           settingsChanged=true;
         }
+
+        // SUBSECTION MIXER
+        CONFIG_SUBSECTION(_("Mixer"))
+        ImGui::Text(_("Mixer style:"));
+        ImGui::Indent();
+        if (ImGui::RadioButton(_("No volume meters"),settings.mixerStyle==0)) {
+          settings.mixerStyle=0;
+          settingsChanged=true;
+        }
+        if (ImGui::RadioButton(_("Volume meters to the side"),settings.mixerStyle==1)) {
+          settings.mixerStyle=1;
+          settingsChanged=true;
+        }
+        if (ImGui::RadioButton(_("Volume meters in volume sliders"),settings.mixerStyle==2)) {
+          settings.mixerStyle=2;
+          settingsChanged=true;
+        }
+        ImGui::Unindent();
 
         // SUBSECTION WINDOWS
         CONFIG_SUBSECTION(_("Windows"));
@@ -4042,6 +4069,7 @@ void FurnaceGUI::drawSettings() {
           UI_COLOR_CONFIG(GUI_COLOR_FILE_SONG_IMPORT,_("Song (import)"));
           UI_COLOR_CONFIG(GUI_COLOR_FILE_INSTR,_("Instrument"));
           UI_COLOR_CONFIG(GUI_COLOR_FILE_AUDIO,_("Audio"));
+          UI_COLOR_CONFIG(GUI_COLOR_FILE_AUDIO_COMPRESSED,_("Audio (compressed)"));
           UI_COLOR_CONFIG(GUI_COLOR_FILE_WAVE,_("Wavetable"));
           UI_COLOR_CONFIG(GUI_COLOR_FILE_VGM,_("VGM"));
           UI_COLOR_CONFIG(GUI_COLOR_FILE_ZSM,_("ZSM"));
@@ -4136,6 +4164,16 @@ void FurnaceGUI::drawSettings() {
           UI_COLOR_CONFIG(GUI_COLOR_MACRO_GLOBAL,_("Global Parameter"));
           UI_COLOR_CONFIG(GUI_COLOR_MACRO_OTHER,_("Other"));
           UI_COLOR_CONFIG(GUI_COLOR_MACRO_HIGHLIGHT,_("Step Highlight"));
+          ImGui::TreePop();
+        }
+        if (ImGui::TreeNode(_("Multi-instrument Play"))) {
+          UI_COLOR_CONFIG(GUI_COLOR_MULTI_INS_1,_("Second instrument"));
+          UI_COLOR_CONFIG(GUI_COLOR_MULTI_INS_2,_("Third instrument"));
+          UI_COLOR_CONFIG(GUI_COLOR_MULTI_INS_3,_("Fourth instrument"));
+          UI_COLOR_CONFIG(GUI_COLOR_MULTI_INS_4,_("Fifth instrument"));
+          UI_COLOR_CONFIG(GUI_COLOR_MULTI_INS_5,_("Sixth instrument"));
+          UI_COLOR_CONFIG(GUI_COLOR_MULTI_INS_6,_("Seventh instrument"));
+          UI_COLOR_CONFIG(GUI_COLOR_MULTI_INS_7,_("Eighth instrument"));
           ImGui::TreePop();
         }
         if (ImGui::TreeNode(_("Instrument Types"))) {
@@ -4880,7 +4918,6 @@ void FurnaceGUI::readConfig(DivConfig& conf, FurnaceGUISettingGroups groups) {
     settings.noMaximizeWorkaround=conf.getInt("noMaximizeWorkaround",0);
 
     settings.compress=conf.getInt("compress",1);
-    settings.newPatternFormat=conf.getInt("newPatternFormat",1);
     settings.newSongBehavior=conf.getInt("newSongBehavior",0);
     settings.playOnLoad=conf.getInt("playOnLoad",0);
     settings.centerPopup=conf.getInt("centerPopup",1);
@@ -4908,6 +4945,8 @@ void FurnaceGUI::readConfig(DivConfig& conf, FurnaceGUISettingGroups groups) {
       settings.audioEngine=DIV_AUDIO_JACK;
     } else if (conf.getString("audioEngine","SDL")=="PortAudio") {
       settings.audioEngine=DIV_AUDIO_PORTAUDIO;
+    } else if (conf.getString("audioEngine","SDL")=="ASIO") {
+      settings.audioEngine=DIV_AUDIO_ASIO;
     } else {
       settings.audioEngine=DIV_AUDIO_SDL;
     }
@@ -5041,9 +5080,11 @@ void FurnaceGUI::readConfig(DivConfig& conf, FurnaceGUISettingGroups groups) {
     settings.oscAntiAlias=conf.getInt("oscAntiAlias",1);
     settings.oscLineSize=conf.getFloat("oscLineSize",1.0f);
 
-    settings.songNotesWrap=conf.getInt("songNotesWrap", 0);
+    settings.songNotesWrap=conf.getInt("songNotesWrap",0);
 
-    settings.rackShowLEDs=conf.getInt("rackShowLEDs", 1);
+    settings.rackShowLEDs=conf.getInt("rackShowLEDs",1);
+
+    settings.mixerStyle=conf.getInt("mixerStyle",1);
 
     settings.channelColors=conf.getInt("channelColors",1);
     settings.channelTextColors=conf.getInt("channelTextColors",0);
@@ -5190,7 +5231,7 @@ void FurnaceGUI::readConfig(DivConfig& conf, FurnaceGUISettingGroups groups) {
   clampSetting(settings.headFontSize,2,96);
   clampSetting(settings.patFontSize,2,96);
   clampSetting(settings.iconSize,2,48);
-  clampSetting(settings.audioEngine,0,2);
+  clampSetting(settings.audioEngine,0,4);
   clampSetting(settings.audioQuality,0,1);
   clampSetting(settings.audioHiPass,0,1);
   clampSetting(settings.audioBufSize,32,4096);
@@ -5348,7 +5389,6 @@ void FurnaceGUI::readConfig(DivConfig& conf, FurnaceGUISettingGroups groups) {
   clampSetting(settings.iCannotWait,0,1);
   clampSetting(settings.orderButtonPos,0,2);
   clampSetting(settings.compress,0,1);
-  clampSetting(settings.newPatternFormat,0,1);
   clampSetting(settings.renderClearPos,0,1);
   clampSetting(settings.insertBehavior,0,1);
   clampSetting(settings.pullDeleteRow,0,1);
@@ -5381,8 +5421,9 @@ void FurnaceGUI::readConfig(DivConfig& conf, FurnaceGUISettingGroups groups) {
   clampSetting(settings.playbackTime,0,1);
   clampSetting(settings.shaderOsc,0,1);
   clampSetting(settings.oscLineSize,0.25f,16.0f);
-  clampSetting(settings.songNotesWrap, 0, 1);
-  clampSetting(settings.rackShowLEDs, 0, 1);
+  clampSetting(settings.songNotesWrap,0,1);
+  clampSetting(settings.rackShowLEDs,0,1);
+  clampSetting(settings.mixerStyle,0,2);
   clampSetting(settings.cursorWheelStep,0,2);
   clampSetting(settings.vsync,0,4);
   clampSetting(settings.frameRateLimit,0,1000);
@@ -5479,7 +5520,6 @@ void FurnaceGUI::writeConfig(DivConfig& conf, FurnaceGUISettingGroups groups) {
     conf.set("noMaximizeWorkaround",settings.noMaximizeWorkaround);
 
     conf.set("compress",settings.compress);
-    conf.set("newPatternFormat",settings.newPatternFormat);
     conf.set("newSongBehavior",settings.newSongBehavior);
     conf.set("playOnLoad",settings.playOnLoad);
     conf.set("centerPopup",settings.centerPopup);
@@ -5630,7 +5670,9 @@ void FurnaceGUI::writeConfig(DivConfig& conf, FurnaceGUISettingGroups groups) {
 
     conf.set("songNotesWrap",settings.songNotesWrap);
 
-    conf.set("rackShowLEDs", settings.rackShowLEDs);
+    conf.set("rackShowLEDs",settings.rackShowLEDs);
+
+    conf.set("mixerStyle",settings.mixerStyle);
 
     conf.set("channelColors",settings.channelColors);
     conf.set("channelTextColors",settings.channelTextColors);
@@ -6818,6 +6860,8 @@ void FurnaceGUI::applyUISettings(bool updateFonts) {
   }
 
   // set built-in file picker up (NEW)
+  newFilePicker->clearTypes();
+
   newFilePicker->setTypeStyle(FP_TYPE_UNKNOWN,uiColors[GUI_COLOR_FILE_OTHER],ICON_FA_QUESTION);
   newFilePicker->setTypeStyle(FP_TYPE_NORMAL,uiColors[GUI_COLOR_FILE_OTHER],ICON_FA_FILE_O);
   newFilePicker->setTypeStyle(FP_TYPE_DIR,uiColors[GUI_COLOR_FILE_DIR],ICON_FA_FOLDER_O);
@@ -6829,14 +6873,38 @@ void FurnaceGUI::applyUISettings(bool updateFonts) {
 
   newFilePicker->registerType(".fur",uiColors[GUI_COLOR_FILE_SONG_NATIVE],ICON_FA_FILE);
   newFilePicker->registerType(".fui",uiColors[GUI_COLOR_FILE_INSTR],ICON_FA_FILE);
-  newFilePicker->registerType(".fuw",uiColors[GUI_COLOR_FILE_WAVE],ICON_FA_FILE);
   newFilePicker->registerType(".dmp",uiColors[GUI_COLOR_FILE_INSTR],ICON_FA_FILE);
+  newFilePicker->registerType(".fuw",uiColors[GUI_COLOR_FILE_WAVE],ICON_FA_FILE);
   newFilePicker->registerType(".dmw",uiColors[GUI_COLOR_FILE_WAVE],ICON_FA_FILE);
+
   newFilePicker->registerType(".wav",uiColors[GUI_COLOR_FILE_AUDIO],ICON_FA_FILE_AUDIO_O);
   newFilePicker->registerType(".dmc",uiColors[GUI_COLOR_FILE_AUDIO],ICON_FA_FILE_AUDIO_O);
-  newFilePicker->registerType(".brr",uiColors[GUI_COLOR_FILE_AUDIO],ICON_FA_FILE_AUDIO_O);
+  newFilePicker->registerType(".aiff",uiColors[GUI_COLOR_FILE_AUDIO],ICON_FA_FILE_AUDIO_O);
+  newFilePicker->registerType(".aifc",uiColors[GUI_COLOR_FILE_AUDIO],ICON_FA_FILE_AUDIO_O);
+  newFilePicker->registerType(".au",uiColors[GUI_COLOR_FILE_AUDIO],ICON_FA_FILE_AUDIO_O);
+  newFilePicker->registerType(".caf",uiColors[GUI_COLOR_FILE_AUDIO],ICON_FA_FILE_AUDIO_O);
+  newFilePicker->registerType(".iff",uiColors[GUI_COLOR_FILE_AUDIO],ICON_FA_FILE_AUDIO_O);
+  newFilePicker->registerType(".mat",uiColors[GUI_COLOR_FILE_AUDIO],ICON_FA_FILE_AUDIO_O);
+  newFilePicker->registerType(".w64",uiColors[GUI_COLOR_FILE_AUDIO],ICON_FA_FILE_AUDIO_O);
+  newFilePicker->registerType(".wve",uiColors[GUI_COLOR_FILE_AUDIO],ICON_FA_FILE_AUDIO_O);
+  newFilePicker->registerType(".rf64",uiColors[GUI_COLOR_FILE_AUDIO],ICON_FA_FILE_AUDIO_O);
+
+  newFilePicker->registerType(".brr",uiColors[GUI_COLOR_FILE_AUDIO_COMPRESSED],ICON_FA_FILE_AUDIO_O);
+  newFilePicker->registerType(".flac",uiColors[GUI_COLOR_FILE_AUDIO_COMPRESSED],ICON_FA_FILE_AUDIO_O);
+  newFilePicker->registerType(".m1a",uiColors[GUI_COLOR_FILE_AUDIO_COMPRESSED],ICON_FA_FILE_AUDIO_O);
+  newFilePicker->registerType(".mp1",uiColors[GUI_COLOR_FILE_AUDIO_COMPRESSED],ICON_FA_FILE_AUDIO_O);
+  newFilePicker->registerType(".mp2",uiColors[GUI_COLOR_FILE_AUDIO_COMPRESSED],ICON_FA_FILE_AUDIO_O);
+  newFilePicker->registerType(".mp3",uiColors[GUI_COLOR_FILE_AUDIO_COMPRESSED],ICON_FA_FILE_AUDIO_O);
+  newFilePicker->registerType(".oga",uiColors[GUI_COLOR_FILE_AUDIO_COMPRESSED],ICON_FA_FILE_AUDIO_O);
+  newFilePicker->registerType(".ogg",uiColors[GUI_COLOR_FILE_AUDIO_COMPRESSED],ICON_FA_FILE_AUDIO_O);
+  newFilePicker->registerType(".opus",uiColors[GUI_COLOR_FILE_AUDIO_COMPRESSED],ICON_FA_FILE_AUDIO_O);
+  newFilePicker->registerType(".pvf",uiColors[GUI_COLOR_FILE_AUDIO_COMPRESSED],ICON_FA_FILE_AUDIO_O);
+  newFilePicker->registerType(".voc",uiColors[GUI_COLOR_FILE_AUDIO_COMPRESSED],ICON_FA_FILE_AUDIO_O);
+  newFilePicker->registerType(".vox",uiColors[GUI_COLOR_FILE_AUDIO_COMPRESSED],ICON_FA_FILE_AUDIO_O);
+
   newFilePicker->registerType(".vgm",uiColors[GUI_COLOR_FILE_VGM],ICON_FA_FILE_AUDIO_O);
   newFilePicker->registerType(".zsm",uiColors[GUI_COLOR_FILE_ZSM],ICON_FA_FILE_AUDIO_O);
+
   newFilePicker->registerType(".ttf",uiColors[GUI_COLOR_FILE_FONT],ICON_FA_FONT);
   newFilePicker->registerType(".otf",uiColors[GUI_COLOR_FILE_FONT],ICON_FA_FONT);
   newFilePicker->registerType(".ttc",uiColors[GUI_COLOR_FILE_FONT],ICON_FA_FONT);

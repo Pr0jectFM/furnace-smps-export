@@ -1952,7 +1952,7 @@ void FurnaceGUI::drawGBEnv(unsigned char vol, unsigned char len, unsigned char s
     ImGui::RenderFrame(rect.Min,rect.Max,ImGui::GetColorU32(ImGuiCol_FrameBg),true,style.FrameRounding);
     
     float volY=1.0-((float)vol/15.0);
-    float lenPos=(sLen>62)?1.0:((float)sLen/384.0);
+    float lenPos=(sLen>63)?1.0:((float)sLen/384.0);
     float envEndPoint=((float)len/7.0)*((float)(dir?(15-vol):vol)/15.0);
 
     ImVec2 pos1=ImLerp(rect.Min,rect.Max,ImVec2(0.0,volY));
@@ -1978,10 +1978,10 @@ void FurnaceGUI::drawGBEnv(unsigned char vol, unsigned char len, unsigned char s
         pos2=ImLerp(rect.Min,rect.Max,ImVec2(lenPos,volY));
       }
     }
-    ImVec2 pos3=ImLerp(rect.Min,rect.Max,ImVec2(lenPos,(len>0 || sLen<63)?((dir && sLen>62)?0.0:1.0):volY));
+    ImVec2 pos3=ImLerp(rect.Min,rect.Max,ImVec2(lenPos,(len>0 || sLen<64)?((dir && sLen>62)?0.0:1.0):volY));
 
     addAALine(dl,pos1,pos2,color);
-    if (lenPos>=envEndPoint && sLen<63 && dir) {
+    if (lenPos>=envEndPoint && sLen<64 && dir) {
       pos3=ImLerp(rect.Min,rect.Max,ImVec2(lenPos,0.0));
       addAALine(dl,pos2,pos3,color);
       ImVec2 pos4=ImLerp(rect.Min,rect.Max,ImVec2(lenPos,1.0));
@@ -4694,7 +4694,7 @@ void FurnaceGUI::insTabFM(DivInstrument* ins) {
                 op.egt=egtOn;
               }
               if (egtOn) {
-                pushWarningColor(susOn && e->song.linearPitch!=2);
+                pushWarningColor(susOn && !e->song.linearPitch);
                 if (ImGui::Checkbox(_("Pitch control"),&susOn)) { PARAMETER
                   op.sus=susOn;
                   // HACK: reset zoom and scroll in fixed pitch macros so that they draw correctly
@@ -4703,7 +4703,7 @@ void FurnaceGUI::insTabFM(DivInstrument* ins) {
                 }
                 popWarningColor();
                 if (ImGui::IsItemHovered()) {
-                  if (susOn && e->song.linearPitch!=2) {
+                  if (susOn && !e->song.linearPitch) {
                     ImGui::SetTooltip(_("only works on linear pitch! go to Compatibility Flags > Pitch/Playback and set Pitch linearity to Full."));
                   } else {
                     ImGui::SetTooltip(_("use op's arpeggio and pitch macros control instead of block/f-num macros"));
@@ -5470,7 +5470,7 @@ void FurnaceGUI::insTabFM(DivInstrument* ins) {
                   P(CWSliderScalar("##FINE",ImGuiDataType_U8,&op.dvb,&_ZERO,&_FIFTEEN,tempID)); rightClickable
                 } else {
                   bool susOn=op.sus;
-                  pushWarningColor(susOn && e->song.linearPitch!=2);
+                  pushWarningColor(susOn && !e->song.linearPitch);
                   if (ImGui::Checkbox(_("Pitch control"),&susOn)) { PARAMETER
                     op.sus=susOn;
                     // HACK: reset zoom and scroll in fixed pitch macros so that they draw correctly
@@ -5479,7 +5479,7 @@ void FurnaceGUI::insTabFM(DivInstrument* ins) {
                   }
                   popWarningColor();
                   if (ImGui::IsItemHovered()) {
-                    if (susOn && e->song.linearPitch!=2) {
+                    if (susOn && !e->song.linearPitch) {
                       ImGui::SetTooltip(_("only works on linear pitch! go to Compatibility Flags > Pitch/Playback and set Pitch linearity to Full."));
                     } else {
                       ImGui::SetTooltip(_("use op's arpeggio and pitch macros control instead of block/f-num macros"));
@@ -5793,7 +5793,7 @@ void FurnaceGUI::insTabFM(DivInstrument* ins) {
             bool susOn=op.sus;
             if (fixedOn) {
               ImGui::SameLine();
-              pushWarningColor(susOn && e->song.linearPitch!=2);
+              pushWarningColor(susOn && !e->song.linearPitch);
               if (ImGui::Checkbox(_("Pitch control"),&susOn)) { PARAMETER
                 op.sus=susOn;
                 // HACK: reset zoom and scroll in fixed pitch macros so that they draw correctly
@@ -5802,7 +5802,7 @@ void FurnaceGUI::insTabFM(DivInstrument* ins) {
               }
               popWarningColor();
               if (ImGui::IsItemHovered()) {
-                if (susOn && e->song.linearPitch!=2) {
+                if (susOn && !e->song.linearPitch) {
                   ImGui::SetTooltip(_("only works on linear pitch! go to Compatibility Flags > Pitch/Playback and set Pitch linearity to Full."));
                 } else {
                   ImGui::SetTooltip(_("use op's arpeggio and pitch macros control instead of block/f-num macros"));
@@ -6447,7 +6447,7 @@ void FurnaceGUI::drawInsSID3(DivInstrument* ins) {
             "If this is disabled,filter cutoff will increase if you increase the pitch."));
           }
 
-          snprintf(buffer2,100,_("%s"),noteNameNormal(filt->bindCutoffToNoteCenter%12,(short)(filt->bindCutoffToNoteCenter / 12)-5));
+          snprintf(buffer2,100,_("%s"),noteNameNormal(filt->bindCutoffToNoteCenter));
           snprintf(buffer,100,_("Cutoff change center note##bindcutcenternote%d"),i+1);
           P(CWSliderScalar(buffer,ImGuiDataType_U8,&filt->bindCutoffToNoteCenter,&_ZERO,&_ONE_HUNDRED_SEVENTY_NINE,buffer2)); rightClickable
           if (ImGui::IsItemHovered()) {
@@ -6480,7 +6480,7 @@ void FurnaceGUI::drawInsSID3(DivInstrument* ins) {
             "If this is disabled,filter resonance will increase if you increase the pitch."));
           }
 
-          snprintf(buffer2,100,_("%s"),noteNameNormal(filt->bindResonanceToNoteCenter%12,(short)(filt->bindResonanceToNoteCenter / 12)-5));
+          snprintf(buffer2,100,_("%s"),noteNameNormal(filt->bindResonanceToNoteCenter));
           snprintf(buffer,100,_("Resonance change center note##bindrescenternote%d"),i+1);
           P(CWSliderScalar(buffer,ImGuiDataType_U8,&filt->bindResonanceToNoteCenter,&_ZERO,&_ONE_HUNDRED_SEVENTY_NINE,buffer2)); rightClickable
           if (ImGui::IsItemHovered()) {
@@ -6649,10 +6649,10 @@ void FurnaceGUI::drawInsEdit() {
             for (size_t i=0; i<e->song.ins.size(); i++) {
               name=fmt::sprintf("%.2X: %s##_INSS%d",i,e->song.ins[i]->name,i);
               if (ImGui::Selectable(name.c_str(),curIns==(int)i)) {
-                curIns=i;
+                setCurIns(i);
                 wavePreviewInit=true;
                 updateFMPreview=true;
-                ins = e->song.ins[curIns];
+                ins=e->song.ins[curIns];
               }
             }
             ImGui::EndCombo();
@@ -6700,7 +6700,7 @@ void FurnaceGUI::drawInsEdit() {
           for (size_t i=0; i<e->song.ins.size(); i++) {
             name=fmt::sprintf("%.2X: %s##_INSS%d",i,e->song.ins[i]->name,i);
             if (ImGui::Selectable(name.c_str(),curIns==(int)i)) {
-              curIns=i;
+              setCurIns(i);
               ins=e->song.ins[curIns];
               wavePreviewInit=true;
               updateFMPreview=true;

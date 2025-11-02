@@ -24,6 +24,7 @@
 #include "../engine/workPool.h"
 #include "../engine/waveSynth.h"
 #include "imgui.h"
+#include "imgui_internal.h"
 #include "imgui_impl_sdl2.h"
 #include <SDL.h>
 #include <fftw3.h>
@@ -236,6 +237,7 @@ enum FurnaceGUIColors {
   GUI_COLOR_FILE_SONG_IMPORT,
   GUI_COLOR_FILE_INSTR,
   GUI_COLOR_FILE_AUDIO,
+  GUI_COLOR_FILE_AUDIO_COMPRESSED,
   GUI_COLOR_FILE_WAVE,
   GUI_COLOR_FILE_VGM,
   GUI_COLOR_FILE_ZSM,
@@ -306,6 +308,14 @@ enum FurnaceGUIColors {
   GUI_COLOR_MACRO_FILTER,
   GUI_COLOR_MACRO_ENVELOPE,
   GUI_COLOR_MACRO_GLOBAL,
+
+  GUI_COLOR_MULTI_INS_1,
+  GUI_COLOR_MULTI_INS_2,
+  GUI_COLOR_MULTI_INS_3,
+  GUI_COLOR_MULTI_INS_4,
+  GUI_COLOR_MULTI_INS_5,
+  GUI_COLOR_MULTI_INS_6,
+  GUI_COLOR_MULTI_INS_7,
 
   GUI_COLOR_INSTR_STD,
   GUI_COLOR_INSTR_FM,
@@ -565,6 +575,8 @@ enum FurnaceGUIWindows {
   GUI_WINDOW_MEMORY,
   GUI_WINDOW_CS_PLAYER,
   GUI_WINDOW_USER_PRESETS,
+  GUI_WINDOW_REF_PLAYER,
+  GUI_WINDOW_MULTI_INS_SETUP,
   GUI_WINDOW_SPOILER
 };
 
@@ -646,6 +658,7 @@ enum FurnaceGUIFileDialogs {
   GUI_FILE_TG100_ROM_OPEN,
   GUI_FILE_MU5_ROM_OPEN,
   GUI_FILE_CMDSTREAM_OPEN,
+  GUI_FILE_MUSIC_OPEN,
 
   GUI_FILE_TEST_OPEN,
   GUI_FILE_TEST_OPEN_MULTI,
@@ -771,6 +784,8 @@ enum FurnaceGUIActions {
   GUI_ACTION_WINDOW_MEMORY,
   GUI_ACTION_WINDOW_CS_PLAYER,
   GUI_ACTION_WINDOW_USER_PRESETS,
+  GUI_ACTION_WINDOW_REF_PLAYER,
+  GUI_ACTION_WINDOW_MULTI_INS_SETUP,
 
   GUI_ACTION_COLLAPSE_WINDOW,
   GUI_ACTION_CLOSE_WINDOW,
@@ -1468,8 +1483,8 @@ struct FurnaceGUIFindQuery {
     insMode(GUI_QUERY_IGNORE),
     volMode(GUI_QUERY_IGNORE),
     effectCount(0),
-    note(0),
-    noteMax(0),
+    note(108),
+    noteMax(108),
     ins(0),
     insMax(0),
     vol(0),
@@ -1660,6 +1675,12 @@ struct CSDisAsmIns {
   }
 };
 
+enum NoteInputModes: unsigned char {
+  GUI_NOTE_INPUT_MONO=0,
+  GUI_NOTE_INPUT_POLY,
+  GUI_NOTE_INPUT_CHORD
+};
+
 struct FurnaceCV;
 
 class FurnaceGUI {
@@ -1688,7 +1709,7 @@ class FurnaceGUI {
   String workingDirSong, workingDirIns, workingDirWave, workingDirSample, workingDirAudioExport;
   String workingDirVGMExport, workingDirROMExport;
   String workingDirFont, workingDirColors, workingDirKeybinds;
-  String workingDirLayout, workingDirROM, workingDirTest;
+  String workingDirLayout, workingDirROM, workingDirMusic, workingDirTest;
   String workingDirConfig;
   String mmlString[32];
   String mmlStringW, grooveString, grooveListString, mmlStringModTable;
@@ -1710,7 +1731,10 @@ class FurnaceGUI {
   bool vgmExportDirectStream, displayInsTypeList, displayWaveSizeList;
   bool portrait, injectBackUp, mobileMenuOpen, warnColorPushed;
   bool wantCaptureKeyboard, oldWantCaptureKeyboard, displayMacroMenu;
-  bool displayNew, displayExport, displayPalette, fullScreen, preserveChanPos, sysDupCloneChannels, sysDupEnd, noteInputPoly, notifyWaveChange, notifySampleChange;
+  bool displayNew, displayExport, displayPalette, fullScreen, preserveChanPos, sysDupCloneChannels, sysDupEnd;
+  unsigned char noteInputMode;
+  bool notifyWaveChange, notifySampleChange;
+  bool recalcTimestamps;
   bool wantScrollListIns, wantScrollListWave, wantScrollListSample;
   bool displayPendingIns, pendingInsSingle, displayPendingRawSample, snesFilterHex, modTableHex, displayEditString;
   bool displayPendingSamples, replacePendingSample;
@@ -1723,7 +1747,8 @@ class FurnaceGUI {
   bool safeMode;
   bool midiWakeUp;
   bool makeDrumkitMode;
-  bool audioEngineChanged, settingsChanged, debugFFT;
+  bool filePlayerSync;
+  bool audioEngineChanged, settingsChanged, debugFFT, debugRowTimestamps;
   bool willExport[DIV_MAX_CHIPS];
   int vgmExportVersion;
   int vgmExportTrailingTicks;
@@ -1732,6 +1757,7 @@ class FurnaceGUI {
   int drawHalt;
   int macroPointSize;
   int waveEditStyle;
+  int chordInputOffset;
   int displayInsTypeListMakeInsSample;
   int makeDrumkitOctave;
   int mobileEditPage;
@@ -1818,13 +1844,8 @@ class FurnaceGUI {
   char emptyLabel[32];
   char emptyLabel2[32];
 
-  std::vector<int> songOrdersLengths; // lengths of all orders (for drawing song export progress)
-  int songLength; // length of all the song in rows
-  int songLoopedSectionLength; // length of looped part of the song
-  int songFadeoutSectionLength; // length of fading part of the song
-  bool songHasSongEndCommand; // song has "Song end" command (FFxx)
-  int lengthOfOneFile; // length of one rendering pass. song length times num of loops + fadeout
-  int totalLength; // total length of render (lengthOfOneFile times num of files for per-channel export)
+  double songLength; // length of the song in seconds
+  double totalLength; // total length of render (songLength times num of files for per-channel export)
   float curProgress;
   int totalFiles;
 
@@ -2003,7 +2024,6 @@ class FurnaceGUI {
     int iCannotWait;
     int orderButtonPos;
     int compress;
-    int newPatternFormat;
     int renderClearPos;
     int insertBehavior;
     int pullDeleteRow;
@@ -2063,6 +2083,7 @@ class FurnaceGUI {
     int songNotesWrap;
     int rackShowLEDs;
     int sampleImportInstDetune;
+    int mixerStyle;
     String mainFontPath;
     String headFontPath;
     String patFontPath;
@@ -2257,7 +2278,6 @@ class FurnaceGUI {
       iCannotWait(0),
       orderButtonPos(2),
       compress(1),
-      newPatternFormat(1),
       renderClearPos(0),
       insertBehavior(1),
       pullDeleteRow(1),
@@ -2317,6 +2337,7 @@ class FurnaceGUI {
       songNotesWrap(0),
       rackShowLEDs(1),
       sampleImportInstDetune(0),
+      mixerStyle(1),
       mainFontPath(""),
       headFontPath(""),
       patFontPath(""),
@@ -2374,12 +2395,18 @@ class FurnaceGUI {
   int pendingLayoutImportStep;
   FixedQueue<bool*,64> pendingLayoutImportReopen;
 
-  int curIns, curWave, curSample, curOctave, curOrder, playOrder, prevIns, oldRow, editStep, editStepCoarse, soloChan, orderEditMode, orderCursor;
-  int loopOrder, loopRow, loopEnd, isClipping, newSongCategory, latchTarget, undoOrder;
+  // do not set curIns directly! use setCurIns() instead.
+  int curIns, curWave, curSample;
+  int curOctave, curOrder, playOrder, prevIns, oldRow, editStep, editStepCoarse, soloChan, orderEditMode, orderCursor;
+  int isClipping, newSongCategory, latchTarget, undoOrder;
   int wheelX, wheelY, dragSourceX, dragSourceXFine, dragSourceY, dragSourceOrder, dragDestinationX, dragDestinationXFine, dragDestinationY, dragDestinationOrder, oldBeat, oldBar;
   int curGroove, exitDisabledTimer;
   int curPaletteChoice, curPaletteType;
   float soloTimeout;
+
+  int multiIns[7];
+  int multiInsTranspose[7];
+  bool mobileMultiInsToggle;
 
   int purgeYear, purgeMonth, purgeDay;
 
@@ -2392,7 +2419,8 @@ class FurnaceGUI {
   bool mixerOpen, debugOpen, inspectorOpen, oscOpen, volMeterOpen, statsOpen, compatFlagsOpen;
   bool pianoOpen, notesOpen, channelsOpen, regViewOpen, logOpen, effectListOpen, chanOscOpen;
   bool subSongsOpen, findOpen, spoilerOpen, patManagerOpen, sysManagerOpen, clockOpen, speedOpen;
-  bool groovesOpen, xyOscOpen, memoryOpen, csPlayerOpen, cvOpen, userPresetsOpen;
+  bool groovesOpen, xyOscOpen, memoryOpen, csPlayerOpen, cvOpen, userPresetsOpen, refPlayerOpen;
+  bool multiInsSetupOpen;
 
   bool cvNotSerious;
 
@@ -2494,6 +2522,7 @@ class FurnaceGUI {
   std::vector<FurnaceGUISysCategory> sysCategories;
 
   std::vector<String> audioLoadFormats;
+  bool supportsOgg, supportsMP3;
 
   bool wavePreviewOn;
   SDL_Scancode wavePreviewKey;
@@ -2620,7 +2649,7 @@ class FurnaceGUI {
   int resizeSize, silenceSize;
   double resampleTarget;
   int resampleStrat;
-  float amplifyVol;
+  float amplifyVol, amplifyOff;
   int sampleSelStart, sampleSelEnd;
   bool sampleInfo, sampleCompatRate;
   bool sampleDragActive, sampleDragMode, sampleDrag16, sampleZoomAuto;
@@ -2733,6 +2762,11 @@ class FurnaceGUI {
   float keyHit1[DIV_MAX_CHANS];
   int lastIns[DIV_MAX_CHANS];
 
+  // file player temp variables
+  String fpCueInput;
+  bool fpCueInputFailed;
+  String fpCueInputFailReason;
+
   // log window
   bool followLog;
 
@@ -2752,13 +2786,22 @@ class FurnaceGUI {
     PIANO_INPUT_PAD_MAX
   };
 
+  enum PianoLabelsMode {
+    PIANO_LABELS_OFF=0,
+    PIANO_LABELS_OCTAVE,
+    PIANO_LABELS_NOTE,
+    PIANO_LABELS_NOTE_C,
+    PIANO_LABELS_OCTAVE_C,
+    PIANO_LABELS_OCTAVE_NOTE
+  };
+
   int pianoOctaves, pianoOctavesEdit;
   bool pianoOptions, pianoSharePosition, pianoOptionsSet;
   float pianoKeyHit[180];
   bool pianoKeyPressed[180];
   bool pianoReadonly;
   int pianoOffset, pianoOffsetEdit;
-  int pianoView, pianoInputPadMode;
+  int pianoView, pianoInputPadMode, pianoLabelsMode;
 
   // effect sorting / searching
   bool effectsShow[10];
@@ -2813,6 +2856,7 @@ class FurnaceGUI {
   // export options
   DivAudioExportOptions audioExportOptions;
   DivSMPSOptions smpsSettings;
+  String audioExportFilterName, audioExportFilterExt;
   int dmfExportVersion;
   FurnaceGUIExportTypes curExportType;
   DivCSOptions csExportOptions;
@@ -2863,6 +2907,9 @@ class FurnaceGUI {
   void renderFMPreviewOPZ(const DivInstrumentFM& params, int pos=0);
   void renderFMPreviewESFM(const DivInstrumentFM& params, const DivInstrumentESFM& esfmParams, int pos=0);
 
+  void VerticalText(const char* fmt, ...);
+  void VerticalText(float maxSize, bool centered, const char* fmt, ...);
+
   // combo with locale
   static bool LocalizedComboGetter(void* data, int idx, const char** out_text);
 
@@ -2880,8 +2927,12 @@ class FurnaceGUI {
   bool NoteSelector(int* value, bool showOffRel, int octaveMin=-5, int octaveMax=9);
 
   // mixer stuff
+  bool chipMixer(int which, ImVec2 size);
   ImVec2 calcPortSetSize(String label, int ins, int outs);
   bool portSet(String label, unsigned int portSetID, int ins, int outs, int activeIns, int activeOuts, int& clickedPort, std::map<unsigned int,ImVec2>& portPos);
+
+  // piano
+  void pianoLabel(ImDrawList* dl, ImVec2& p0, ImVec2& p1, int note);
 
   void updateWindowTitle();
   void updateROMExportAvail();
@@ -2988,8 +3039,12 @@ class FurnaceGUI {
   void drawTutorial();
   void drawXYOsc();
   void drawUserPresets();
+  void drawRefPlayer();
+  void drawMultiInsSetup();
+
   float drawSystemChannelInfo(const DivSysDef* whichDef, int keyHitOffset=-1, float width=-1.0f);
   void drawSystemChannelInfoText(const DivSysDef* whichDef);
+  void drawVolMeterInternal(ImDrawList* dl, ImRect rect, float* data, int chans, bool aspectRatio);
 
   void assignActionMap(std::map<int,int>& actionMap, int first, int last);
   void drawKeybindSettingsTableRow(FurnaceGUIActions actionIdx);
@@ -3068,7 +3123,7 @@ class FurnaceGUI {
   void doDrag(bool copy=false);
   void editOptions(bool topMenu);
   DivSystem systemPicker(bool fullWidth);
-  void noteInput(int num, int key, int vol=-1);
+  void noteInput(int num, int key, int vol=-1, int chanOff=0);
   void valueInput(int num, bool direct=false, int target=-1);
   void orderInput(int num);
 
@@ -3141,14 +3196,18 @@ class FurnaceGUI {
   const char* getSystemName(DivSystem which);
   const char* getSystemPartNumber(DivSystem sys, DivConfig& flags);
 
+  void setCurIns(int newIns);
+  bool setMultiIns(int newIns);
+  bool isMultiInsActive();
+
   public:
     void editStr(String* which);
     void showWarning(String what, FurnaceGUIWarnings type);
     void showError(String what);
     String getLastError();
-    const char* noteNameNormal(short note, short octave);
-    const char* noteName(short note, short octave);
-    bool decodeNote(const char* what, short& note, short& octave);
+    const char* noteNameNormal(short note);
+    const char* noteName(short note);
+    bool decodeNote(const char* what, short& note);
     void bindEngine(DivEngine* eng);
     void enableSafeMode();
     void updateScroll(int amount);
