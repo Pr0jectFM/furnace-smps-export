@@ -597,6 +597,7 @@ void DivEngine::runExportThread() {
 bool DivEngine::shallSwitchCores() {
   return true;
 }
+
 bool DivEngine::saveAudio(const char* path, DivAudioExportOptions options) {
 #ifndef HAVE_SNDFILE
   logE("Furnace was not compiled with libsndfile. cannot export!");
@@ -657,6 +658,7 @@ bool DivEngine::saveAudio(const char* path, DivAudioExportOptions options) {
   return true;
 #endif
 }
+
 void DivEngine::waitAudioFile() {
   if (exportThread!=NULL) {
     exportThread->join();

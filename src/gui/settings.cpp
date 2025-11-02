@@ -856,15 +856,6 @@ void FurnaceGUI::drawSettings() {
           settingsChanged=true;
         }
 
-        bool newPatternFormatB=settings.newPatternFormat;
-        if (ImGui::Checkbox(_("Use new pattern format when saving"),&newPatternFormatB)) {
-          settings.newPatternFormat=newPatternFormatB;
-          settingsChanged=true;
-        }
-        if (ImGui::IsItemHovered()) {
-          ImGui::SetTooltip(_("use a packed format which saves space when saving songs.\ndisable if you need compatibility with older Furnace and/or tools\nwhich do not support this format."));
-        }
-
         bool noDMFCompatB=settings.noDMFCompat;
         if (ImGui::Checkbox(_("Don't apply compatibility flags when loading .dmf"),&noDMFCompatB)) {
           settings.noDMFCompat=noDMFCompatB;
@@ -1166,7 +1157,7 @@ void FurnaceGUI::drawSettings() {
         }
         ImGui::Unindent();
 
-        if (ImGui::InputText(_("Default author name"), &settings.defaultAuthorName)) settingsChanged=true;
+        if (ImGui::InputText(_("Default author name"),&settings.defaultAuthorName)) settingsChanged=true;
 
         // SUBSECTION START-UP
         CONFIG_SUBSECTION(_("Start-up"));
@@ -1234,7 +1225,7 @@ void FurnaceGUI::drawSettings() {
           settingsChanged=true;
         }
         bool sampleImportInstDetuneB=settings.sampleImportInstDetune;
-        if (ImGui::Checkbox(_("Load sample fine tuning when importing a sample"), &sampleImportInstDetuneB)) {
+        if (ImGui::Checkbox(_("Load sample fine tuning when importing a sample"),&sampleImportInstDetuneB)) {
           settings.sampleImportInstDetune=sampleImportInstDetuneB;
           settingsChanged=true;
         }
@@ -3865,7 +3856,7 @@ void FurnaceGUI::drawSettings() {
         // SUBSECTION SONG COMMENTS
         CONFIG_SUBSECTION(_("Song Comments"));
         bool songNotesWrapB=settings.songNotesWrap;
-        if (ImGui::Checkbox(_("Wrap text"), &songNotesWrapB)) {
+        if (ImGui::Checkbox(_("Wrap text"),&songNotesWrapB)) {
           settings.songNotesWrap=songNotesWrapB;
           settingsChanged=true;
         }
@@ -3873,10 +3864,28 @@ void FurnaceGUI::drawSettings() {
         // SUBSECTION CHIP MANAGER
         CONFIG_SUBSECTION(_("Chip Manager"));
         bool rackShowLEDsB=settings.rackShowLEDs;
-        if (ImGui::Checkbox(_("Show channel indicators"), &rackShowLEDsB)) {
+        if (ImGui::Checkbox(_("Show channel indicators"),&rackShowLEDsB)) {
           settings.rackShowLEDs=rackShowLEDsB;
           settingsChanged=true;
         }
+
+        // SUBSECTION MIXER
+        CONFIG_SUBSECTION(_("Mixer"))
+        ImGui::Text(_("Mixer style:"));
+        ImGui::Indent();
+        if (ImGui::RadioButton(_("No volume meters"),settings.mixerStyle==0)) {
+          settings.mixerStyle=0;
+          settingsChanged=true;
+        }
+        if (ImGui::RadioButton(_("Volume meters to the side"),settings.mixerStyle==1)) {
+          settings.mixerStyle=1;
+          settingsChanged=true;
+        }
+        if (ImGui::RadioButton(_("Volume meters in volume sliders"),settings.mixerStyle==2)) {
+          settings.mixerStyle=2;
+          settingsChanged=true;
+        }
+        ImGui::Unindent();
 
         // SUBSECTION WINDOWS
         CONFIG_SUBSECTION(_("Windows"));
@@ -4909,7 +4918,6 @@ void FurnaceGUI::readConfig(DivConfig& conf, FurnaceGUISettingGroups groups) {
     settings.noMaximizeWorkaround=conf.getInt("noMaximizeWorkaround",0);
 
     settings.compress=conf.getInt("compress",1);
-    settings.newPatternFormat=conf.getInt("newPatternFormat",1);
     settings.newSongBehavior=conf.getInt("newSongBehavior",0);
     settings.playOnLoad=conf.getInt("playOnLoad",0);
     settings.centerPopup=conf.getInt("centerPopup",1);
@@ -5072,9 +5080,11 @@ void FurnaceGUI::readConfig(DivConfig& conf, FurnaceGUISettingGroups groups) {
     settings.oscAntiAlias=conf.getInt("oscAntiAlias",1);
     settings.oscLineSize=conf.getFloat("oscLineSize",1.0f);
 
-    settings.songNotesWrap=conf.getInt("songNotesWrap", 0);
+    settings.songNotesWrap=conf.getInt("songNotesWrap",0);
 
-    settings.rackShowLEDs=conf.getInt("rackShowLEDs", 1);
+    settings.rackShowLEDs=conf.getInt("rackShowLEDs",1);
+
+    settings.mixerStyle=conf.getInt("mixerStyle",1);
 
     settings.channelColors=conf.getInt("channelColors",1);
     settings.channelTextColors=conf.getInt("channelTextColors",0);
@@ -5379,7 +5389,6 @@ void FurnaceGUI::readConfig(DivConfig& conf, FurnaceGUISettingGroups groups) {
   clampSetting(settings.iCannotWait,0,1);
   clampSetting(settings.orderButtonPos,0,2);
   clampSetting(settings.compress,0,1);
-  clampSetting(settings.newPatternFormat,0,1);
   clampSetting(settings.renderClearPos,0,1);
   clampSetting(settings.insertBehavior,0,1);
   clampSetting(settings.pullDeleteRow,0,1);
@@ -5412,8 +5421,9 @@ void FurnaceGUI::readConfig(DivConfig& conf, FurnaceGUISettingGroups groups) {
   clampSetting(settings.playbackTime,0,1);
   clampSetting(settings.shaderOsc,0,1);
   clampSetting(settings.oscLineSize,0.25f,16.0f);
-  clampSetting(settings.songNotesWrap, 0, 1);
-  clampSetting(settings.rackShowLEDs, 0, 1);
+  clampSetting(settings.songNotesWrap,0,1);
+  clampSetting(settings.rackShowLEDs,0,1);
+  clampSetting(settings.mixerStyle,0,2);
   clampSetting(settings.cursorWheelStep,0,2);
   clampSetting(settings.vsync,0,4);
   clampSetting(settings.frameRateLimit,0,1000);
@@ -5510,7 +5520,6 @@ void FurnaceGUI::writeConfig(DivConfig& conf, FurnaceGUISettingGroups groups) {
     conf.set("noMaximizeWorkaround",settings.noMaximizeWorkaround);
 
     conf.set("compress",settings.compress);
-    conf.set("newPatternFormat",settings.newPatternFormat);
     conf.set("newSongBehavior",settings.newSongBehavior);
     conf.set("playOnLoad",settings.playOnLoad);
     conf.set("centerPopup",settings.centerPopup);
@@ -5661,7 +5670,9 @@ void FurnaceGUI::writeConfig(DivConfig& conf, FurnaceGUISettingGroups groups) {
 
     conf.set("songNotesWrap",settings.songNotesWrap);
 
-    conf.set("rackShowLEDs", settings.rackShowLEDs);
+    conf.set("rackShowLEDs",settings.rackShowLEDs);
+
+    conf.set("mixerStyle",settings.mixerStyle);
 
     conf.set("channelColors",settings.channelColors);
     conf.set("channelTextColors",settings.channelTextColors);

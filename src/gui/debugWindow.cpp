@@ -180,7 +180,6 @@ void FurnaceGUI::drawDebug() {
           ImGui::TextColored(ch->portaStop?uiColors[GUI_COLOR_MACRO_VOLUME]:uiColors[GUI_COLOR_HEADER],">> PortaStop");
           ImGui::TextColored(ch->keyOn?uiColors[GUI_COLOR_MACRO_VOLUME]:uiColors[GUI_COLOR_HEADER],">> Key On");
           ImGui::TextColored(ch->keyOff?uiColors[GUI_COLOR_MACRO_VOLUME]:uiColors[GUI_COLOR_HEADER],">> Key Off");
-          ImGui::TextColored(ch->nowYouCanStop?uiColors[GUI_COLOR_MACRO_VOLUME]:uiColors[GUI_COLOR_HEADER],">> NowYouCanStop");
           ImGui::TextColored(ch->stopOnOff?uiColors[GUI_COLOR_MACRO_VOLUME]:uiColors[GUI_COLOR_HEADER],">> Stop on Off");
           ImGui::TextColored(ch->arpYield?uiColors[GUI_COLOR_MACRO_VOLUME]:uiColors[GUI_COLOR_HEADER],">> Arp Yield");
           ImGui::TextColored(ch->delayLocked?uiColors[GUI_COLOR_MACRO_VOLUME]:uiColors[GUI_COLOR_HEADER],">> DelayLocked");
@@ -453,6 +452,13 @@ void FurnaceGUI::drawDebug() {
       ImGui::ScrollText(ImGui::GetID("scrolltest2"),"quis autem vel eum iure reprehenderit",ImGui::GetCursorPos());
       ImGui::ScrollText(ImGui::GetID("scrolltest3"),"qui in ea voluptate velit esse",ImGui::GetCursorPos(),ImVec2(100.0f*dpiScale,0),true);
       ImGui::ScrollText(ImGui::GetID("scrolltest4"),"quam nihil molestiae consequatur, vel illum, qui dolorem eum fugiat, quo voluptas nulla pariatur?",ImGui::GetCursorPos(),ImVec2(0,0),true);
+      ImGui::TreePop();
+    }
+    if (ImGui::TreeNode("Vertical Text Test")) {
+      VerticalText("Test");
+      VerticalText("Test 2");
+      ImGui::SameLine();
+      VerticalText("Test 3");
       ImGui::TreePop();
     }
     if (ImGui::TreeNode("Pitch Table Calculator")) {
