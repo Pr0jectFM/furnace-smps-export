@@ -523,27 +523,12 @@ Done:
 };
 
 // Gets the channel number and outputs the name of the channel
-String smpsChanName(int num) {
+String smpsChanName(int num, bool AMPS) {
   // To Do: account for FM6, DAC2, and PSG3 modes
-  switch (num) {
-  case 0:
-  case 1:
-  case 2:
-  case 3:
-  case 4:
-    return "FM" + std::to_string(num + 1);
-  case 5:
-    return "DAC";
-  case 6:
-    return "PSG1";
-  case 7:
-    return "PSG2";
-  case 8:
-  case 9:
-    return "PSG3";
-  default:
-    return "Null";
-  }
+  if (num < 5) return "FM" + std::to_string(num + 1);
+  if (AMPS) { if (num < 7) return "DAC" + std::to_string(num - 4); }
+  else { if (num == 5) return "DAC"; }
+  return "PSG" + std::to_string(std::min(num - 5 - AMPS, 3));
 }
 
 // write instrument information for 1 operator
@@ -950,7 +935,7 @@ static String smpsCommands(const uint8_t effect, const uint8_t value, smpsVars &
 
     // note cut
     case 0xEC:
-      return fmt::sprintf("\n\t%s\t\t%s", vars.symCommands[smpsGate], value);
+      return fmt::sprintf("\n\t%s\t\t%.2X", vars.symCommands[smpsGate], value);
 
       // note delay
     case 0xED:
@@ -1235,7 +1220,7 @@ SafeWriter* DivEngine::saveASM(DivSMPSOptions options) {
     if (vars.chanOn[l] == typeNoise && vars.chanOn[l - 1] == typePSG) break;
     // Write order list
     if (vars.loopPat >= 0)
-      w->writeText(fmt::sprintf("\n%s_%s:", options.label, smpsChanName(l)));
+      w->writeText(fmt::sprintf("\n%s_%s:", options.label, smpsChanName(l, options.style == verAMPS)));
 
     if (vars.chanOn[l] == typeNoise)
       w->writeText(fmt::sprintf("\n\t%s\t$%.2X", vars.symCommands[smpsNoise], 0xE7));
@@ -1258,8 +1243,8 @@ SafeWriter* DivEngine::saveASM(DivSMPSOptions options) {
 
     for (int j = 0; j < s->ordersLen; j++) {
       if (j == vars.loopPat)
-        w->writeText(fmt::sprintf("\n\n%s_%s_Jump:", options.label, smpsChanName(l)));
-      w->writeText(fmt::sprintf("\n\t%s %s_%s_%.2X_%d_%d", vars.symCommands[smpsCall], options.label, smpsChanName(l), s->orders.ord[l][j], vars.lenTable[0][j], vars.lenTable[1][j]));
+        w->writeText(fmt::sprintf("\n\n%s_%s_Jump:", options.label, smpsChanName(l, options.style == verAMPS)));
+      w->writeText(fmt::sprintf("\n\t%s %s_%s_%.2X_%d_%d", vars.symCommands[smpsCall], options.label, smpsChanName(l, options.style == verAMPS), s->orders.ord[l][j], vars.lenTable[0][j], vars.lenTable[1][j]));
       if (startVols[j + 1] != startVols[j])
         w->writeText(fmt::sprintf("_%.2X",startVols[j]));
     }
@@ -1272,7 +1257,7 @@ SafeWriter* DivEngine::saveASM(DivSMPSOptions options) {
       else
         w->writeText(fmt::sprintf("\n\t%s\t$%.2X", vars.symCommands[smpsAltVolPSG], diffVol));
     if (vars.loopPat >= 0)
-      w->writeText(fmt::sprintf("\n\t%s %s_%s_Jump\n", vars.symCommands[smpsJump], options.label, smpsChanName(l)));
+      w->writeText(fmt::sprintf("\n\t%s %s_%s_Jump\n", vars.symCommands[smpsJump], options.label, smpsChanName(l, options.style == verAMPS)));
     else
       w->writeText(fmt::sprintf("\n\t%s\n", vars.symCommands[smpsStop]));
 
@@ -1311,7 +1296,7 @@ SafeWriter* DivEngine::saveASM(DivSMPSOptions options) {
 
       DivPattern* p = s->pat[l].getPattern(orderNum, false);
 
-      w->writeText(fmt::sprintf("\n%s_%s_%.2X_%d_%d", options.label, smpsChanName(l), orderNum, patStart, patLen));
+      w->writeText(fmt::sprintf("\n%s_%s_%.2X_%d_%d", options.label, smpsChanName(l, options.style == verAMPS), orderNum, patStart, patLen));
       if (startVols[j + 1] != startVols[j])
         w->writeText(fmt::sprintf("_%.2X", startVols[j]));
       w->writeText(":");

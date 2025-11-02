@@ -29,10 +29,8 @@ However, in order to ensure that no adjustments need to be made post-export, som
 
 Before the 1.0 release:
 - Header values
-- Split FM6 from PCM
-- DualPCM support
-- Combine PSG3 and Noise channels
 - PCM sample names
+- Blank channels
 - Effects
   - 01 Pitch slide up
   - 02 Pitch slide down
@@ -56,18 +54,21 @@ Before the 1.0 release:
   - Effect format
 - Reset vibrato after pitch slide
 - Template files for each preset
-  - AMPS
+  - AMPS Sonic 1
+  - AMPS Sonic 2
+  - AMPS Sonic 3
   - SMPS Source
-- Update to work with Furnace's new note data format
 - Test to ensure that patterns are the correct length
 
 Post 1.0 release:
-- SMS export
 - Effects
   - 00 Arpeggio
 - Multiple speeds/grooves
 - SFX option
 - Use selected subsong
+- Swap between PSG3 and noise channels
+- Split FM6 from PCM
+- SMS export
 
 Below is unchanged from the original README.md
 
