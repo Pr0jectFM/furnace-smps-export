@@ -1260,10 +1260,12 @@ SafeWriter* DivEngine::saveASM(DivSMPSOptions options) {
       int patLen = vars.lenTable[1][j];
       uint8_t changeVol = startVols[j + 1] - startVols[j], lastIns = -1;
       smpsTempVars temp;
+      bool cont = false;
       for (int i = 0; i < numUniquePat; i++)
         if (patternsWritten[3][i] == orderNum)
           if (patternsWritten[0][i] == patStart && patternsWritten[1][i] == patLen && patternsWritten[2][i] == changeVol)
-            goto nextPattern2;
+            cont = true;
+      if (cont) continue;
       patternsWritten[0][numUniquePat] = patStart;
       patternsWritten[1][numUniquePat] = patLen;
       patternsWritten[2][numUniquePat] = changeVol;
@@ -1308,9 +1310,6 @@ SafeWriter* DivEngine::saveASM(DivSMPSOptions options) {
         temp.steps += temp.noteTime;
       }
       w->writeText(fmt::sprintf("\n\t%s\n", vars.symCommands[smpsRet]));
-
-    nextPattern2:
-      continue;
     }
   }
   saveLock.unlock();
