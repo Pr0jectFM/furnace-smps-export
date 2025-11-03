@@ -29,8 +29,8 @@ However, in order to ensure that no adjustments need to be made post-export, som
 
 Before the 1.0 release:
 - Header values
+- Scale steps
 - PCM sample names
-- Blank channels
 - Effects
   - 01 Pitch slide up
   - 02 Pitch slide down

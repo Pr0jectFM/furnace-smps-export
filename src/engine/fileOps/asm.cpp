@@ -229,7 +229,7 @@ static const char* smpsSymAMPS[smpsSymLen] = {
   "spSustainLv\t",
   "spReleaseRt\t",
   "spTotalLv\t",
-  "spSSGEG\t",
+  "spSSGEG\t\t",
   // Effects
    "sPan",
    "ssDetune",
@@ -346,6 +346,7 @@ struct smpsVars {
   uint8_t pan, noise, retrigger;
   int chans;
   uint8_t chanOn[11];
+  bool dualPCM;
   smpsVars():
     loopPat(0),
     endPat(0),
@@ -356,7 +357,8 @@ struct smpsVars {
     pan(0),
     noise(0),
     retrigger(0),
-    chans(0) {
+    chans(0),
+    dualPCM(false) {
       for (int i = 0; i < smpsSymLen; i++) symCommands[i] = 0;
       for (int i = 0; i < 13; i++) notesSet[i] = 0;
       for (int i = 0; i < 0x100; i++) fmVoices[i] = 0;
@@ -379,19 +381,21 @@ enum smpsVersion {
 };
 
 // initialize some variables and throw some errors for invalid stuff
-String smpsInit(DivSong& song, DivSMPSOptions& options) {
+String smpsInit(DivSong& song, DivSMPSOptions& options, smpsVars& vars) {
   if (song.system[0] != DIV_SYSTEM_YM2612) {
     if (song.system[0] == DIV_SYSTEM_YM2612_DUALPCM) {
       if (options.style != verAMPS)
         return "Only the AMPS style can support DualPCM";
+      else
+        vars.dualPCM = true;
     }
     else if (song.system[0] == DIV_SYSTEM_YM2612_CSM || song.system[0] == DIV_SYSTEM_YM2612_EXT || song.system[0] == DIV_SYSTEM_YM2612_DUALPCM_EXT) {
-      if (options.style == verAMPS)
+      if (vars.dualPCM)
         return "YM2612 variation is not supported. Use a basic YM2612 or YM2612 with DualPCM";
       return "YM2612 variation is not supported. Use a basic YM2612";
     }
     else {
-      if (options.style == verAMPS)
+      if (vars.dualPCM)
         return "First system is not a basic YM2612 or YM2612 with DualPCM";
       return "First system is not a basic YM2612";
     }
@@ -399,7 +403,6 @@ String smpsInit(DivSong& song, DivSMPSOptions& options) {
   if (song.system[1] != DIV_SYSTEM_SMS)
     return "Second system is not a basic SN76489";
   return "";
-
 }
 
 // find the start and end positions of each pattern, as well as the end spot and loop point
@@ -670,31 +673,40 @@ static void writeHeader(SafeWriter* w, smpsVars& vars, DivSubSong*& s, DivSMPSOp
     w->writeText(fmt::sprintf(" %d", options.tempo + 1));
   if (options.style != verAMPS)
     w->writeText(fmt::sprintf("\n\t%s\t%s_Voices", vars.symCommands[smpsVoice], options.label));
-  // Get the number of FM and PSG channels
-  int chansFM = 0, chansPSG = 0;
-  for (int i : vars.chanOn) {
-    if (i == typeFM) chansFM++;
-    if (i == typePSG) chansPSG++;
-    if (i == typeNoise) { chansPSG = 3; break; }
+  {
+    // Get the number of FM and PSG channels
+    int chansFM = 0, chansPSG = 0, i = 0;
+    for (; i < 5; i++) if (vars.chanOn[i] == typeFM || vars.chanOn[i] == typeEmpty) chansFM++;
+    i += 1 + vars.dualPCM;
+    for (; i < 11; i++) if (vars.chanOn[i] >= typePSG || vars.chanOn[i] == typeEmpty) chansPSG++;
+    w->writeText(fmt::sprintf("\n\t%s\t$%.2X, $%.2X", vars.symCommands[smpsChan], chansFM + (options.style != verAMPS && chansFM != 0), chansPSG));
   }
-  w->writeText(fmt::sprintf("\n\t%s\t$%.2X, $%.2X", vars.symCommands[smpsChan], chansFM + (options.style != verAMPS && chansFM != 0), chansPSG));
   w->writeText(fmt::sprintf("\n\t%s\t$%.2X, $%.2X\n", vars.symCommands[smpsTempo], options.div, options.speed));
   w->writeText(fmt::sprintf(";\tGiven Tempo = %.2f BPM\n", options.given));
   w->writeText(fmt::sprintf(";\tApproximated Tempo = %.2f BPM\n\n", options.approx));
 
-  if (chansFM > 0 && vars.chanOn[5] != typeNull) {
-    if (options.style == verAMPS) {
-      w->writeText(fmt::sprintf("\t%s\t%s_DAC1\n", vars.symCommands[smpsDAC], options.label));
+  if (vars.chanOn[5] != typeNull) {
+    if (vars.chanOn[5] == typePCM) {
+      w->writeText(fmt::sprintf("\t%s\t%s_%s\n", vars.symCommands[smpsDAC], options.label, smpsChanName(5, vars.dualPCM)));
     }
     else
-      w->writeText(fmt::sprintf("\t%s\t%s_DAC\n", vars.symCommands[smpsDAC], options.label));
+      w->writeText(fmt::sprintf("\t%s\t%s_Empty\n", vars.symCommands[smpsDAC], options.label));
   }
-  if (chansFM > 0 && vars.chanOn[6] != typeNull && options.style == verAMPS)
-    w->writeText(fmt::sprintf("\t%s\t%s_DAC2\n", vars.symCommands[smpsDAC], options.label));
-  for (int i = 1; i <= chansFM; i++)
-    w->writeText(fmt::sprintf("\t%s\t%s_FM%d,\t$%.2X, $%.2X\n", vars.symCommands[smpsFM], options.label, i, 0, 0));
-  for (int i = 1; i <= chansPSG; i++)
-    w->writeText(fmt::sprintf("\t%s\t%s_PSG%d,\t$%.2X, $%.2X, $%.2X, $%.2X\n", vars.symCommands[smpsPSG], options.label, i, 0, 0, 0, 0));
+  if (vars.chanOn[6] != typeNull && options.style == verAMPS) {
+    if (vars.chanOn[6] == typePCM) {
+      w->writeText(fmt::sprintf("\t%s\t%s_%s\n", vars.symCommands[smpsDAC], options.label, smpsChanName(6, true)));
+    }
+    else
+      w->writeText(fmt::sprintf("\t%s\t%s_Empty\n", vars.symCommands[smpsDAC], options.label));
+  }
+  for (int i = 0; i < 5; i++) {
+    if (vars.chanOn[i] == typeEmpty) w->writeText(fmt::sprintf("\t%s\t%s_Empty,\t$%.2X, $%.2X\n", vars.symCommands[smpsFM], options.label));
+    if (vars.chanOn[i] == typeFM) w->writeText(fmt::sprintf("\t%s\t%s_%s,\t$%.2X, $%.2X\n", vars.symCommands[smpsFM], options.label, smpsChanName(i, vars.dualPCM), 0, 0));
+  }
+  for (int i = 6 + (vars.dualPCM); i < 11; i++) {
+    if (vars.chanOn[i] == typeEmpty) w->writeText(fmt::sprintf("\t%s\t%s_Empty,\t$00, $00, $00, $00\n", vars.symCommands[smpsPSG], options.label));
+    if (vars.chanOn[i] >= typePSG) w->writeText(fmt::sprintf("\t%s\t%s_%s,\t$%.2X, $%.2X, $%.2X, $%.2X\n", vars.symCommands[smpsPSG], options.label, smpsChanName(i, vars.dualPCM), 0, 0, 0, 0));
+  }
 }
 
 static void writeVoices(SafeWriter* w, smpsVars &vars, DivSong &song, DivSMPSOptions &options) {
@@ -741,7 +753,7 @@ static void writeVoices(SafeWriter* w, smpsVars &vars, DivSong &song, DivSMPSOpt
         writeOperator(w, opParams[smpsSusLv - smpsVoices], vars.symCommands[smpsSusLv]);
         writeOperator(w, opParams[smpsRelRt - smpsVoices], vars.symCommands[smpsRelRt]);
         writeOperator(w, opParams[smpsTotLv - smpsVoices], vars.symCommands[smpsTotLv]);
-        if (options.style == verAMPS)
+        if (vars.dualPCM)
           writeOperator(w, opParams[smpsSSGEG - smpsVoices], vars.symCommands[smpsSSGEG]);
 
       }
@@ -1165,7 +1177,10 @@ static void writeNotes(SafeWriter* w, smpsVars& vars, smpsTempVars& temp) {
 
 SafeWriter* DivEngine::saveASM(DivSMPSOptions options) {
 
-  String error = smpsInit(song, options);
+  // Get symbols for the corresponding version
+  smpsVars vars;
+
+  String error = smpsInit(song, options, vars);
   if (error != "") {
     lastError = error;
     return NULL;
@@ -1175,9 +1190,6 @@ SafeWriter* DivEngine::saveASM(DivSMPSOptions options) {
 
   SafeWriter* w = new SafeWriter;
   w->init();
-
-  // Get symbols for the corresponding version
-  smpsVars vars;
 
   switch (options.style) {
     case verFlamewing:
@@ -1209,17 +1221,25 @@ SafeWriter* DivEngine::saveASM(DivSMPSOptions options) {
   w->writeText(fmt::sprintf("\t; End Pattern : % .2X\n", vars.endPat));
   w->writeText(fmt::sprintf("\t; End Place : % .2X\n\n", vars.endPlace));
 
-  // Write notes
+  // write notes
   if (options.style != verSource)
     std::copy(notes, notes + 13, vars.notesSet);
   else
     std::copy(notesSource, notesSource + 13, vars.notesSet);
 
+  // create placeholder channel
+  for (int i : vars.chanOn) {
+    if (i == typeEmpty) {
+      w->writeText(fmt::sprintf("\n%s_Empty:\n\t%s\n", options.label, vars.symCommands[smpsStop]));
+      break;
+    }
+  }
+
   for (int l = 0; l < chans; l++) {
-    if (vars.chanOn[l] == typeNull) continue;
+    if (vars.chanOn[l] <= typeEmpty) continue;
     if (vars.chanOn[l] == typeNoise && vars.chanOn[l - 1] == typePSG) break;
     // Write order list
-    w->writeText(fmt::sprintf("\n%s_%s:", options.label, smpsChanName(l, options.style == verAMPS)));
+    w->writeText(fmt::sprintf("\n%s_%s:", options.label, smpsChanName(l, vars.dualPCM)));
 
     if (vars.chanOn[l] == typeNoise)
       w->writeText(fmt::sprintf("\n\t%s\t$%.2X", vars.symCommands[smpsNoise], 0xE7));
@@ -1242,8 +1262,8 @@ SafeWriter* DivEngine::saveASM(DivSMPSOptions options) {
 
     for (int j = 0; j < s->ordersLen; j++) {
       if (j == vars.loopPat)
-        w->writeText(fmt::sprintf("\n\n%s_%s_Jump:", options.label, smpsChanName(l, options.style == verAMPS)));
-      w->writeText(fmt::sprintf("\n\t%s %s_%s_%.2X_%d_%d", vars.symCommands[smpsCall], options.label, smpsChanName(l, options.style == verAMPS), s->orders.ord[l][j], vars.lenTable[0][j], vars.lenTable[1][j]));
+        w->writeText(fmt::sprintf("\n\n%s_%s_Jump:", options.label, smpsChanName(l, vars.dualPCM)));
+      w->writeText(fmt::sprintf("\n\t%s %s_%s_%.2X_%d_%d", vars.symCommands[smpsCall], options.label, smpsChanName(l, vars.dualPCM), s->orders.ord[l][j], vars.lenTable[0][j], vars.lenTable[1][j]));
       if (startVols[j + 1] != startVols[j])
         w->writeText(fmt::sprintf("_%.2X",startVols[j]));
     }
@@ -1256,7 +1276,7 @@ SafeWriter* DivEngine::saveASM(DivSMPSOptions options) {
       else
         w->writeText(fmt::sprintf("\n\t%s\t$%.2X", vars.symCommands[smpsAltVolPSG], diffVol));
     if (vars.loopPat >= 0)
-      w->writeText(fmt::sprintf("\n\t%s %s_%s_Jump\n", vars.symCommands[smpsJump], options.label, smpsChanName(l, options.style == verAMPS)));
+      w->writeText(fmt::sprintf("\n\t%s %s_%s_Jump\n", vars.symCommands[smpsJump], options.label, smpsChanName(l, vars.dualPCM)));
     else
       w->writeText(fmt::sprintf("\n\t%s\n", vars.symCommands[smpsStop]));
 
@@ -1295,7 +1315,7 @@ SafeWriter* DivEngine::saveASM(DivSMPSOptions options) {
 
       DivPattern* p = s->pat[l].getPattern(orderNum, false);
 
-      w->writeText(fmt::sprintf("\n%s_%s_%.2X_%d_%d", options.label, smpsChanName(l, options.style == verAMPS), orderNum, patStart, patLen));
+      w->writeText(fmt::sprintf("\n%s_%s_%.2X_%d_%d", options.label, smpsChanName(l, vars.dualPCM), orderNum, patStart, patLen));
       if (startVols[j + 1] != startVols[j])
         w->writeText(fmt::sprintf("_%.2X", startVols[j]));
       w->writeText(":");
