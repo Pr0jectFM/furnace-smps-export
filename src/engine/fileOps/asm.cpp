@@ -632,6 +632,8 @@ struct smpsTempVars {
   bool hold, legato;
   bool wroteLen, wroteNote;
   bool noise;
+  short noteOct;
+  int pcmBank;
   smpsTempVars():
     numEffects(0),
     macroTimer(0),
@@ -654,7 +656,9 @@ struct smpsTempVars {
     legato(false),
     wroteLen(false),
     wroteNote(false),
-    noise(false) {
+    noise(false),
+    noteOct(0),
+    pcmBank(0) {
       for (int i = 0; i < 0x10; i++) effects[i] = "";
       for (int i = 0; i < timeLen; i++) timers[i] = 0;
       for (int i = 0; i < macLen; i++) {
@@ -1079,7 +1083,8 @@ static void getTimer(DivPattern* p, smpsVars& vars, smpsTempVars& temp, DivSubSo
       }
 
     // *checks notes*
-    noteToSplitNote(p->newData[step][DIV_PAT_NOTE], temp.note, temp.octave);
+    temp.noteOct = p->newData[step][DIV_PAT_NOTE];
+    noteToSplitNote(temp.noteOct, temp.note, temp.octave);
     if (temp.note != 0 || temp.octave != 0) {
       temp.macroTimer = 0;
       found = true;
@@ -1110,7 +1115,7 @@ static void separateNote(SafeWriter* w, smpsTempVars& temp) {
 }
 
 // get the note to write
-String getNote(smpsVars& vars, smpsTempVars& temp) {
+String getNote(smpsVars& vars, smpsTempVars& temp, DivSong& song) {
   temp.prevNote = temp.note;
   temp.prevOctave = temp.octave;
   if (temp.note != 100) {
@@ -1124,15 +1129,30 @@ String getNote(smpsVars& vars, smpsTempVars& temp) {
       temp.octave--;
     if (vars.chanOn[temp.channel] > typePCM && (temp.octave > 5 || (temp.octave == 5 && temp.note >= 5)))
       return fmt::sprintf("%s", "nMaxPSG");
-    else
+    else {
+      if (vars.chanOn[temp.channel] == typePCM) {
+        int note = temp.note + 12 * temp.pcmBank;
+        if (note >= song.sampleLen) goto normalNote;
+        DivSample* sample = song.sample[note];
+        if (sample->name[0] != 'd' || sample->name[1] < 'A' || sample->name[1] > 'Z')
+          goto normalNote;
+        String sampleOut = "";
+        for (char letter : sample->name) {
+          if (letter == ' ') break;
+          sampleOut = sampleOut + letter;
+        }
+        return sampleOut;
+      }
+    normalNote:
       return fmt::sprintf("%s%d", vars.notesSet[temp.note], temp.octave);
+    }
   }
   else
     return fmt::sprintf("%s", vars.notesSet[12]);
 }
 
 // write notes and effects
-static void writeNotes(SafeWriter* w, smpsVars& vars, smpsTempVars& temp) {
+static void writeNotes(SafeWriter* w, smpsVars& vars, smpsTempVars& temp, DivSong& song) {
   // write timer
   if (temp.noteTime != 0) {
     if (temp.prevTime != temp.noteTime || temp.wroteNote == false) {
@@ -1166,7 +1186,7 @@ static void writeNotes(SafeWriter* w, smpsVars& vars, smpsTempVars& temp) {
   // write next note
   if ((temp.note != 0 || temp.octave != 0) && ((temp.prevNote != temp.note || temp.prevOctave != temp.octave) || temp.wroteLen == false)) {
     separateNote(w, temp);
-    w->writeText(getNote(vars, temp));
+    w->writeText(getNote(vars, temp, song));
     temp.prevNote = temp.note;
     temp.prevOctave = temp.octave;
     temp.wroteNote = true;
@@ -1340,10 +1360,10 @@ SafeWriter* DivEngine::saveASM(DivSMPSOptions options) {
         if (!temp.legato)
           temp.hold = false;
       }
-      writeNotes(w, vars, temp);
+      writeNotes(w, vars, temp, song);
       for (temp.steps = (temp.noteTime + 1); temp.steps <= patLen;) {
         getTimer(p, vars, temp, s, options);
-        writeNotes(w, vars, temp);
+        writeNotes(w, vars, temp, song);
         temp.steps += temp.noteTime;
       }
       w->writeText(fmt::sprintf("\n\t%s\n", vars.symCommands[smpsRet]));
