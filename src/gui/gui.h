@@ -525,6 +525,10 @@ enum FurnaceGUIColors {
   GUI_COLOR_MEMORY_BANK6,
   GUI_COLOR_MEMORY_BANK7,
 
+  GUI_COLOR_TUNER_NEEDLE,
+  GUI_COLOR_TUNER_SCALE_LOW,
+  GUI_COLOR_TUNER_SCALE_HIGH,
+
   GUI_COLOR_LOGLEVEL_ERROR,
   GUI_COLOR_LOGLEVEL_WARNING,
   GUI_COLOR_LOGLEVEL_INFO,
@@ -559,6 +563,8 @@ enum FurnaceGUIWindows {
   GUI_WINDOW_COMPAT_FLAGS,
   GUI_WINDOW_PIANO,
   GUI_WINDOW_NOTES,
+  GUI_WINDOW_TUNER,
+  GUI_WINDOW_SPECTRUM,
   GUI_WINDOW_CHANNELS,
   GUI_WINDOW_PAT_MANAGER,
   GUI_WINDOW_SYS_MANAGER,
@@ -769,6 +775,8 @@ enum FurnaceGUIActions {
   GUI_ACTION_WINDOW_COMPAT_FLAGS,
   GUI_ACTION_WINDOW_PIANO,
   GUI_ACTION_WINDOW_NOTES,
+  GUI_ACTION_WINDOW_TUNER,
+  GUI_ACTION_WINDOW_SPECTRUM,
   GUI_ACTION_WINDOW_CHANNELS,
   GUI_ACTION_WINDOW_PAT_MANAGER,
   GUI_ACTION_WINDOW_SYS_MANAGER,
@@ -1982,7 +1990,6 @@ class FurnaceGUI {
     int noMultiSystem;
     int oldMacroVSlider;
     int displayAllInsTypes;
-    int displayPartial;
     int noteCellSpacing;
     int insCellSpacing;
     int volCellSpacing;
@@ -2084,6 +2091,7 @@ class FurnaceGUI {
     int rackShowLEDs;
     int sampleImportInstDetune;
     int mixerStyle;
+    int mixerLayout;
     String mainFontPath;
     String headFontPath;
     String patFontPath;
@@ -2237,7 +2245,6 @@ class FurnaceGUI {
       noMultiSystem(0),
       oldMacroVSlider(0),
       displayAllInsTypes(0),
-      displayPartial(0),
       noteCellSpacing(0),
       insCellSpacing(0),
       volCellSpacing(0),
@@ -2338,6 +2345,7 @@ class FurnaceGUI {
       rackShowLEDs(1),
       sampleImportInstDetune(0),
       mixerStyle(1),
+      mixerLayout(0),
       mainFontPath(""),
       headFontPath(""),
       patFontPath(""),
@@ -2417,7 +2425,7 @@ class FurnaceGUI {
   bool editControlsOpen, ordersOpen, insListOpen, songInfoOpen, patternOpen, insEditOpen;
   bool waveListOpen, waveEditOpen, sampleListOpen, sampleEditOpen, aboutOpen, settingsOpen;
   bool mixerOpen, debugOpen, inspectorOpen, oscOpen, volMeterOpen, statsOpen, compatFlagsOpen;
-  bool pianoOpen, notesOpen, channelsOpen, regViewOpen, logOpen, effectListOpen, chanOscOpen;
+  bool pianoOpen, notesOpen, tunerOpen, spectrumOpen, channelsOpen, regViewOpen, logOpen, effectListOpen, chanOscOpen;
   bool subSongsOpen, findOpen, spoilerOpen, patManagerOpen, sysManagerOpen, clockOpen, speedOpen;
   bool groovesOpen, xyOscOpen, memoryOpen, csPlayerOpen, cvOpen, userPresetsOpen, refPlayerOpen;
   bool multiInsSetupOpen;
@@ -2757,6 +2765,41 @@ class FurnaceGUI {
   float xyOscIntensity;
   float xyOscThickness;
 
+  // spectrum and tuner
+  double* tunerFFTInBuf;
+  fftw_complex* tunerFFTOutBuf;
+  fftw_plan tunerPlan;
+  struct SpectrumSettings {
+    int bins;
+    float xZoom, xOffset;
+    float yOffset;
+    fftw_plan plan[DIV_MAX_OUTPUTS];
+    double* in[DIV_MAX_OUTPUTS];
+    fftw_complex* buffer[DIV_MAX_OUTPUTS];
+    ImVec2* plot[DIV_MAX_OUTPUTS];
+    std::vector<int> frequencies;
+    bool update, running, mono;
+    bool showXGrid, showYGrid, showXScale, showYScale;
+    SpectrumSettings():
+      bins(4096),
+      xZoom(1.0f),
+      xOffset(0.0f),
+      yOffset(0.0f),
+      frequencies({}),
+      update(true),
+      running(false),
+      mono(false),
+      showXGrid(true),
+      showYGrid(true),
+      showXScale(true),
+      showYScale(true) {
+        memset(plan,0,DIV_MAX_OUTPUTS*sizeof(fftw_plan*));
+        memset(in,0,DIV_MAX_OUTPUTS*sizeof(double*));
+        memset(buffer,0,DIV_MAX_OUTPUTS*sizeof(fftw_complex*));
+        memset(plot,0,DIV_MAX_OUTPUTS*sizeof(ImVec2*));
+      }
+  } spectrum;
+
   // visualizer
   float keyHit[DIV_MAX_CHANS];
   float keyHit1[DIV_MAX_CHANS];
@@ -3018,6 +3061,8 @@ class FurnaceGUI {
   void drawCompatFlags();
   void drawPiano();
   void drawNotes(bool asChild=false);
+  void drawTuner();
+  void drawSpectrum();
   void drawChannels();
   void drawPatManager();
   void drawSysManager();

@@ -118,6 +118,8 @@ bool infoMode=false;
 
 bool noReportError=false;
 
+bool hasOutFormat=false;
+
 std::vector<TAParam> params;
 
 #ifdef HAVE_LOCALE
@@ -452,6 +454,87 @@ TAParamResult pOutMode(String val) {
   return TA_PARAM_SUCCESS;
 }
 
+TAParamResult pOutFormat(String val) {
+  if (hasOutFormat) {
+    logE("the output format is already set.");
+    return TA_PARAM_ERROR;
+  }
+  hasOutFormat=true;
+  if (val=="u8") {
+    exportOptions.format=DIV_EXPORT_FORMAT_WAV;
+    exportOptions.wavFormat=DIV_EXPORT_WAV_U8;
+  } else if (val=="s16") {
+    exportOptions.format=DIV_EXPORT_FORMAT_WAV;
+    exportOptions.wavFormat=DIV_EXPORT_WAV_S16;
+  } else if (val=="f32") {
+    exportOptions.format=DIV_EXPORT_FORMAT_WAV;
+    exportOptions.wavFormat=DIV_EXPORT_WAV_F32;
+  } else if (val=="opus") {
+    exportOptions.format=DIV_EXPORT_FORMAT_OPUS;
+  } else if (val=="flac") {
+    exportOptions.format=DIV_EXPORT_FORMAT_FLAC;
+  } else if (val=="vorbis") {
+    exportOptions.format=DIV_EXPORT_FORMAT_VORBIS;
+  } else if (val=="mp3") {
+    exportOptions.format=DIV_EXPORT_FORMAT_MPEG_L3;
+  } else {
+    logE("invalid value for outformat! valid values are: u8, s16, f32, opus, flac, vorbis and mp3.");
+    return TA_PARAM_ERROR;
+  }
+  return TA_PARAM_SUCCESS;
+}
+
+TAParamResult pBitRate(String val) {
+  try {
+    int br=std::stoi(val);
+    if (br<0) {
+      logE("bit rate shall be positive.");
+      return TA_PARAM_ERROR;
+    }
+    if (br<1000) {
+      // let's assume the user meant kilobits.
+      br*=1000;
+    }
+    exportOptions.bitRate=br;
+  } catch (std::exception& e) {
+    logE("bit rate shall be a number.");
+    return TA_PARAM_ERROR;
+  }
+  return TA_PARAM_SUCCESS;
+}
+
+TAParamResult pRateMode(String val) {
+  if (val=="constant") {
+    exportOptions.bitRateMode=DIV_EXPORT_BITRATE_CONSTANT;
+  } else if (val=="variable") {
+    exportOptions.bitRateMode=DIV_EXPORT_BITRATE_VARIABLE;
+  } else if (val=="average") {
+    exportOptions.bitRateMode=DIV_EXPORT_BITRATE_AVERAGE;
+  } else {
+    logE("invalid value for ratemode! valid values are: constant, variable and average.");
+    return TA_PARAM_ERROR;
+  }
+  return TA_PARAM_SUCCESS;
+}
+
+TAParamResult pCompression(String val) {
+  try {
+    float qual=std::stof(val);
+    if (qual<0) {
+      logE("quality/compression level shall be positive.");
+      return TA_PARAM_ERROR;
+    }
+    if (qual>10) {
+      qual=10;
+    }
+    exportOptions.vbrQuality=qual;
+  } catch (std::exception& e) {
+    logE("quality/compression level shall be a number.");
+    return TA_PARAM_ERROR;
+  }
+  return TA_PARAM_SUCCESS;
+}
+
 TAParamResult pBenchmark(String val) {
   if (val=="render") {
     benchMode=1;
@@ -468,6 +551,30 @@ TAParamResult pBenchmark(String val) {
 TAParamResult pOutput(String val) {
   outName=val;
   e.setAudio(DIV_AUDIO_DUMMY);
+
+  // detect output format
+  if (!hasOutFormat) {
+    size_t extPos=outName.rfind('.');
+    if (extPos!=String::npos) {
+      String lowerCase=outName.substr(extPos);
+      for (char& i: lowerCase) {
+        if (i>='A' && i<='Z') i+='a'-'A';
+      }
+
+      if (lowerCase==".wav") {
+        exportOptions.format=DIV_EXPORT_FORMAT_WAV;
+      } else if (lowerCase==".ogg") {
+        // not defaulting to Vorbis in order to encourage Opus usage
+        exportOptions.format=DIV_EXPORT_FORMAT_OPUS;
+      } else if (lowerCase==".flac") {
+        exportOptions.format=DIV_EXPORT_FORMAT_FLAC;
+      } else if (lowerCase==".opus") {
+        exportOptions.format=DIV_EXPORT_FORMAT_OPUS;
+      } else if (lowerCase==".mp3") {
+        exportOptions.format=DIV_EXPORT_FORMAT_MPEG_L3;
+      }
+    }
+  }
   return TA_PARAM_SUCCESS;
 }
 
@@ -521,6 +628,12 @@ void initParams() {
 
   params.push_back(TAParam("a","audio",true,pAudio,"jack|sdl|portaudio|pipe","set audio engine (SDL by default)"));
   params.push_back(TAParam("o","output",true,pOutput,"<filename>","output audio to file"));
+  params.push_back(TAParam("f","outformat",true,pOutFormat,"u8|s16|f32|opus|flac|vorbis|mp3","set audio output format"));
+  params.push_back(TAParam("b","bitrate",true,pBitRate,"<rate>","set output file bit rate (lossy compression only)"));
+  params.push_back(TAParam("M","ratemode",true,pRateMode,"constant|variable|average","set output bit rate mode (MP3 only)"));
+  params.push_back(TAParam("Q","compression",true,pCompression,"<level>","set output quality/compression level from 0-10 (Vorbis, FLAC and MP3 VBR only)"));
+
+
   params.push_back(TAParam("O","vgmout",true,pVGMOut,"<filename>","output .vgm data"));
   params.push_back(TAParam("D","direct",false,pDirect,"","set VGM export direct stream mode"));
   params.push_back(TAParam("C","cmdout",true,pCmdOut,"<filename>","output command stream"));
