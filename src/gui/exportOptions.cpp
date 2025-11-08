@@ -537,7 +537,7 @@ static const int smpsPresetOptions[5][6] = {
   {3, 0, 0, 0, 0, 0}
 };
 
-void spmToTempo(DivSubSong*& s, DivSMPSOptions& options) {
+static void spmToTempo(DivSubSong*& s, DivSMPSOptions& options) {
   float frames = (60 * options.stepSz) / s->hz;
   std::function<int(int)> speedFct = [frames](int div) {return 0; };
   std::function<float(int, int)> approxFct = [s](int div, int speed) {return 0; };
@@ -598,8 +598,7 @@ void FurnaceGUI::drawExportASM(bool onWindow) {
     if (i == ' ') i = '_';
   ImGui::InputText("##ASMLabel", &smpsSettings.label);
   int setSpeed = s->speeds.val[0] * (s->timeBase + 1);
-  if (smpsSettings.stepSz < 1)
-    smpsSettings.stepSz = setSpeed;
+  if (smpsSettings.stepSz < 1) smpsSettings.stepSz = setSpeed;
   ImGui::Text(_("Step Size:"));
   if (ImGui::InputInt("##ASMStepSize", &smpsSettings.stepSz))
     if (smpsSettings.stepSz < 1) smpsSettings.stepSz = 1;

@@ -162,7 +162,7 @@ struct DivSMPSOptions {
   float given, approx;
   DivSMPSOptions():
     label(""),
-    stepSz(3),
+    stepSz(0),
     preset(0),
     style(0),
     tempo(0),

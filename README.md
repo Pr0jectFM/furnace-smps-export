@@ -29,7 +29,6 @@ However, in order to ensure that no adjustments need to be made post-export, som
 
 Before the 1.0 release:
 - Header values
-- Scale steps
 - PCM sample names
 - Effects
   - 01 Pitch slide up
@@ -69,6 +68,7 @@ Post 1.0 release:
 - Swap between PSG3 and noise channels
 - Split FM6 from PCM
 - SMS export
+- Adjust loop points for macros that are applied before end point but not before loop point
 
 Below is unchanged from the original README.md
 
