@@ -35,6 +35,7 @@
 #include <initializer_list>
 #include <thread>
 #include "../fixedQueue.h"
+#include "fileOps/asm.h"
 
 class DivWorkPool;
 
@@ -826,6 +827,10 @@ class DivEngine {
     void notifyWaveChange(int wave);
     // notify sample change
     void notifySampleChange(int sample);
+
+    // SMPS functions
+    String getNote(SafeWriter* w, smpsVars& vars, smpsTempVars& temp);
+    void writeNotes(SafeWriter* w, smpsVars& vars, smpsTempVars& temp);
 
     // dispatch a command
     int dispatchCmd(DivCommand c);

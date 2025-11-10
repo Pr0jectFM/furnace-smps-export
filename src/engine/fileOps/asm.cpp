@@ -19,369 +19,6 @@
 
 #include "fileOpsCommon.h"
 
- // enums used for symbol array
-enum smpsSymbols {
-  // Header
-  smpsHeader = 0,
-  smpsStart = smpsHeader,
-  smpsVoice,
-  smpsChan,
-  smpsTempo,
-  smpsDAC,
-  smpsFM,
-  smpsPSG,
-  // Voices
-  smpsAlg,
-  smpsFeed,
-  smpsVoices,
-  smpsDetune = smpsVoices,
-  smpsMult,
-  smpsRtScale,
-  smpsAttRt,
-  smpsAmpMod,
-  smpsDecRt1,
-  smpsDecRt2,
-  smpsSusLv,
-  smpsRelRt,
-  smpsTotLv,
-  smpsSSGEG,
-  // Effects
-  smpsEffects,
-  smpsPan = smpsEffects,
-  smpsSetDetune,
-  smpsSetTrans,
-  smpsTickMul,
-  smpsHold,
-  smpsSetVoice,
-  smpsVolEnv,
-  smpsModEnv,
-  smpsSetTempo,
-  smpsSampDAC,
-  smpsPitchDAC,
-  smpsAltVolFM,
-  smpsAltVolPSG,
-  smpsSetLFO,
-  smpsSetVib68k,
-  smpsSetVibZ80,
-  smpsVibOn,
-  smpsVibOff,
-  smpsVibFreq,
-  smpsVibReset,
-  smpsPortamento,
-  smpsStop,
-  smpsJump,
-  smpsLoop,
-  smpsCall,
-  smpsRet,
-  smpsGate,
-  smpsFreqNote,
-  smpsNoise,
-  // Parameters
-  smpsPanCenter,
-  smpsPanLeft,
-  smpsPanRight,
-  smpsPanNone,
-  smpsSymLen
-};
-
-// Flamewing symbols
-static const char* smpsSymFlamewing[smpsSymLen] = {
-  // Header
-  "smpsHeaderStartSong",
-  "smpsHeaderVoice\t",
-  "smpsHeaderChan\t",
-  "smpsHeaderTempo\t",
-  "smpsHeaderDAC",
-  "smpsHeaderFM",
-  "smpsHeaderPSG",
-  // Voices
-  "smpsVcAlgorithm",
-  "smpsVcFeedback",
-  "smpsVcDetune\t",
-  "smpsVcCoarseFreq",
-  "smpsVcRateScale\t",
-  "smpsVcAttackRate",
-  "smpsVcAmpMod\t",
-  "smpsVcDecayRate1",
-  "smpsVcDecayRate2",
-  "smpsVcDecayLevel",
-  "smpsVcReleaseRate",
-  "smpsVcTotalLevel",
-  "; Not Implemented",
-  // Effects
-  "smpsPan",
-  "smpsAlterNote",
-  "smpsAlterPitch",
-  "smpsSetTempoDiv",
-  "smpsNoAttack",
-  "smpsSetvoice",
-  "smpsPSGvoice",
-  "smpsModChange",
-  "smpsSetTempoMod",
-  "; smpsSampDAC Not Implemented",
-  "; smpsPitchDAC Not Implemented",
-  "smpsAlterVol",
-  "smpsPSGAlterVol",
-  "smpsSetLFO",
-  "smpsModSet",
-  "smpsModSet",
-  "smpsModOn",
-  "smpsModOff",
-  "; smpsVibFreq Not Implemented",
-  "; smpsVibReset Not Implemented",
-  "smpsPitchSlide",
-  "smpsStop",
-  "smpsJump",
-  "smpsLoop",
-  "smpsCall",
-  "smpsReturn",
-  "smpsNoteFill",
-  "smpsSetNote",
-  "smpsPSGform",
-  // Parameters
-  "panCenter",
-  "panLeft",
-  "panRight",
-  "panNone"
-};
-
-// MD Music Player symbols
-static const char* smpsSymMDMP[smpsSymLen] = {
-  // Header
-  "sHeaderInit",
-  "sHeaderVoice",
-  "sHeaderCh",
-  "sHeaderTempo",
-  "sHeaderDAC",
-  "sHeaderFM",
-  "sHeaderPSG",
-  // Voices
-  "spAlgorithm",
-  "spFeedback",
-  "spDetune\t",
-  "spMultiple\t",
-  "spRateScale\t",
-  "spAttackRt\t",
-  "spAmpMod\t",
-  "spSustainRt\t",
-  "spDecayRt\t",
-  "spSustainLv\t",
-  "spReleaseRt\t",
-  "spTotalLv\t",
-  "; Not Implemented"
-  // Effects
-  "sPan",
-  "ssDetune",
-  "ssTranspose",
-  "ssTickMul",
-  "sHold",
-  "sPatFM",
-  "sVolEnvPSG",
-  "sModEnv",
-  "ssTempo",
-  "; smpsSampDAC Not Implemented",
-  "; smpsPitchDAC Not Implemented",
-  "saVolFM",
-  "saVolPSG",
-  "; smpsSetLFO Not Implemented",
-  "sMod68k",
-  "sModZ80",
-  "sModOn",
-  "sModOff",
-  "; smpsVibFreq Not Implemented",
-  "; smpsVibReset Not Implemented",
-  "; smpsPortamento Not Implemented",
-  "sStop",
-  "sJump",
-  "sLoop",
-  "sCall",
-  "sRet",
-  "sGate",
-  "ssTransposeS3K",
-  "sNoisePSG",
-  // Parameters
-  "panCenter",
-  "panLeft",
-  "panRight",
-  "panNone"
-};
-
-// AMPS symbols
-static const char* smpsSymAMPS[smpsSymLen] = {
-  // Header
-  "sHeaderInit",
-  "; Not Implemented",
-  "sHeaderCh",
-  "sHeaderTempo",
-  "sHeaderDAC",
-  "sHeaderFM",
-  "sHeaderPSG",
-  // Voices
-  "spAlgorithm",
-  "spFeedback",
-  "spDetune\t",
-  "spMultiple\t",
-  "spRateScale\t",
-  "spAttackRt\t",
-  "spAmpMod\t",
-  "spSustainRt\t",
-  "spDecayRt\t",
-  "spSustainLv\t",
-  "spReleaseRt\t",
-  "spTotalLv\t",
-  "spSSGEG\t\t",
-  // Effects
-   "sPan",
-   "ssDetune",
-   "ssTranspose",
-   "ssTickMul",
-   "sHold",
-   "sVoice",
-   "sVolEnv",
-   "sModEnv",
-   "ssTempo",
-   "sModeSampDAC",
-   "sModePitchDAC",
-   "saVol",
-   "saVol",
-   "ssLFO",
-   "sModAMPS",
-   "; smpsVibZ80 Not Implemented",
-   "sModOn",
-   "sModOff",
-   "sModFreq",
-   "sModReset",
-   "ssPortamento",
-   "sStop",
-   "sJump",
-   "sLoop",
-   "sCall",
-   "sRet",
-   "sGate",
-   "ssFreqNote",
-   "sNoisePSG",
-   // Parameters
-   "panCenter",
-   "panLeft",
-   "panRight",
-   "panNone"
-};
-
-// SMPS Source symbols
-static const char* smpsSymSource[smpsSymLen] = {
-  // Header
-  "; smpsStart Not Implemented",
-  "; smpsVoice Not Implemented",
-  "; smpsChan Not Implemented",
-  "; smpsTempo Not Implemented",
-  "; smpsDAC Not Implemented",
-  "; smpsFM Not Implemented",
-  "; smpsPSG Not Implemented",
-  // Voices
-  "CNF",
-  "; smpsFeed Not Implemented",
-  "MD",
-  "; smpsMult Not Implemented",
-  "RSAR",
-  "; smpsAttRt Not Implemented",
-  "; smpsAmpMod Not Implemented",
-  "D1R",
-  "D2R",
-  "RRL",
-  "; smpsRelRt Not Implemented",
-  "TL",
-  "; smpsSSGEG Not Implemented",
-  // Effects
-  "LRPAN",
-  "FDT",
-  "CMBIAS",
-  "KEYSET",
-  "TIE",
-  "FEV",
-  "EV",
-  "; smpsModEnv Not Implemented",
-  "TEMPO_CHG",
-  "; smpsSampDAC Not Implemented",
-  "; smpsPitchDAC Not Implemented",
-  "CMVADD",
-  "PFVADD",
-  "LFO",
-  "FVR",
-  "FVR",
-  "VRON",
-  "VROFF",
-  "; smpsVibFreq Not Implemented",
-  "; smpsVibReset Not Implemented",
-  "; smpsPortamento Not Implemented",
-  "CMEND",
-  "CMJUMP",
-  "CMREPT",
-  "CMCALL",
-  "CMRET",
-  "CMGATE",
-  "; smpsFreqNote Not Implemented",
-  "CMNOIS",
-  // Parameters
-  "panCenter",
-  "panLeft",
-  "panRight",
-  "panNone"
-};
-
- // Variables
-struct smpsVars {
-  const char* symCommands[smpsSymLen];
-  const char* notesSet[13];
-  uint8_t fmVoices[0x100];
-  String psgVoices[0x100];
-  // pattern and song length
-  int loopPat;
-  uint8_t endPat;
-  uint8_t lenTable[2][0x100];
-  int endPlace;
-  // note status
-  int volRate;
-  uint8_t vib[4];
-  int pitchTarget, pitchRate;
-  uint8_t pan, noise, retrigger;
-  int chans;
-  uint8_t chanOn[11];
-  int8_t startVol[11];
-  bool dualPCM;
-  smpsVars():
-    loopPat(0),
-    endPat(0),
-    endPlace(0),
-    volRate(0),
-    pitchTarget(0),
-    pitchRate(0),
-    pan(0),
-    noise(0),
-    retrigger(0),
-    chans(0),
-    dualPCM(false) {
-      for (int i = 0; i < smpsSymLen; i++) symCommands[i] = 0;
-      for (int i = 0; i < 13; i++) notesSet[i] = 0;
-      for (int i = 0; i < 0x100; i++) fmVoices[i] = 0;
-      for (int i = 0; i < 0x100; i++) psgVoices[i] = "";
-      for (int i = 0; i < 0x100; i++) {
-        lenTable[0][i] = 0;
-        lenTable[1][i] = 0;
-      }
-      for (int i = 0; i < 4; i++) vib[i] = 0;
-      for (int i = 0; i < 11; i++) chanOn[i] = 0;
-      for (int i = 0; i < 11; i++) startVol[i] = -1;
-    }
-};
-
-// style names
-enum smpsVersion {
-  verFlamewing,
-  verMDMP,
-  verAMPS,
-  verSource
-};
-
 // initialize some variables and throw some errors for invalid stuff
 static String smpsInit(DivSong& song, DivSMPSOptions& options, smpsVars& vars) {
   if (song.system[0] != DIV_SYSTEM_YM2612) {
@@ -601,85 +238,6 @@ static void writeASMMacro(SafeWriter* w, DivInstrumentMacro& m, const char* name
   }
   w->writeText("\n");
 }
-
-// Variables used for timers
-enum smpsTimers {
-  timePitch,
-  timeVib,
-  timeVol,
-  timeRetrigger,
-  timeDelay,
-  timeCut,
-  timeLen
-};
-
-// Variables used by macros
-enum smpsMacros {
-  macVol,
-  macPitch,
-  macDetune,
-  macPan,
-  macLen
-};
-
-// Temporary variables
-struct smpsTempVars {
-  String effects[0x10];
-  uint8_t numEffects;
-  int timers[timeLen];
-  uint8_t macroTimer, macroVals[macLen][2];
-  uint8_t lineCnt;
-  uint8_t noteTime, prevTime;
-  uint8_t lastIns, lastVol, lastStep;
-  int steps, ticks;
-  uint8_t channel, order;
-  short note, octave, prevNote, prevOctave;
-  bool redo;
-  String noteString;
-  int offset;
-  bool hold, legato;
-  bool wroteLen, wroteNote;
-  bool noise;
-  short noteOct;
-  int pcmBank;
-  double stepConv;
-  smpsTempVars():
-    numEffects(0),
-    macroTimer(0),
-    lineCnt(0),
-    noteTime(0),
-    prevTime(0),
-    lastIns(0),
-    lastVol(0),
-    lastStep(0),
-    steps(0),
-    ticks(0),
-    channel(0),
-    order(0),
-    note(0),
-    octave(0),
-    prevNote(0),
-    prevOctave(0),
-    redo(false),
-    noteString(""),
-    offset(0),
-    hold(false),
-    legato(false),
-    wroteLen(false),
-    wroteNote(false),
-    noise(false),
-    noteOct(0),
-    pcmBank(0),
-    stepConv(0) {
-      for (int i = 0; i < 0x10; i++) effects[i] = "";
-      for (int i = 0; i < timeLen; i++) timers[i] = 0;
-      for (int i = 0; i < macLen; i++) {
-        macroVals[i][0] = 0;
-        macroVals[i][1] = 0;
-      }
-      
-  }
-};
 
 static void writeHeader(SafeWriter* w, smpsVars& vars, DivSubSong*& s, DivSMPSOptions& options) {
   // Write header
@@ -992,49 +550,15 @@ static String smpsCommands(const uint8_t effect, const uint8_t value, smpsVars &
   }
 }
 
-static void noteToSplitNote(short note, short& outNote, short& outOctave) {
-  switch (note) {
-  case DIV_NOTE_OFF:
-    outNote = 100;
-    outOctave = 0;
-    break;
-  case DIV_NOTE_REL:
-    outNote = 101;
-    outOctave = 0;
-    break;
-  case DIV_MACRO_REL:
-    outNote = 102;
-    outOctave = 0;
-    break;
-  case DIV_NOTE_NULL_PAT:
-    // "BUG" note!
-    outNote = 0;
-    outOctave = 1;
-    break;
-  case -1:
-    outNote = 0;
-    outOctave = 0;
-    break;
-  default:
-    outNote = note % 12;
-    outOctave = (unsigned char)(note - 60) / 12;
-    if (outNote == 0) {
-      outNote = 12;
-      outOctave--;
-    }
-    break;
-  }
-}
-
 // apply timer effects
 static void getTimer(DivPattern* p, smpsVars& vars, smpsTempVars& temp, DivSong& song, DivSubSong*& s, DivSMPSOptions &options) {
   for (int furStep = 0; furStep < vars.lenTable[1][temp.order]; temp.ticks += options.stepSz) {
     bool found = false;
     int step = temp.ticks / options.stepSz;
     furStep = temp.ticks / (s->speeds.val[0] * (s->timeBase + 1));
+    temp.numEffects = 0;
     if (furStep == temp.lastStep) goto skipNotes;
     temp.lastStep = furStep;
-    temp.numEffects = 0;
     // check timers
     for (int timer = 0; timer < timeLen; timer++) {
       if ((temp.timers[timer] == 1)) {
@@ -1076,19 +600,11 @@ static void getTimer(DivPattern* p, smpsVars& vars, smpsTempVars& temp, DivSong&
       }
       temp.lastIns = p->newData[furStep][DIV_PAT_INS];
     }
-    // check for changes in pitch or volume
+    // check for changes in volume
     if (p->newData[furStep][DIV_PAT_VOL] >= 0 && p->newData[furStep][DIV_PAT_VOL] != temp.lastVol) {
-      if (vars.chanOn[temp.channel] == typeFM) {
-        temp.effects[temp.numEffects] = fmt::sprintf("\n\t%s\t$%.2X", vars.symCommands[smpsAltVolFM], uint8_t(-(p->newData[furStep][DIV_PAT_VOL] - temp.lastVol)));
-        temp.numEffects++;
-        found = true;
-      }
-      else if (vars.chanOn[temp.channel] > typePCM) {
-        temp.effects[temp.numEffects] = fmt::sprintf("\n\t%s\t$%.2X", vars.symCommands[smpsAltVolPSG], uint8_t(-(p->newData[furStep][DIV_PAT_VOL] - temp.lastVol)));
-        temp.numEffects++;
-        found = true;
-      }
+      temp.volChange -= p->newData[furStep][DIV_PAT_VOL] - temp.lastVol;
       temp.lastVol = p->newData[furStep][DIV_PAT_VOL];
+      found = true;
     }
     // check effects
     for (int layer = 0; layer < s->pat[temp.channel].effectCols; layer++)
@@ -1102,18 +618,42 @@ static void getTimer(DivPattern* p, smpsVars& vars, smpsTempVars& temp, DivSong&
       }
 
     // *checks notes*
-    temp.noteOct = p->newData[furStep][DIV_PAT_NOTE];
-    noteToSplitNote(temp.noteOct, temp.note, temp.octave);
-    if (temp.note != 0 || temp.octave != 0) {
+    temp.note = p->newData[furStep][DIV_PAT_NOTE];
+    if (temp.note != -1) {
       temp.macroTimer = 0;
+      temp.noteOn = true;
       found = true;
     }
+
   skipNotes:
-
     // check macros
-    DivInstrument* ins = song.ins[temp.lastIns];
-    DivInstrumentMacro m = ins->std.volMacro;
+    if (temp.lastIns < song.insLen && step > temp.steps) {
+      DivInstrument* ins = song.ins[temp.lastIns];
+      for (int macType = 0; macType < macLen; macType++) {
+        const DivInstrumentMacro m[macLen] = {
+          ins->std.volMacro,
+          ins->std.arpMacro,
+          ins->std.pitchMacro,
+          ins->std.panLMacro,
+          ins->std.panRMacro
+        };
+        if ((m[macType].open & 6) != 0 || m[macType].len > temp.macroTimer) {
+          int value = m[macType].val[temp.macroTimer];
+          if (vars.chanOn[temp.channel] == typeFM) value -= 0x7F;
+          if (vars.chanOn[temp.channel] >= typePSG) value -= 0x0F;
+          if (value != temp.macroVals[macType]) {
+            if (macType == macVol) {
+              if (vars.chanOn[temp.channel] != typeFM) continue;
+              temp.volChange -= value - temp.macroVals[macType];
+            }
+            temp.macroVals[macType] = value;
+            found = true;
+          }
+        }
+      }
+    }
 
+    temp.macroTimer++;
     // leave if something is found
     if (found || (step - temp.steps + options.stepSz > 0x7F)) {
       if (!found) temp.hold = true;
@@ -1136,25 +676,75 @@ static void separateNote(SafeWriter* w, smpsTempVars& temp) {
 }
 
 // get the note to write
-static String getNote(smpsVars& vars, smpsTempVars& temp, DivSong& song) {
+String DivEngine::getNote(SafeWriter* w, smpsVars& vars, smpsTempVars& temp) {
+  // write note
   temp.prevNote = temp.note;
-  temp.prevOctave = temp.octave;
-  if (temp.note != 100) {
-    if (temp.octave >= 128)
-      temp.octave -= 256;
-    if (temp.note > 11) {
-      temp.note -= 12;
-      temp.octave++;
+  if (temp.note != DIV_NOTE_OFF) {
+    short note = (unsigned short)(temp.note) % 12;
+    short octChange = 0;
+
+    if (vars.chanOn[temp.channel] == typeFM) {
+
+      note = 0;
+
+      // convert note to frequency and back
+      short noteFreqs[]{
+        644, // C
+        682, // C#
+        723, // D
+        765, // D#
+        811, // E
+        860, // F
+        910, // F#
+        965, // G
+        1022, // G#
+        1083, // A
+        1146, // A#
+        1216, // B
+        1288  // C+
+      };
+      int baseFreq = calcBaseFreq(1, 1, calcArp((unsigned short)(temp.note) % 12, 0, 0), false);
+      int fNum = calcFreq(baseFreq, 0, 0, false, false, 2, 0, COLOR_NTSC * 15.0 / 7.0, 9440540.0, 11);
+
+      //w->writeText(fmt::sprintf("%d %d ", baseFreq, fNum));
+
+      if (noteFreqs[0] > fNum) {
+        while (noteFreqs[0] > fNum) {
+          fNum <<= 1;
+          octChange--;
+        }
+      }
+      else if (noteFreqs[12] <= fNum) {
+        while (noteFreqs[12] <= fNum) {
+          fNum >>= 1;
+          octChange++;
+        }
+      }
+      
+      for (int i = 1; i < 13; i++) {
+        if (noteFreqs[i] >= fNum) {
+          if ((noteFreqs[i] - fNum) > (fNum - noteFreqs[i - 1])) { note = i - 1; break; }
+          else { note = i; break; }
+        }
+        if (i == 12) w->writeText(fmt::sprintf("oops"));
+      }
+
+      if (note == 12) {
+        note = 0;
+        octChange++;
+      }
     }
+    short octave = (unsigned char)(temp.note - 60) / 12 + octChange;
     if (vars.chanOn[temp.channel] > typePCM)
-      temp.octave--;
-    if (vars.chanOn[temp.channel] > typePCM && (temp.octave > 5 || (temp.octave == 5 && temp.note >= 5)))
+      octave -= 1;
+    if (vars.chanOn[temp.channel] > typePCM && temp.note >= (60 + 9 + 5 * 12))
       return fmt::sprintf("%s", "nMaxPSG");
     else {
       if (vars.chanOn[temp.channel] == typePCM) {
-        int note = temp.note + 12 * temp.pcmBank;
-        if (note >= song.sampleLen) goto normalNote;
-        DivSample* sample = song.sample[note];
+        octave = temp.pcmBank;
+        int stupid = note + octave * 12 - song.sampleLen;
+        if (stupid >= 0) goto normalNote;
+        DivSample* sample = song.sample[note + octave * 12];
         if (sample->name[0] != 'd' || sample->name[1] < 'A' || sample->name[1] > 'Z')
           goto normalNote;
         String sampleOut = "";
@@ -1165,7 +755,7 @@ static String getNote(smpsVars& vars, smpsTempVars& temp, DivSong& song) {
         return sampleOut;
       }
     normalNote:
-      return fmt::sprintf("%s%d", vars.notesSet[temp.note], temp.octave);
+      return fmt::sprintf("%s%d", vars.notesSet[note], octave);
     }
   }
   else
@@ -1173,7 +763,7 @@ static String getNote(smpsVars& vars, smpsTempVars& temp, DivSong& song) {
 }
 
 // write notes and effects
-static void writeNotes(SafeWriter* w, smpsVars& vars, smpsTempVars& temp, DivSong& song) {
+void DivEngine::writeNotes(SafeWriter* w, smpsVars& vars, smpsTempVars& temp) {
   // write timer
   if (temp.noteTime != 0) {
     if (temp.prevTime != temp.noteTime || temp.wroteNote == false) {
@@ -1190,12 +780,25 @@ static void writeNotes(SafeWriter* w, smpsVars& vars, smpsTempVars& temp, DivSon
   for (int i = 0; i < temp.numEffects; i++) {
     w->writeText(fmt::sprintf("%s", temp.effects[i]));
     temp.lineCnt = 0;
-    if (temp.note == 0 && temp.octave == 0)
+    if (!temp.noteOn)
+      temp.hold = true;
+  }
+  // write volume changes
+  if (temp.volChange != 0) {
+    if (vars.chanOn[temp.channel] == typeFM) {
+      w->writeText(fmt::sprintf("\n\t%s\t$%.2X", vars.symCommands[smpsAltVolFM], uint8_t(temp.volChange)));
+    }
+    else if (vars.chanOn[temp.channel] > typePCM) {
+      w->writeText(fmt::sprintf("\n\t%s\t$%.2X", vars.symCommands[smpsAltVolPSG], uint8_t(temp.volChange)));
+    }
+    temp.volChange = 0;
+    temp.lineCnt = 0;
+    if (!temp.noteOn)
       temp.hold = true;
   }
 
   // hold note
-  if (temp.hold && (temp.note == 0 && temp.octave == 0)) {
+  if (temp.hold && !temp.noteOn) {
     separateNote(w, temp);
     w->writeText(vars.symCommands[smpsHold]);
     if (!temp.legato)
@@ -1205,15 +808,16 @@ static void writeNotes(SafeWriter* w, smpsVars& vars, smpsTempVars& temp, DivSon
   // if on PSG channel 3 or 4, check to swap between channels
 
   // write next note
-  if ((temp.note != 0 || temp.octave != 0) && ((temp.prevNote != temp.note || temp.prevOctave != temp.octave) || temp.wroteLen == false)) {
+  if (temp.noteOn && (temp.note != temp.prevNote || temp.wroteLen == false)) {
     separateNote(w, temp);
-    w->writeText(getNote(vars, temp, song));
+    w->writeText(getNote(w, vars, temp));
     temp.prevNote = temp.note;
-    temp.prevOctave = temp.octave;
     temp.wroteNote = true;
   }
   else
     temp.wroteNote = false;
+
+  temp.noteOn = false;
 }
 
 SafeWriter* DivEngine::saveASM(DivSMPSOptions options) {
@@ -1348,7 +952,7 @@ SafeWriter* DivEngine::saveASM(DivSMPSOptions options) {
       numUniquePat++;
 
       int cntWait = 0;
-      int lastNote = 0, lastOctave = 0, lastWait = 0;
+      int lastNote = 0, lastWait = 0;
       int lineCnt = 0;
       int furStep = s->speeds.val[0] * (s->timeBase + 1);
       temp.stepConv = 1.0 * (s->speeds.val[0] * (s->timeBase + 1)) / options.stepSz;
@@ -1362,25 +966,23 @@ SafeWriter* DivEngine::saveASM(DivSMPSOptions options) {
 
       temp.hold = temp.legato = false;
       temp.wroteLen = temp.wroteNote = false;
-      temp.note = temp.octave = 0;
       temp.order = j;
       temp.channel = l;
-      temp.lineCnt = 0;
       temp.steps = patStart * temp.stepConv;
       temp.ticks = temp.steps * furStep;
-      temp.lastIns = temp.lastStep = -1;
       temp.lastVol = startVols[j];
-      temp.prevNote = temp.prevOctave = temp.prevTime = 0;
+      
+      temp.prevNote = temp.prevTime = 0;
       getTimer(p, vars, temp, song, s, options);
 
       if (temp.noteTime > 0) {
         separateNote(w, temp);
         w->writeText(vars.symCommands[smpsHold]);
       }
-      writeNotes(w, vars, temp, song);
+      writeNotes(w, vars, temp);
       while (temp.ticks <= patLen * furStep) {
         getTimer(p, vars, temp, song, s, options);
-        writeNotes(w, vars, temp, song);
+        writeNotes(w, vars, temp);
       }
       w->writeText(fmt::sprintf("\n\t%s\n", vars.symCommands[smpsRet]));
     }
