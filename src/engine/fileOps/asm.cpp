@@ -510,7 +510,8 @@ static String smpsCommands(const uint8_t effect, const uint8_t value, smpsVars &
 
     // set pitch
     case 0xE5:
-      return fmt::sprintf("\n\t%s\t\t$%.2X", vars.symCommands[smpsSetDetune], uint8_t(value - 0x80));
+      vars.pitch = value - 0x80;
+      return "";
 
     // legato
     case 0xEA:
@@ -675,20 +676,22 @@ static void separateNote(SafeWriter* w, smpsTempVars& temp) {
   temp.lineCnt = (temp.lineCnt + 1) % 16;
 }
 
+
+
 // get the note to write
 String DivEngine::getNote(SafeWriter* w, smpsVars& vars, smpsTempVars& temp) {
   // write note
   temp.prevNote = temp.note;
+  temp.lastOffset = temp.offset;
   if (temp.note != DIV_NOTE_OFF) {
     short note = (unsigned short)(temp.note) % 12;
+    short octave = (unsigned char)(temp.note - 60) / 12;
     short octChange = 0;
 
     if (vars.chanOn[temp.channel] == typeFM) {
 
-      note = 0;
-
       // convert note to frequency and back
-      short noteFreqs[]{
+      unsigned short noteFreqs[] {
         644, // C
         682, // C#
         723, // D
@@ -703,28 +706,36 @@ String DivEngine::getNote(SafeWriter* w, smpsVars& vars, smpsTempVars& temp) {
         1216, // B
         1288  // C+
       };
-      int baseFreq = calcBaseFreq(1, 1, calcArp((unsigned short)(temp.note) % 12, 0, 0), false);
-      int fNum = calcFreq(baseFreq, 0, 0, false, false, 2, 0, COLOR_NTSC * 15.0 / 7.0, 9440540.0, 11);
+      unsigned int baseFreq = calcBaseFreq(1, 1, calcArp((unsigned short)(temp.note) % 12, 0, 0), false);
+      unsigned int fNum = calcFreq(baseFreq, vars.pitch, temp.arpOff, false, false, 2, vars.pitch2, COLOR_NTSC * 15.0 / 7.0, 9440540.0, 11);
 
       //w->writeText(fmt::sprintf("%d %d ", baseFreq, fNum));
 
       if (noteFreqs[0] > fNum) {
         while (noteFreqs[0] > fNum) {
-          fNum <<= 1;
+          fNum *= 2;
           octChange--;
         }
       }
       else if (noteFreqs[12] <= fNum) {
         while (noteFreqs[12] <= fNum) {
-          fNum >>= 1;
+          fNum /= 2;
           octChange++;
         }
       }
       
       for (int i = 1; i < 13; i++) {
         if (noteFreqs[i] >= fNum) {
-          if ((noteFreqs[i] - fNum) > (fNum - noteFreqs[i - 1])) { note = i - 1; break; }
-          else { note = i; break; }
+          if ((noteFreqs[i] - fNum) > (fNum - noteFreqs[i - 1])) {
+            note = i - 1;
+            temp.offset = fNum - noteFreqs[i - 1];
+            break;
+          }
+          else {
+            note = i;
+            temp.offset = fNum - noteFreqs[i];
+            break;
+          }
         }
         if (i == 12) w->writeText(fmt::sprintf("oops"));
       }
@@ -733,30 +744,129 @@ String DivEngine::getNote(SafeWriter* w, smpsVars& vars, smpsTempVars& temp) {
         note = 0;
         octChange++;
       }
+
+      octave += octChange;
     }
-    short octave = (unsigned char)(temp.note - 60) / 12 + octChange;
-    if (vars.chanOn[temp.channel] > typePCM)
-      octave -= 1;
-    if (vars.chanOn[temp.channel] > typePCM && temp.note >= (60 + 9 + 5 * 12))
-      return fmt::sprintf("%s", "nMaxPSG");
-    else {
-      if (vars.chanOn[temp.channel] == typePCM) {
-        octave = temp.pcmBank;
-        int stupid = note + octave * 12 - song.sampleLen;
-        if (stupid >= 0) goto normalNote;
-        DivSample* sample = song.sample[note + octave * 12];
-        if (sample->name[0] != 'd' || sample->name[1] < 'A' || sample->name[1] > 'Z')
-          goto normalNote;
-        String sampleOut = "";
-        for (char letter : sample->name) {
-          if (letter == ' ') break;
-          sampleOut = sampleOut + letter;
-        }
-        return sampleOut;
+    else if (vars.chanOn[temp.channel] >= typePSG) {
+      // convert note to frequency and back
+      unsigned short psgFreqs[]{
+        /*
+        8135, // A-1
+        7679, // A#-1
+        7248, // B-1
+        */
+        6841, // C0
+        6457, // C#0
+        6095, // D0
+        5753, // D#0
+        5430, // E0
+        5125, // F0
+        4837, // F#0
+        4566, // G0
+        4310, // G#0
+        4068, // A0
+        3839, // A#0
+        3624, // B0
+        3420, // C1
+        3229, // C#1
+        3047, // D1
+        2876, // D#1
+        2715, // E1
+        2562, // F1
+        2419, // F#1
+        2283, // G1
+        2155, // G#1
+        2034, // A1
+        1920, // A#1
+        1812, // B1
+        1710, // C2
+        1614, // C#2
+        1524, // D2
+        1438, // D#2
+        1357, // E2
+        1281, // F2
+        1209, // F#2
+        1141, // G2
+        1077, // G#2
+        1017, // A2
+        960, // A#2
+        906, // B2
+        855, // C3
+        807, // C#3
+        762, // D3
+        719, // D#3
+        679, // E3
+        641, // F3
+        605, // F#3
+        571, // G3
+        539, // G#3
+        508, // A3
+        480, // A#3
+        453, // B3
+        428, // C4
+        404, // C#4
+        381, // D4
+        360, // D#4
+        339, // E4
+        320, // F4
+        302, // F#4
+        285, // G4
+        269, // G#4
+        254, // A4
+        240, // A#4
+        226, // B4
+        214 // C5
+      };
+
+      unsigned int baseFreq = round(calcBaseFreq(COLOR_NTSC, 64.0, calcArp(temp.note - 8 * 12, 0, 0), true));
+      unsigned int fNum = calcFreq(baseFreq, vars.pitch, temp.arpOff, false, true, 0, vars.pitch2, COLOR_NTSC, 64.0);
+
+      //w->writeText(fmt::sprintf("%d %d ", baseFreq, fNum));
+
+
+      if (fNum > psgFreqs[0]) {
+        temp.offset = 0;
+        return fmt::sprintf("%s", "nC0");
       }
-    normalNote:
-      return fmt::sprintf("%s%d", vars.notesSet[note], octave);
+      short psgFreqsLen = sizeof(psgFreqs) / sizeof(psgFreqs[0]);
+      if (fNum < psgFreqs[psgFreqsLen - 1]) {
+        temp.offset = 0;
+        return fmt::sprintf("%s", "nMaxPSG");
+      }
+
+      for (int i = 1; i < psgFreqsLen; i++) {
+        if (psgFreqs[i] < fNum) {
+          if ((psgFreqs[i - 1] - fNum) > (fNum - psgFreqs[i])) {
+            note = i;
+            temp.offset = fNum - psgFreqs[i];
+            break;
+          }
+          else {
+            note = i - 1;
+            temp.offset = fNum - psgFreqs[i - 1];
+            break;
+          }
+        }
+      }
+      octave = note / 12;
+      note = note % 12;
     }
+    if (vars.chanOn[temp.channel] == typePCM) {
+      octave = temp.pcmBank;
+      int stupid = note + octave * 12 - song.sampleLen;
+      if (stupid >= 0) goto normalNote;
+      DivSample* sample = song.sample[note + octave * 12];
+      if (sample->name[0] != 'd' || sample->name[1] < 'A' || sample->name[1] > 'Z')
+        goto normalNote;
+      String sampleOut = "";
+      for (char letter : sample->name) {
+        if (letter == ' ') break;
+        sampleOut = sampleOut + letter;
+      }
+      return sampleOut;
+    }
+  normalNote:
+    return fmt::sprintf("%s%d", vars.notesSet[note], octave);
   }
   else
     return fmt::sprintf("%s", vars.notesSet[12]);
@@ -809,8 +919,13 @@ void DivEngine::writeNotes(SafeWriter* w, smpsVars& vars, smpsTempVars& temp) {
 
   // write next note
   if (temp.noteOn && (temp.note != temp.prevNote || temp.wroteLen == false)) {
+    String noteText = getNote(w, vars, temp);
+    if (temp.offset != temp.lastOffset) {
+      w->writeText(fmt::sprintf("\n\t%s\t$%.2X", vars.symCommands[smpsSetDetune], uint8_t(temp.offset)));
+      temp.lineCnt = 0;
+    }
     separateNote(w, temp);
-    w->writeText(getNote(w, vars, temp));
+    w->writeText(noteText);
     temp.prevNote = temp.note;
     temp.wroteNote = true;
   }
@@ -931,6 +1046,8 @@ SafeWriter* DivEngine::saveASM(DivSMPSOptions options) {
     // Create array to keep track of written patterns
     uint8_t patternsWritten[4][0x100] = {};
     int numUniquePat = 0;
+
+    vars.pitch = vars.pitch2 = 0;
 
     for (int j = 0; j < s->ordersLen; j++) {
       // Don't write duplicate patterns

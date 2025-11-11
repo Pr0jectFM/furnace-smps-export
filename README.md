@@ -24,22 +24,25 @@ However, in order to ensure that no adjustments need to be made post-export, som
 ## Bugs
 - In some cases (either 1 order long song or no FM channels), the PSG volume resets to $C0 (occurs in Warning)
 - In some cases, the pattern lengths are a little bit off (occurs in SkBZ2)
+  - Probably a Sonic 1 sound driver bug
+- Turning off linear pitch mode causes the FM parts to be pitched down
 
 ## To do
 
 Before the 1.0 release:
 - Header values
+  - PSG name
 - PCM sample names
 - Effects
   - 01 Pitch slide up
   - 02 Pitch slide down
   - 03 Portamento
   - 04 Vibrato
-  - 07 Tremolo
   - 0A Volume slide
   - 17 Toggle legacy PCM mode
-  - E5 Detune
   - EB Legacy Sample Bank
+  - E1 Note slide up
+  - E2 Note slide down
   - F1 Volume Change Up
   - F2 Volume Change Down
   - F3 Volume Slide Up
@@ -48,6 +51,16 @@ Before the 1.0 release:
   - Pitch
   - Volume
   - Panning
+- AMPS style
+  - Tempo before channels
+  - Pan parameter names
+  - D# should be Eb
+  - SSG-EG enabled
+  - SustainLv before DecayRt
+  - PSG should be transposed an octave higher
+  - PSG volume changes multiplied by 8
+  - Swap first and last operator values for FM voices
+  - Allow PCM to change volume
 - Source SMPS style
   - Header
   - Effect format
@@ -57,11 +70,11 @@ Before the 1.0 release:
   - AMPS Sonic 2
   - AMPS Sonic 3
   - SMPS Source
-- Test to ensure that patterns are the correct length
 
 Post 1.0 release:
 - Effects
   - 00 Arpeggio
+  - 07 Tremolo
 - Multiple speeds/grooves
 - SFX option
 - Use selected subsong
@@ -69,6 +82,7 @@ Post 1.0 release:
 - Split FM6 from PCM
 - SMS export
 - Adjust loop points for macros that are applied before end point but not before loop point
+- Pitched PCM mode
 
 Below is unchanged from the original README.md
 

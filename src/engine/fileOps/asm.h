@@ -335,6 +335,7 @@ struct smpsVars {
   uint8_t chanOn[11];
   int8_t startVol[11];
   bool dualPCM;
+  int pitch, pitch2;
   smpsVars() :
     loopPat(0),
     endPat(0),
@@ -346,7 +347,10 @@ struct smpsVars {
     noise(0),
     retrigger(0),
     chans(0),
-    dualPCM(false) {
+    dualPCM(false),
+    pitch(0),
+    pitch2(0)
+  {
     for (int i = 0; i < smpsSymLen; i++) symCommands[i] = 0;
     for (int i = 0; i < 13; i++) notesSet[i] = 0;
     for (int i = 0; i < 0x100; i++) fmVoices[i] = 0;
@@ -396,7 +400,7 @@ struct smpsTempVars {
   short note, prevNote;
   bool redo;
   String noteString;
-  int offset;
+  short offset, lastOffset;
   bool hold, legato;
   bool wroteLen, wroteNote;
   bool noise;
@@ -404,6 +408,7 @@ struct smpsTempVars {
   double stepConv;
   int8_t volChange;
   bool noteOn;
+  int arpOff;
   smpsTempVars() :
     numEffects(0),
     macroTimer(0),
@@ -422,6 +427,7 @@ struct smpsTempVars {
     redo(false),
     noteString(""),
     offset(0),
+    lastOffset(0),
     hold(false),
     legato(false),
     wroteLen(false),
@@ -430,7 +436,9 @@ struct smpsTempVars {
     pcmBank(0),
     stepConv(0),
     volChange(0),
-    noteOn(false) {
+    noteOn(false),
+    arpOff(0)
+    {
     for (int i = 0; i < 0x10; i++) effects[i] = "";
     for (int i = 0; i < timeLen; i++) timers[i] = 0;
     for (int i = 0; i < macLen; i++) {
