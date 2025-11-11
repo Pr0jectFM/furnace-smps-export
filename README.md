@@ -70,6 +70,9 @@ Before the 1.0 release:
   - AMPS Sonic 2
   - AMPS Sonic 3
   - SMPS Source
+- Additional options
+  - Only use initial offset values
+  - PSG envelope prefix
 
 Post 1.0 release:
 - Effects
