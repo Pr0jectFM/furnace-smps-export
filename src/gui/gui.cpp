@@ -2206,10 +2206,12 @@ void FurnaceGUI::openFileDialog(FurnaceGUIFileDialogs type) {
       if (!dirExists(workingDirROMExport)) workingDirROMExport = getHomeDir();
       hasOpened = fileDialog->openSave(
         _("Export Command Stream"),
-        { _("asm file"), "*.asm" },
+        {
+          _("asm files"), "*.asm *.s2a",
+          _("all files"), "*"
+        },
         workingDirROMExport,
-        dpiScale,
-        (settings.autoFillSave) ? shortName : ""
+        dpiScale
       );
       break;
     case GUI_FILE_EXPORT_CMDSTREAM:
@@ -6347,7 +6349,7 @@ bool FurnaceGUI::loop() {
       ImGui::EndPopup();
     }
 
-    if (ImGui::BeginPopupModal(_("Export"),NULL,ImGuiWindowFlags_NoMove|ImGuiWindowFlags_NoScrollWithMouse|ImGuiWindowFlags_NoScrollbar|ImGuiWindowFlags_AlwaysAutoResize)) {
+    if (ImGui::BeginPopupModal(_("Export"),NULL,ImGuiWindowFlags_NoMove|ImGuiWindowFlags_AlwaysAutoResize)) {
       ImGui::SetWindowPos(ImVec2(((canvasW)-ImGui::GetWindowSize().x)*0.5,((canvasH)-ImGui::GetWindowSize().y)*0.5));
       drawExport();
       ImGui::EndPopup();

@@ -529,12 +529,12 @@ void FurnaceGUI::drawExportText(bool onWindow) {
   }
 }
 
-static const int smpsPresetOptions[5][6] = {
-  {0, 0, 0, 0, 0, 0},
-  {0, 1, 1, 1, 0, 0},
-  {0, 2, 1, 1, 0, 0},
-  {2, 2, 2, 0, 1, 1},
-  {3, 0, 0, 0, 0, 0}
+static const int smpsPresetOptions[5][7] = {
+  {0, 0, 0, 0, 0, 0, 0},
+  {0, 1, 1, 1, 0, 0, 0},
+  {0, 2, 1, 1, 0, 0, 1},
+  {2, 2, 2, 0, 1, 1, 2},
+  {3, 0, 0, 0, 0, 0, 3}
 };
 
 static void spmToTempo(DivSubSong*& s, DivSMPSOptions& options) {
@@ -607,6 +607,7 @@ void FurnaceGUI::drawExportASM(bool onWindow) {
     ImGui::Text(_("Warning: Note timings will be inconsistent!"));
   else
     ImGui::Text(_(""));
+  ImGui::Checkbox(_("Update Detuning and Vibrato Values After Initializing"), &smpsSettings.updateVals);
   ImGui::Text(_("Preset:"));
   const char* smpsPresets[] = {
     "Sonic 1",
@@ -625,7 +626,13 @@ void FurnaceGUI::drawExportASM(bool onWindow) {
         smpsSettings.psgPitch = smpsPresetOptions[i][3];
         smpsSettings.pitchEnv = smpsPresetOptions[i][4];
         smpsSettings.portamento = smpsPresetOptions[i][5];
-
+        const char* psgPrefixes[] = {
+          "fTone_",
+          "sTone_",
+          "v",
+          "$"
+        };
+        smpsSettings.psgPrefix = psgPrefixes[smpsPresetOptions[i][6]];
       }
     }
     ImGui::EndCombo();
@@ -666,6 +673,10 @@ void FurnaceGUI::drawExportASM(bool onWindow) {
       ImGui::EndCombo();
     }
   }
+
+  ImGui::Text(_("PSG Envelope Prefix"));
+  ImGui::InputText("##PSGPrefix", &smpsSettings.psgPrefix);
+
   ImGui::Text(_("Vibrato Variation:"));
   {
     const char* smpsVib[] = {
@@ -731,6 +742,7 @@ void FurnaceGUI::drawExportASM(bool onWindow) {
   }
   else
     smpsSettings.portamento = 0;
+
   ImGui::Separator();
 
   spmToTempo(s, smpsSettings);

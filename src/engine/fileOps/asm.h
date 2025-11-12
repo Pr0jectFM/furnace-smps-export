@@ -240,10 +240,10 @@ static const char* smpsSymAMPS[smpsSymLen] = {
    "ssFreqNote",
    "sNoisePSG",
    // Parameters
-   "panCenter",
-   "panLeft",
-   "panRight",
-   "panNone"
+   "spCenter",
+   "spLeft",
+   "spRight",
+   "spNone"
 };
 
 // SMPS Source symbols
@@ -307,6 +307,21 @@ static const char* smpsSymSource[smpsSymLen] = {
   "panNone"
 };
 
+// note names used for Flamewing
+static const char* notesFlamewing[14] = {
+  "nC", "nCs", "nD", "nDs", "nE", "nF", "nFs", "nG", "nAb", "nA", "nBb", "nB", "nRst", "nMaxPSG"
+};
+
+// note names used for MD Music Player and AMPS
+static const char* notesMDMP[14] = {
+  "nC", "nCs", "nD", "nEb", "nE", "nF", "nFs", "nG", "nAb", "nA", "nBb", "nB", "nRst", "nHiHat"
+};
+
+// note names used for Source
+static const char* notesSource[14] = {
+  "CN", "CS", "DN", "DS", "EN", "FN", "FS", "GN", "GS", "AN", "BF", "BN", "NL", "CN5"
+};
+
 // style names
 enum smpsVersion {
   verFlamewing,
@@ -317,8 +332,8 @@ enum smpsVersion {
 
 // Variables
 struct smpsVars {
-  const char* symCommands[smpsSymLen];
-  const char* notesSet[13];
+  const char*(*symCommands)[smpsSymLen];
+  const char*(*notesSet)[14];
   uint8_t fmVoices[0x100];
   String psgVoices[0x100];
   // pattern and song length
@@ -337,6 +352,8 @@ struct smpsVars {
   bool dualPCM;
   int pitch, pitch2;
   smpsVars() :
+    symCommands(&smpsSymFlamewing),
+    notesSet(&notesFlamewing),
     loopPat(0),
     endPat(0),
     endPlace(0),
@@ -351,8 +368,6 @@ struct smpsVars {
     pitch(0),
     pitch2(0)
   {
-    for (int i = 0; i < smpsSymLen; i++) symCommands[i] = 0;
-    for (int i = 0; i < 13; i++) notesSet[i] = 0;
     for (int i = 0; i < 0x100; i++) fmVoices[i] = 0;
     for (int i = 0; i < 0x100; i++) psgVoices[i] = "";
     for (int i = 0; i < 0x100; i++) {

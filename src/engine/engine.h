@@ -157,12 +157,14 @@ struct DivAudioExportOptions {
 };
 
 struct DivSMPSOptions {
-  String label;
+  String label, psgPrefix;
   int stepSz, preset, style, tempo, vibrato, psgPitch, pitchEnv, portamento;
   uint8_t div, speed;
   float given, approx;
+  bool updateVals;
   DivSMPSOptions():
     label(""),
+    psgPrefix("fTone_"),
     stepSz(0),
     preset(0),
     style(0),
@@ -174,8 +176,8 @@ struct DivSMPSOptions {
     div(1),
     speed(0),
     given(0),
-    approx(0) {
-  }
+    approx(0),
+    updateVals(true) {}
 };
 
 struct DivChannelState {
@@ -834,7 +836,7 @@ class DivEngine {
 
     // SMPS functions
     String getNote(SafeWriter* w, smpsVars& vars, smpsTempVars& temp);
-    void writeNotes(SafeWriter* w, smpsVars& vars, smpsTempVars& temp);
+    void writeNotes(SafeWriter* w, smpsVars& vars, smpsTempVars& temp, DivSMPSOptions options);
 
     // dispatch a command
     int dispatchCmd(DivCommand c);
