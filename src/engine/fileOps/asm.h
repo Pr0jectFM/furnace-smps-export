@@ -147,7 +147,7 @@ static const char* smpsSymMDMP[smpsSymLen] = {
   "spSustainLv\t",
   "spReleaseRt\t",
   "spTotalLv\t",
-  "; Not Implemented"
+  "; Not Implemented",
   // Effects
   "sPan",
   "ssDetune",
@@ -345,7 +345,7 @@ struct smpsVars {
   int volRate;
   uint8_t vib[4];
   int pitchTarget, pitchRate;
-  uint8_t pan, noise, retrigger;
+  uint8_t noise, retrigger;
   int chans;
   uint8_t chanOn[11];
   int8_t startVol[11];
@@ -360,7 +360,6 @@ struct smpsVars {
     volRate(0),
     pitchTarget(0),
     pitchRate(0),
-    pan(0),
     noise(0),
     retrigger(0),
     chans(0),
@@ -397,7 +396,6 @@ enum smpsMacros {
   macPitch,
   macDetune,
   macPanL,
-  macPanR,
   macLen
 };
 
@@ -418,12 +416,11 @@ struct smpsTempVars {
   short offset, lastOffset;
   bool hold, legato;
   bool wroteLen, wroteNote;
-  bool noise;
-  int pcmBank;
   double stepConv;
   int8_t volChange;
-  bool noteOn;
+  bool noteOn, startTick;
   int arpOff;
+  uint8_t pan, prevPan;
   smpsTempVars() :
     numEffects(0),
     macroTimer(0),
@@ -447,12 +444,13 @@ struct smpsTempVars {
     legato(false),
     wroteLen(false),
     wroteNote(false),
-    noise(false),
-    pcmBank(0),
     stepConv(0),
     volChange(0),
     noteOn(false),
-    arpOff(0)
+    arpOff(0),
+    pan(3),
+    prevPan(3),
+    startTick(true)
     {
     for (int i = 0; i < 0x10; i++) effects[i] = "";
     for (int i = 0; i < timeLen; i++) timers[i] = 0;

@@ -48,7 +48,7 @@ Before the 1.0 release:
 - Macros
   - Pitch
   - Volume
-  - Panning
+  - Arpeggio
 - Source SMPS style
   - Header
   - Effect format
@@ -75,6 +75,8 @@ Post 1.0 release:
 - SMS export
 - Adjust loop points for macros that are applied before end point but not before loop point
 - Pitched PCM mode
+- ADSR and oscillating macros
+- FM macros
 
 Below is unchanged from the original README.md
 
