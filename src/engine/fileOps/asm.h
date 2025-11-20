@@ -128,7 +128,7 @@ static const char* smpsSymFlamewing[smpsSymLen] = {
 static const char* smpsSymMDMP[smpsSymLen] = {
   // Header
   "sHeaderInit",
-  "sHeaderVoice",
+  "sHeaderPatch",
   "sHeaderCh",
   "sHeaderTempo",
   "sHeaderDAC",
@@ -163,8 +163,8 @@ static const char* smpsSymMDMP[smpsSymLen] = {
   "saVolFM",
   "saVolPSG",
   "; smpsSetLFO Not Implemented",
-  "sMod68k",
-  "sModZ80",
+  "ssMod68k",
+  "ssModZ80",
   "sModOn",
   "sModOff",
   "; smpsVibFreq Not Implemented",
@@ -179,10 +179,10 @@ static const char* smpsSymMDMP[smpsSymLen] = {
   "ssTransposeS3K",
   "sNoisePSG",
   // Parameters
-  "panCenter",
-  "panLeft",
-  "panRight",
-  "panNone"
+  "spCenter",
+  "spLeft",
+  "spRight",
+  "spNone"
 };
 
 // AMPS symbols
@@ -312,8 +312,13 @@ static const char* notesFlamewing[14] = {
   "nC", "nCs", "nD", "nDs", "nE", "nF", "nFs", "nG", "nAb", "nA", "nBb", "nB", "nRst", "nMaxPSG"
 };
 
-// note names used for MD Music Player and AMPS
+// note names used for MD Music Player
 static const char* notesMDMP[14] = {
+  "nC", "nCs", "nD", "nEb", "nE", "nF", "nFs", "nG", "nAb", "nA", "nBb", "nB", "nRst", "nC5"
+};
+
+// note names used for AMPS
+static const char* notesAMPS[14] = {
   "nC", "nCs", "nD", "nEb", "nE", "nF", "nFs", "nG", "nAb", "nA", "nBb", "nB", "nRst", "nHiHat"
 };
 
