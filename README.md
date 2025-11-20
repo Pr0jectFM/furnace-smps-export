@@ -10,7 +10,7 @@ There are a variety of options to choose from when exporting, including several 
 
 Exporting your Furnace module to an SMPS2ASM files is simply a matter of choosing "file/export..." and selecting SMPS2ASM, choosing your options, and hitting "Export".
 However, in order to ensure that no adjustments need to be made post-export, some considerations will need to be made beforehand to ensure that the result is accurate and makes full use of your chosen sound driver:
-- The maximum speed a song can play at is one step per frame, which comes out to about 360 BPM on NTSC systems on 300 BPM on PAL systems. This is just because most games run the sound driver once per frame.
+- The maximum speed a song can play at is one step per frame. If there's one beat per step, this comes out to about 3600 BPM on NTSC systems on 3000 BPM on PAL systems. This is just because most games run the sound driver once per frame.
 - FM instruments are song specific, but PSG envelopes and PCM samples are universal. This means that Furnace can only reference them and use placeholders rather than convert them directly.
   - The template files provided include recreations of the PSG envelopes and PCM samples used in some specific variations of SMPS. You must either restrict your options to the ones provided by these templates, or modify the sound driver of the game you're exporting to as well as the SMPS2ASM constants file to add the new PSG envelopes and samples that you want to use.
 - PSG envelopes will be named after their instrument's name, so the names must be set to valid envelope names
