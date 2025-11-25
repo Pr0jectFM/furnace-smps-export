@@ -618,7 +618,7 @@ static void getTimer(DivPattern* p, smpsVars& vars, smpsTempVars& temp, DivSong&
   for (int furStep = 0; furStep < vars.lenTable[1][temp.order]; temp.ticks += options.stepSz) {
     bool found = false;
     int step = temp.ticks / options.stepSz;
-    furStep = temp.ticks / (s->speeds.val[0] * (s->timeBase + 1));
+    furStep = temp.ticks / (s->speeds.val[0] * (s->effectDivider + 1));
     temp.numEffects = 0;
     if (furStep == temp.lastStep) goto skipNotes;
     temp.lastStep = furStep;
@@ -1146,7 +1146,7 @@ SafeWriter* DivEngine::saveASM(DivSMPSOptions options) {
 
   smpsFindLoop(s, vars);
 
-  vars.chans = chans;
+  vars.chans = song.chans;
   smpsChanNum(song, s, vars);
 
   if (options.style == verSource)
@@ -1186,7 +1186,7 @@ SafeWriter* DivEngine::saveASM(DivSMPSOptions options) {
     w->writeText(fmt::sprintf("\n%s_Empty:\n\t%s\n", options.label, (*vars.symCommands)[smpsStop]));
 skipEmpty:
 
-  for (int l = 0; l < chans; l++) {
+  for (int l = 0; l < song.chans; l++) {
     if (vars.chanOn[l] <= typeEmpty) continue;
     if (vars.chanOn[l] == typeNoise && vars.chanOn[l - 1] == typePSG) break;
     // Write order list
@@ -1288,8 +1288,8 @@ skipEmpty:
       int cntWait = 0;
       int lastNote = 0, lastWait = 0;
       int lineCnt = 0;
-      int furStep = s->speeds.val[0] * (s->timeBase + 1);
-      temp.stepConv = 1.0 * (s->speeds.val[0] * (s->timeBase + 1)) / options.stepSz;
+      int furStep = s->speeds.val[0] * (s->effectDivider + 1);
+      temp.stepConv = 1.0 * (s->speeds.val[0] * (s->effectDivider + 1)) / options.stepSz;
 
       DivPattern* p = s->pat[l].getPattern(orderNum, false);
 

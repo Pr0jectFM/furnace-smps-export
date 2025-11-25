@@ -544,15 +544,15 @@ static void spmToTempo(DivSubSong*& s, DivSMPSOptions& options) {
   switch (options.tempo) {
   case 0:
     speedFct = [frames](int div) {return int(round(1 / (1 - div / frames))); };
-    approxFct = [s, options](int div, int speed) {return (60 * 60 * options.stepSz) / (s->speeds.val[0] * (s->timeBase + 1) * s->hilightA * div * (speed / (speed - 1.0))); };
+    approxFct = [s, options](int div, int speed) {return (60 * 60 * options.stepSz) / (s->speeds.val[0] * (s->effectDivider + 1) * s->hilightA * div * (speed / (speed - 1.0))); };
     break;
   case 1:
     speedFct = [frames](int div) {return div * 256.0 / frames; };
-    approxFct = [s, options](int div, int speed) {return (60 * 60 * options.stepSz) / (s->speeds.val[0] * (s->timeBase + 1) * s->hilightA * 256.0 * div / speed); };
+    approxFct = [s, options](int div, int speed) {return (60 * 60 * options.stepSz) / (s->speeds.val[0] * (s->effectDivider + 1) * s->hilightA * 256.0 * div / speed); };
     break;
   case 2:
     speedFct = [frames](int div) {return 256 - div * 256.0 / frames; };
-    approxFct = [s, options](int div, int speed) {return (60 * 60 * options.stepSz) / (s->speeds.val[0] * (s->timeBase + 1) * s->hilightA * 256.0 * div / (256 - speed)); };
+    approxFct = [s, options](int div, int speed) {return (60 * 60 * options.stepSz) / (s->speeds.val[0] * (s->effectDivider + 1) * s->hilightA * 256.0 * div / (256 - speed)); };
   }
   int speed1 = speedFct(1);
   if (speed1 > 0xFF) speed1 = 0xFF;
@@ -560,7 +560,7 @@ static void spmToTempo(DivSubSong*& s, DivSMPSOptions& options) {
   int speed2 = speedFct(2);
   if (speed2 > 0xFF) speed2 = 0xFF;
   float approx2 = approxFct(2, speed2);
-  options.given = (s->hz * 60) / (s->speeds.val[0] * s->hilightA * (s->timeBase + 1));
+  options.given = (s->hz * 60) / (s->speeds.val[0] * s->hilightA * (s->effectDivider + 1));
 
   if ((abs(approx2 - options.given) / options.given) > (abs(approx1 - options.given) / options.given) || (speed2 < 2)) {
     options.div = 1;
@@ -597,7 +597,7 @@ void FurnaceGUI::drawExportASM(bool onWindow) {
   for (char& i : smpsSettings.label)
     if (i == ' ') i = '_';
   ImGui::InputText("##ASMLabel", &smpsSettings.label);
-  int setSpeed = s->speeds.val[0] * (s->timeBase + 1);
+  int setSpeed = s->speeds.val[0] * (s->effectDivider + 1);
   if (smpsSettings.stepSz < 1) smpsSettings.stepSz = setSpeed;
   ImGui::Text(_("Step Size:"));
   if (ImGui::InputInt("##ASMStepSize", &smpsSettings.stepSz))
