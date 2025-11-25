@@ -26,20 +26,19 @@ However, in order to ensure that no adjustments need to be made post-export, som
 - In some cases, the pattern lengths are a little bit off (occurs in SkBZ2)
 - Turning off linear pitch mode causes the FM parts to be pitched down
 - Macros apply a step too late
+- In Source style, there may be more than 16 bytes per line, notably when setting vibrato
 
 ## To do
 
 Before the 1.0 release:
 - Header values
   - PSG name
-- PCM sample names
 - Effects
   - 01 Pitch slide up
   - 02 Pitch slide down
   - 03 Portamento
   - 04 Vibrato
   - 0A Volume slide
-  - EB Legacy Sample Bank
   - E1 Note slide up
   - E2 Note slide down
   - F1 Volume Change Up
@@ -51,20 +50,10 @@ Before the 1.0 release:
   - Volume
   - Arpeggio
   - Panning
-- Source SMPS style
-  - Header
-  - Effect format
+- Set initial values for section before adding notes
 - Reset vibrato after pitch slide
-- Template files for each preset
-  - AMPS Sonic 1
-  - AMPS Sonic 2
-  - AMPS Sonic 3
-  - SMPS Source
 - Additional options
   - Only use initial offset values
-  - PSG envelope prefix
-  - Maximum PSG value
-  - PSG octave
 - Put volume macros in copy/paste format
 
 Post 1.0 release:
@@ -78,7 +67,7 @@ Post 1.0 release:
 - Split FM6 from PCM
 - SMS export
 - Adjust loop points for macros that are applied before end point but not before loop point
-- Pitched PCM mode
+- Pitched PCM mode (AMPS only)
 - ADSR and oscillating macros
 - FM macros
 

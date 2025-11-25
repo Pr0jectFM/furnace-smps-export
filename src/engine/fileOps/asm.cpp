@@ -676,7 +676,8 @@ static void getTimer(DivPattern* p, smpsVars& vars, smpsTempVars& temp, DivSong&
           start++;
         };
         if (options.style != verSource)
-          temp.effects[temp.numEffects] = fmt::sprintf("%s\t%s%.2X", (*vars.symCommands)[smpsVolEnv], options.psgPrefix, envelope);
+          temp.effects[temp.numEffects] = fmt::sprintf("%s\t%s%.2X", (*vars.symCommands)[smpsVolEnv],
+            (envelope == 0 && options.style == verFlamewing) ? "$" : options.psgPrefix, envelope);
         else
           temp.effects[temp.numEffects] = fmt::sprintf("%s,%d", (*vars.symCommands)[smpsVolEnv], envelope);
         temp.numEffects++;
@@ -976,10 +977,11 @@ String DivEngine::getNote(SafeWriter* w, smpsVars& vars, smpsTempVars& temp, Div
 
     }
     if (vars.chanOn[temp.channel] == typePCM) {
-      octave = 0;
-      int stupid = note + octave * 12 - song.sampleLen;
-      if (stupid >= 0) goto normalNote;
-      DivSample* sample = song.sample[note + octave * 12];
+      DivInstrument* ins = song.ins[temp.lastIns];
+      if (ins->type != DIV_INS_AMIGA) goto normalNote;
+      const short map = ins->amiga.noteMap[note + octave * 12].map;
+      if (map == -1) goto normalNote;
+      DivSample* sample = song.sample[map];
       if (!((sample->name[0] >= 'a' && sample->name[0] <= 'z') || (sample->name[0] >= 'A' && sample->name[0] <= 'Z')))
         goto normalNote;
       String sampleOut = "";
