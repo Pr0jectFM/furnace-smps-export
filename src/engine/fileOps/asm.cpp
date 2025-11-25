@@ -461,7 +461,7 @@ static String smpsCommands(const uint8_t effect, const uint8_t value, smpsVars &
   switch (effect) {
     // arpeggio
     case 0x00:
-      return "\n\t; arpeggio";
+      return "\t; arpeggio";
 
     // pitch slide up
     case 0x01:
@@ -564,7 +564,11 @@ static String smpsCommands(const uint8_t effect, const uint8_t value, smpsVars &
         vars.noise = 0xE3;
       else
         vars.noise = 0xE7;
-      return fmt::sprintf("%s\t\t$%.2X", (*vars.symCommands)[smpsNoise], vars.noise);
+
+      if (options.style != verSource)
+        return fmt::sprintf("%s\t\t$%.2X", (*vars.symCommands)[smpsNoise], vars.noise);
+      else
+        return fmt::sprintf("%s,NOIS%d", (*vars.symCommands)[smpsNoise], vars.noise & 0x07);
 
     // set tick rate (Hz)
     case 0xC0:
@@ -586,7 +590,7 @@ static String smpsCommands(const uint8_t effect, const uint8_t value, smpsVars &
     // note cut
     case 0xEC:
       temp.timers[timeCut] = value;
-      return fmt::sprintf("%s\t\t$%.2X", (*vars.symCommands)[smpsGate], value);
+      return "";
 
       // note delay
     case 0xED:
@@ -630,7 +634,8 @@ static void getTimer(DivPattern* p, smpsVars& vars, smpsTempVars& temp, DivSong&
         case timePitch:
 
         case timeVib:
-          temp.effects[temp.numEffects] = fmt::sprintf("\n\t%s", (*vars.symCommands)[smpsVibOff]);
+          temp.effects[temp.numEffects] = fmt::sprintf("%s", (*vars.symCommands)[smpsVibOff]);
+
           temp.numEffects++;
 
         case timeVol:
@@ -1095,8 +1100,15 @@ void DivEngine::writeNotes(SafeWriter* w, smpsVars& vars, smpsTempVars& temp, Di
   if (temp.noteOn && (temp.note != temp.prevNote || temp.wroteLen == false)) {
     String noteText = getNote(w, vars, temp, options);
     if (temp.offset != temp.lastOffset) {
-      w->writeText(fmt::sprintf("\n\t%s\t$%.2X", (*vars.symCommands)[smpsSetDetune], uint8_t(temp.offset)));
-      temp.lineCnt = 0;
+      if (options.style != verSource) {
+        w->writeText(fmt::sprintf("\n\t%s\t$%.2X", (*vars.symCommands)[smpsSetDetune], uint8_t(temp.offset)));
+        temp.lineCnt = 0;
+      }
+      else {
+        separateNote(w, temp, true);
+        w->writeText(fmt::sprintf("%s,%d", (*vars.symCommands)[smpsSetDetune], uint8_t(temp.offset)));
+        temp.lineCnt++;
+      }
     }
     separateNote(w, temp, options.style == verSource);
     w->writeText(noteText);
