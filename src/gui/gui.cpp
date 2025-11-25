@@ -942,7 +942,7 @@ ImVec4 FurnaceGUI::channelColor(int ch) {
       return uiColors[GUI_COLOR_CHANNEL_BG];
       break;
     case 1:
-      return uiColors[GUI_COLOR_CHANNEL_FM+e->getChannelType(ch)];
+      return e->curSubSong->chanColor[ch]?ImGui::ColorConvertU32ToFloat4(e->curSubSong->chanColor[ch]):uiColors[GUI_COLOR_CHANNEL_FM+e->getChannelType(ch)];
       break;
     case 2:
       return uiColors[GUI_COLOR_INSTR_STD+e->getPreferInsType(ch)];
@@ -1128,7 +1128,7 @@ Collapsed=0\n\
 \n\
 [Window][Tuner]\n\
 Pos=60,60\n\
-Size=395,171\n\
+Size=160,170\n\
 Collapsed=0\n\
 \n\
 [Window][Warning##Export AudioFileDialogOverWriteDialog]\n\
@@ -1244,6 +1244,21 @@ Pos=60,60\n\
 Size=300,300\n\
 Collapsed=0\n\
 \n\
+[Window][Multi-Ins Setup]\n\
+Pos=858,549\n\
+Size=250,165\n\
+Collapsed=0\n\
+\n\
+[Window][Spectrum]\n\
+Pos=771,384\n\
+Size=600,244\n\
+Collapsed=0\n\
+\n\
+[Window][Music Player]\n\
+Pos=704,243\n\
+Size=413,115\n\
+Collapsed=0\n\
+\n\
 [Docking][Data]\n\
 DockSpace             ID=0x8B93E3BD Window=0xA787BDB4 Pos=0,24 Size=1280,776 Split=Y Selected=0x6C01C512\n\
   DockNode            ID=0x00000001 Parent=0x8B93E3BD SizeRef=1280,217 Split=X Selected=0xF3094A52\n\
@@ -1295,16 +1310,14 @@ void FurnaceGUI::prepareLayout() {
 float FurnaceGUI::calcBPM(const DivGroovePattern& speeds, float hz, int vN, int vD) {
   float hl=e->curSubSong->hilightA;
   if (hl<=0.0f) hl=4.0f;
-  float timeBase=e->curSubSong->timeBase+1;
   float speedSum=0;
   for (int i=0; i<MIN(16,speeds.len); i++) {
     speedSum+=speeds.val[i];
   }
   speedSum/=MAX(1,speeds.len);
-  if (timeBase<1.0f) timeBase=1.0f;
   if (speedSum<1.0f) speedSum=1.0f;
   if (vD<1) vD=1;
-  return (60.0f*hz/(timeBase*hl*speedSum))*(float)vN/(float)vD;
+  return (60.0f*hz/(hl*speedSum))*(float)vN/(float)vD;
 }
 
 void FurnaceGUI::play(int row) {
@@ -8420,7 +8433,7 @@ void FurnaceGUI::syncState() {
   pianoLabelsMode=e->getConfInt("pianoLabelsMode",pianoLabelsMode);
 
   chanOscCols=e->getConfInt("chanOscCols",3);
-  chanOscAutoColsType=e->getConfInt("chanOscAutoColsType",0);
+  chanOscAutoCols=e->getConfBool("chanOscAutoColsType",0);
   chanOscColorX=e->getConfInt("chanOscColorX",GUI_OSCREF_CENTER);
   chanOscColorY=e->getConfInt("chanOscColorY",GUI_OSCREF_CENTER);
   chanOscCenterStrat=e->getConfInt("chanOscCenterStrat",1);
@@ -8443,6 +8456,7 @@ void FurnaceGUI::syncState() {
   chanOscTextColor.z=e->getConfFloat("chanOscTextColorB",1.0f);
   chanOscTextColor.w=e->getConfFloat("chanOscTextColorA",0.75f);
   chanOscUseGrad=e->getConfBool("chanOscUseGrad",false);
+  chanOscColorMode=e->getConfInt("chanOscColorMode",0);
   chanOscGrad.fromString(e->getConfString("chanOscGrad",""));
   chanOscGrad.render();
 
@@ -8593,7 +8607,7 @@ void FurnaceGUI::commitState(DivConfig& conf) {
 
   // commit per-chan osc state
   conf.set("chanOscCols",chanOscCols);
-  conf.set("chanOscAutoColsType",chanOscAutoColsType);
+  conf.set("chanOscAutoColsType",chanOscAutoCols);
   conf.set("chanOscColorX",chanOscColorX);
   conf.set("chanOscColorY",chanOscColorY);
   conf.set("chanOscCenterStrat",chanOscCenterStrat);
@@ -8617,6 +8631,7 @@ void FurnaceGUI::commitState(DivConfig& conf) {
   conf.set("chanOscTextColorA",chanOscTextColor.w);
   conf.set("chanOscUseGrad",chanOscUseGrad);
   conf.set("chanOscGrad",chanOscGrad.toString());
+  conf.set("chanOscColorMode",chanOscColorMode);
 
   // commit x-y osc state
   conf.set("xyOscXChannel",xyOscXChannel);
@@ -9226,10 +9241,10 @@ FurnaceGUI::FurnaceGUI():
   oscInput1(0.0f),
   oscZoomSlider(false),
   chanOscCols(3),
-  chanOscAutoColsType(0),
   chanOscColorX(GUI_OSCREF_CENTER),
   chanOscColorY(GUI_OSCREF_CENTER),
   chanOscCenterStrat(1),
+  chanOscColorMode(0),
   chanOscWindowSize(20.0f),
   chanOscTextX(0.0f),
   chanOscTextY(0.0f),
@@ -9241,6 +9256,7 @@ FurnaceGUI::FurnaceGUI():
   chanOscUseGrad(false),
   chanOscNormalize(false),
   chanOscRandomPhase(false),
+  chanOscAutoCols(false),
   chanOscTextFormat("%c"),
   chanOscColor(1.0f,1.0f,1.0f,1.0f),
   chanOscTextColor(1.0f,1.0f,1.0f,0.75f),
@@ -9423,7 +9439,7 @@ FurnaceGUI::FurnaceGUI():
 
   memset(lastAudioLoads,0,sizeof(float)*120);
 
-  memset(pianoKeyHit,0,sizeof(float)*180);
+  memset(pianoKeyHit,0,sizeof(pianoKeyState)*180); // posiblly repace with a for loop
   memset(pianoKeyPressed,0,sizeof(bool)*180);
 
   memset(queryReplaceEffectMode,0,sizeof(int)*8);

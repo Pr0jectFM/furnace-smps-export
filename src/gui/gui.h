@@ -81,7 +81,7 @@
 #define FM_PREVIEW_SIZE 512
 
 #define CHECK_HIDDEN_SYSTEM(x) \
-  (x==DIV_SYSTEM_YMU759 || x==DIV_SYSTEM_DUMMY || x==DIV_SYSTEM_SEGAPCM_COMPAT || x==DIV_SYSTEM_PONG || x==DIV_SYSTEM_UPD1771C)
+  (x==DIV_SYSTEM_YMU759 || x==DIV_SYSTEM_DUMMY || x==DIV_SYSTEM_PONG || x==DIV_SYSTEM_UPD1771C)
 
 enum FurnaceGUIRenderBackend {
   GUI_BACKEND_SDL=0,
@@ -1378,12 +1378,14 @@ struct Gradient2D {
 struct FurnaceGUISysDefChip {
   DivSystem sys;
   float vol, pan, panFR;
+  int chans;
   String flags;
-  FurnaceGUISysDefChip(DivSystem s, float v, float p, const char* f, float pf=0.0):
+  FurnaceGUISysDefChip(DivSystem s, float v, float p, const char* f, float pf=0.0, int ch=0):
     sys(s),
     vol(v),
     pan(p),
     panFR(pf),
+    chans(ch),
     flags(f) {}
 };
 
@@ -2092,6 +2094,7 @@ class FurnaceGUI {
     int sampleImportInstDetune;
     int mixerStyle;
     int mixerLayout;
+    float channelFeedbackGamma;
     String mainFontPath;
     String headFontPath;
     String patFontPath;
@@ -2346,6 +2349,7 @@ class FurnaceGUI {
       sampleImportInstDetune(0),
       mixerStyle(1),
       mixerLayout(0),
+      channelFeedbackGamma(1.0f),
       mainFontPath(""),
       headFontPath(""),
       patFontPath(""),
@@ -2698,9 +2702,10 @@ class FurnaceGUI {
   bool oscZoomSlider;
 
   // per-channel oscilloscope
-  int chanOscCols, chanOscAutoColsType, chanOscColorX, chanOscColorY, chanOscCenterStrat;
+  int chanOscCols, chanOscColorX, chanOscColorY, chanOscCenterStrat, chanOscColorMode;
   float chanOscWindowSize, chanOscTextX, chanOscTextY, chanOscAmplify, chanOscLineSize;
-  bool chanOscWaveCorr, chanOscOptions, updateChanOscGradTex, chanOscUseGrad, chanOscNormalize, chanOscRandomPhase;
+  bool chanOscWaveCorr, chanOscOptions, updateChanOscGradTex, chanOscUseGrad;
+  bool chanOscNormalize, chanOscRandomPhase, chanOscAutoCols;
   String chanOscTextFormat;
   ImVec4 chanOscColor, chanOscTextColor;
   Gradient2D chanOscGrad;
@@ -2840,7 +2845,11 @@ class FurnaceGUI {
 
   int pianoOctaves, pianoOctavesEdit;
   bool pianoOptions, pianoSharePosition, pianoOptionsSet;
-  float pianoKeyHit[180];
+  struct pianoKeyState {
+    float value;
+    int chan;
+  };
+  pianoKeyState pianoKeyHit[180];
   bool pianoKeyPressed[180];
   bool pianoReadonly;
   int pianoOffset, pianoOffsetEdit;
@@ -3087,7 +3096,7 @@ class FurnaceGUI {
   void drawRefPlayer();
   void drawMultiInsSetup();
 
-  float drawSystemChannelInfo(const DivSysDef* whichDef, int keyHitOffset=-1, float width=-1.0f);
+  float drawSystemChannelInfo(const DivSysDef* whichDef, int keyHitOffset=-1, float width=-1.0f, int chanCount=-1);
   void drawSystemChannelInfoText(const DivSysDef* whichDef);
   void drawVolMeterInternal(ImDrawList* dl, ImRect rect, float* data, int chans, bool aspectRatio);
 
@@ -3106,7 +3115,7 @@ class FurnaceGUI {
   bool importConfig(String path);
   bool exportConfig(String path);
 
-  float computeGradPos(int type, int chan);
+  float computeGradPos(int type, int chan, int totalChans);
 
   void resetColors();
   void resetKeybinds();
