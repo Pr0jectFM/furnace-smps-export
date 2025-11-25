@@ -2207,7 +2207,7 @@ void FurnaceGUI::openFileDialog(FurnaceGUIFileDialogs type) {
       hasOpened = fileDialog->openSave(
         _("Export Command Stream"),
         {
-          _("asm files"), "*.asm *.s2a",
+          _("asm files"), "*.asm *.s2a *.s",
           _("all files"), "*"
         },
         workingDirROMExport,
@@ -5392,9 +5392,6 @@ bool FurnaceGUI::loop() {
           }
           if (curFileDialog==GUI_FILE_EXPORT_TEXT) {
             checkExtension(".txt");
-          }
-          if (curFileDialog == GUI_FILE_EXPORT_ASM) {
-            checkExtension(".asm");
           }
           if (curFileDialog==GUI_FILE_EXPORT_CMDSTREAM) {
             checkExtension(".bin");

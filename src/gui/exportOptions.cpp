@@ -529,12 +529,12 @@ void FurnaceGUI::drawExportText(bool onWindow) {
   }
 }
 
-static const int smpsPresetOptions[5][7] = {
-  {0, 0, 0, 0, 0, 0, 0},
-  {0, 1, 1, 1, 0, 0, 0},
-  {0, 2, 1, 1, 0, 0, 1},
-  {2, 2, 2, 0, 1, 1, 2},
-  {3, 0, 0, 0, 0, 0, 3}
+static const int smpsPresetOptions[5][8] = {
+  {0, 0, 0, -12, 0, 0, 0, 0},
+  {0, 1, 1, -12, 0, 0, 0, 0},
+  {0, 2, 1,   0, 0, 0, 1, 1},
+  {2, 2, 2, -12, 1, 1, 2, 1},
+  {3, 0, 0, -12, 0, 0, 3, 0}
 };
 
 static void spmToTempo(DivSubSong*& s, DivSMPSOptions& options) {
@@ -630,9 +630,13 @@ void FurnaceGUI::drawExportASM(bool onWindow) {
           "fTone_",
           "sTone_",
           "v",
-          "$"
+          ""
         };
         smpsSettings.psgPrefix = psgPrefixes[smpsPresetOptions[i][6]];
+        const char* psgMaxStr[] = {"A6", "A#6"};
+        smpsSettings.psgMaxStr = psgMaxStr[smpsPresetOptions[i][7]];
+        const short psgMax[] = { 9 + 12 * 6, 10 + 12 * 6, 12 * 7 };
+        smpsSettings.psgMax = psgMax[smpsPresetOptions[i][7]];
       }
     }
     ImGui::EndCombo();
@@ -674,9 +678,6 @@ void FurnaceGUI::drawExportASM(bool onWindow) {
     }
   }
 
-  ImGui::Text(_("PSG Envelope Prefix"));
-  ImGui::InputText("##PSGPrefix", &smpsSettings.psgPrefix);
-
   ImGui::Text(_("Vibrato Variation:"));
   {
     const char* smpsVib[] = {
@@ -693,21 +694,9 @@ void FurnaceGUI::drawExportASM(bool onWindow) {
       ImGui::EndCombo();
     }
   }
-  ImGui::Text(_("PSG Pitch:"));
-  {
-    const char* smpsPitch[] = {
-      "SMPS 68k",
-      "SMPS Z80"
-    };
-    if (ImGui::BeginCombo("##pitch", smpsPitch[smpsSettings.psgPitch])) {
-      for (int i = 0; i < 2; i++) {
-        if (ImGui::Selectable(smpsPitch[i], smpsSettings.psgPitch == i)) {
-          smpsSettings.psgPitch = i;
-        }
-      }
-      ImGui::EndCombo();
-    }
-  }
+  ImGui::Text(_("PSG Pitch Offset:"));
+  ImGui::InputInt("##PSGOffset", &smpsSettings.psgPitch);
+
   ImGui::Text(_("Pitch Envelopes:"));
   {
     const char* smpsEnv[] = {
@@ -723,7 +712,44 @@ void FurnaceGUI::drawExportASM(bool onWindow) {
       ImGui::EndCombo();
     }
   }
-  if (smpsSettings.style == 2) {
+
+  ImGui::Text(_("Max PSG Pitch"));
+  if (ImGui::InputText("##PSGMax", &smpsSettings.psgMaxStr)) {
+    if (smpsSettings.psgMaxStr.size() < 2) smpsSettings.psgMaxStr = "C6";
+    bool sharp = smpsSettings.psgMaxStr[1] == '#';
+    const short note = 0;
+    short oct = 1 + sharp;
+    if ((smpsSettings.psgMaxStr[note] >= 'A' && smpsSettings.psgMaxStr[note] <= 'G')
+      && (smpsSettings.psgMaxStr[oct] >= '0' && smpsSettings.psgMaxStr[oct] <= '9')) {
+      // if above max, set max
+      if ((smpsSettings.psgMaxStr[oct] == '8' && smpsSettings.psgMaxStr[note] != 'C') || smpsSettings.psgMaxStr[oct] == '9') {
+        smpsSettings.psgMaxStr = "C#8";
+        sharp = true;
+        oct = 2;
+      }
+      // if below, set min
+      else if (smpsSettings.psgMaxStr[note] >= 'C' && smpsSettings.psgMaxStr[oct] == '0') {
+        smpsSettings.psgMaxStr = "A0";
+        sharp = false;
+        oct = 1;
+      }
+    }
+    else {
+      smpsSettings.psgMaxStr = "A6"; // if invalid, set default
+      sharp = false;
+      oct = 1;
+    }
+    smpsSettings.psgMaxStr = smpsSettings.psgMaxStr.substr(0, oct + 1);
+    const short pitches[7] = { 9, 11, 0, 2, 4, 5, 7 };
+    smpsSettings.psgMax = pitches[(smpsSettings.psgMaxStr[0] - 'A')] + 12 * (smpsSettings.psgMaxStr[1] - '0') + sharp;
+  }
+
+  if (smpsSettings.style != verSource) {
+    ImGui::Text(_("PSG Envelope Prefix"));
+    ImGui::InputText("##PSGPrefix", &smpsSettings.psgPrefix);
+  }
+
+  if (smpsSettings.style == verAMPS) {
     ImGui::Text(_("Portamento:"));
     {
       const char* smpsPort[] = {
@@ -739,6 +765,7 @@ void FurnaceGUI::drawExportASM(bool onWindow) {
         ImGui::EndCombo();
       }
     }
+
   }
   else
     smpsSettings.portamento = 0;

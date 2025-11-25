@@ -157,8 +157,8 @@ struct DivAudioExportOptions {
 };
 
 struct DivSMPSOptions {
-  String label, psgPrefix;
-  int stepSz, preset, style, tempo, vibrato, psgPitch, pitchEnv, portamento;
+  String label, psgPrefix, psgMaxStr;
+  int stepSz, preset, style, tempo, vibrato, psgPitch, pitchEnv, portamento, psgMax;
   uint8_t div, speed;
   float given, approx;
   bool updateVals;
@@ -170,14 +170,17 @@ struct DivSMPSOptions {
     style(0),
     tempo(0),
     vibrato(0),
-    psgPitch(0),
+    psgPitch(-12),
     pitchEnv(0),
     portamento(0),
     div(1),
     speed(0),
     given(0),
     approx(0),
-    updateVals(true) {}
+    updateVals(true),
+    psgMax(9 + 6 * 12),
+    psgMaxStr("A6")
+  {}
 };
 
 struct DivChannelState {
@@ -835,8 +838,8 @@ class DivEngine {
     void notifySampleChange(int sample);
 
     // SMPS functions
-    String getNote(SafeWriter* w, smpsVars& vars, smpsTempVars& temp);
-    void writeNotes(SafeWriter* w, smpsVars& vars, smpsTempVars& temp, DivSMPSOptions options);
+    String getNote(SafeWriter* w, smpsVars& vars, smpsTempVars& temp, DivSMPSOptions& options);
+    void writeNotes(SafeWriter* w, smpsVars& vars, smpsTempVars& temp, DivSMPSOptions& options);
 
     // dispatch a command
     int dispatchCmd(DivCommand c);

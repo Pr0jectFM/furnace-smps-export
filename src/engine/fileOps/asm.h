@@ -259,16 +259,16 @@ static const char* smpsSymSource[smpsSymLen] = {
   // Voices
   "CNF",
   "; smpsFeed Not Implemented",
-  "MD",
+  "MD\t",
   "; smpsMult Not Implemented",
   "RSAR",
   "; smpsAttRt Not Implemented",
   "; smpsAmpMod Not Implemented",
-  "D1R",
-  "D2R",
-  "RRL",
+  "D1R\t",
+  "D2R\t",
+  "RRL\t",
   "; smpsRelRt Not Implemented",
-  "TL",
+  "TL\t",
   "; smpsSSGEG Not Implemented",
   // Effects
   "LRPAN",
@@ -283,7 +283,7 @@ static const char* smpsSymSource[smpsSymLen] = {
   "; smpsSampDAC Not Implemented",
   "; smpsPitchDAC Not Implemented",
   "CMVADD",
-  "PFVADD",
+  "PVADD",
   "LFO",
   "FVR",
   "FVR",
@@ -301,10 +301,10 @@ static const char* smpsSymSource[smpsSymLen] = {
   "; smpsFreqNote Not Implemented",
   "CMNOIS",
   // Parameters
-  "panCenter",
-  "panLeft",
-  "panRight",
-  "panNone"
+  "LRSET",
+  "LSET",
+  "RSET",
+  "0"
 };
 
 // note names used for Flamewing
@@ -314,7 +314,7 @@ static const char* notesFlamewing[14] = {
 
 // note names used for MD Music Player
 static const char* notesMDMP[14] = {
-  "nC", "nCs", "nD", "nEb", "nE", "nF", "nFs", "nG", "nAb", "nA", "nBb", "nB", "nRst", "nC5"
+  "nC", "nCs", "nD", "nEb", "nE", "nF", "nFs", "nG", "nAb", "nA", "nBb", "nB", "nRst", ""
 };
 
 // note names used for AMPS
@@ -324,7 +324,7 @@ static const char* notesAMPS[14] = {
 
 // note names used for Source
 static const char* notesSource[14] = {
-  "CN", "CS", "DN", "DS", "EN", "FN", "FS", "GN", "GS", "AN", "BF", "BN", "NL", "CN5"
+  "CN", "CS", "DN", "DS", "EN", "FN", "FS", "GN", "GS", "AN", "BF", "BN", "NL", ""
 };
 
 // style names

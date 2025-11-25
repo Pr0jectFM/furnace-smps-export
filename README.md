@@ -25,6 +25,7 @@ However, in order to ensure that no adjustments need to be made post-export, som
 - In some cases (either 1 order long song or no FM channels), the PSG volume resets to $C0 (occurs in Warning)
 - In some cases, the pattern lengths are a little bit off (occurs in SkBZ2)
 - Turning off linear pitch mode causes the FM parts to be pitched down
+- Macros apply a step too late
 
 ## To do
 
@@ -49,6 +50,7 @@ Before the 1.0 release:
   - Pitch
   - Volume
   - Arpeggio
+  - Panning
 - Source SMPS style
   - Header
   - Effect format
@@ -62,6 +64,8 @@ Before the 1.0 release:
   - Only use initial offset values
   - PSG envelope prefix
   - Maximum PSG value
+  - PSG octave
+- Put volume macros in copy/paste format
 
 Post 1.0 release:
 - Effects

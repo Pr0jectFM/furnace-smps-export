@@ -5124,7 +5124,7 @@ Sky_Base_Act_2_PSG3_Jump:
 Sky_Base_Act_2_PSG3_00_0_64:
 	smpsPSGvoice	Closed Hi-Hat
 	smpsPSGform		$E3
-	dc.b nMaxPSG, $02, $04, $02
+	dc.b nmaxPSG, $02, $04, $02
 	smpsPSGvoice	Open Hi-Hat
 	dc.b $04
 	smpsPSGvoice	Closed Hi-Hat
@@ -5153,7 +5153,7 @@ Sky_Base_Act_2_PSG3_00_0_64:
 
 Sky_Base_Act_2_PSG3_02_0_64:
 	smpsPSGvoice	Closed Hi-Hat
-	dc.b nMaxPSG, $02, $04, $02
+	dc.b nmaxPSG, $02, $04, $02
 	smpsPSGvoice	Open Hi-Hat
 	dc.b $04
 	smpsPSGvoice	Closed Hi-Hat
@@ -5183,7 +5183,7 @@ Sky_Base_Act_2_PSG3_02_0_64:
 Sky_Base_Act_2_PSG3_05_0_64_0B:
 	smpsPSGvoice	Blank	; fine volume slide down
 	smpsPSGAlterVol	$FE
-	dc.b nMaxPSG, $3E	; volume slide
+	dc.b nmaxPSG, $3E	; volume slide
 	dc.b smpsNoAttack, $02
 	smpsReturn
 
@@ -5193,7 +5193,7 @@ Sky_Base_Act_2_PSG3_01_0_64:
 
 Sky_Base_Act_2_PSG3_03_0_64:
 	smpsPSGvoice	Closed Hi-Hat
-	dc.b nMaxPSG, $02, $04, $02
+	dc.b nmaxPSG, $02, $04, $02
 	smpsPSGvoice	Open Hi-Hat
 	dc.b $04
 	smpsPSGvoice	Closed Hi-Hat

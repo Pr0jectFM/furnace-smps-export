@@ -169,42 +169,34 @@ Done:
 };
 
 // Gets the channel number and outputs the name of the channel
-static String smpsChanName(int num, bool AMPS) {
+static String smpsChanName(DivSMPSOptions& options, int num, bool dualPCM) {
   // To Do: account for FM6, DAC2, and PSG3 modes
-  if (num < 5) return "FM" + std::to_string(num + 1);
-  if (AMPS) { if (num < 7) return "DAC" + std::to_string(num - 4); }
-  else { if (num == 5) return "DAC"; }
-  return "PSG" + std::to_string(std::min(num - 5 - AMPS, 3));
+  const String label = options.label;
+  if (options.style != verSource) {
+    if (num < 5) return label + "_FM" + std::to_string(num + 1);
+    if (dualPCM) { if (num < 7) return label + "_DAC" + std::to_string(num - 4); }
+    else { if (num == 5) return label + "_DAC"; }
+    return label + "_PSG" + std::to_string(std::min(num - 5 - dualPCM, 3));
+  }
+  if (num < 5) return "TAB" + label + std::to_string((num >= 3) ? num + 1 : num);
+  if (num == 5) return "TAB" + label + "D";
+  return fmt::sprintf("TAB%s%X", label, std::min((num - 6) * 2 + 8, 0xC));
 }
 
 // write instrument information for 1 operator
 static void writeOperator(SafeWriter* w, const int opArray[4], const char* param, int style) {
   w->writeText(fmt::sprintf("\t%s\t", param));
-  if (style == verMDMP || style == verAMPS) {
-    w->writeText(fmt::sprintf("$%.2X, ", opArray[0]));
-    w->writeText(fmt::sprintf("$%.2X, ", opArray[1]));
-    w->writeText(fmt::sprintf("$%.2X, ", opArray[2]));
-    w->writeText(fmt::sprintf("$%.2X\n", opArray[3]));
-  }
-  else {
-    w->writeText(fmt::sprintf("$%.2X, ", opArray[3]));
-    w->writeText(fmt::sprintf("$%.2X, ", opArray[1]));
-    w->writeText(fmt::sprintf("$%.2X, ", opArray[2]));
-    w->writeText(fmt::sprintf("$%.2X\n", opArray[0]));
-  }
+  if (style == verFlamewing)
+    w->writeText(fmt::sprintf("$%.2X, $%.2X, $%.2X, $%.2X\n", opArray[3], opArray[1], opArray[2], opArray[0]));
+  else if (style == verMDMP || style == verAMPS)
+    w->writeText(fmt::sprintf("$%.2X, $%.2X, $%.2X, $%.2X\n", opArray[0], opArray[1], opArray[2], opArray[3]));
+  else
+    w->writeText(fmt::sprintf("%d,%d,%d,%d\n", opArray[0], opArray[2], opArray[1], opArray[3]));
 }
 
 // write instrument information for 2 operators
 static void writeOperator(SafeWriter* w, const int opArray[4], const char* param, const int opArray2[4]) {
-  w->writeText(fmt::sprintf("\t%s\t", param));
-  w->writeText(fmt::sprintf("$%.2X, ", opArray[3]));
-  w->writeText(fmt::sprintf("$%.2X, ", opArray[1]));
-  w->writeText(fmt::sprintf("$%.2X, ", opArray[2]));
-  w->writeText(fmt::sprintf("$%.2X, ", opArray[0]));
-  w->writeText(fmt::sprintf("$%.2X, ", opArray2[3]));
-  w->writeText(fmt::sprintf("$%.2X, ", opArray2[1]));
-  w->writeText(fmt::sprintf("$%.2X, ", opArray2[2]));
-  w->writeText(fmt::sprintf("$%.2X\n", opArray2[0]));
+  w->writeText(fmt::sprintf("\t%s\t%d,%d,%d,%d,%d,%d,%d,%d\n", param, opArray[0], opArray2[0], opArray[2], opArray2[2], opArray[1], opArray2[1], opArray[3], opArray2[3]));
 }
 
 // write macro information
@@ -272,32 +264,102 @@ static void writeHeader(SafeWriter* w, smpsVars& vars, DivSubSong*& s, DivSMPSOp
 
   if (options.style == verAMPS) {
     if (vars.chanOn[5] == typePCM)
-      w->writeText(fmt::sprintf("\t%s\t%s_%s,\t$00, $%.2X\n", (*vars.symCommands)[smpsDAC], options.label, smpsChanName(5, vars.dualPCM), 0x7F - vars.startVol[5]));
+      w->writeText(fmt::sprintf("\t%s\t%s,\t$00, $%.2X\n", (*vars.symCommands)[smpsDAC], smpsChanName(options, 5, vars.dualPCM), 0x7F - vars.startVol[5]));
     else
       w->writeText(fmt::sprintf("\t%s\t%s_Empty,\t$00, $00\n", (*vars.symCommands)[smpsDAC], options.label));
     if (vars.chanOn[6] == typePCM)
-      w->writeText(fmt::sprintf("\t%s\t%s_%s,\t$00, $%.2X\n", (*vars.symCommands)[smpsDAC], options.label, smpsChanName(6, true), 0x7F - vars.startVol[6]));
+      w->writeText(fmt::sprintf("\t%s\t%s,\t$00, $%.2X\n", (*vars.symCommands)[smpsDAC], smpsChanName(options, 6, true), 0x7F - vars.startVol[6]));
     else
       w->writeText(fmt::sprintf("\t%s\t%s_Empty,\t$00, $00\n", (*vars.symCommands)[smpsDAC], options.label));
   }
   else {
     if (vars.chanOn[5] == typePCM)
-      w->writeText(fmt::sprintf("\t%s\t%s_%s\n", (*vars.symCommands)[smpsDAC], options.label, smpsChanName(5, vars.dualPCM)));
+      w->writeText(fmt::sprintf("\t%s\t%s\n", (*vars.symCommands)[smpsDAC], smpsChanName(options, 5, vars.dualPCM)));
     else if (vars.chanOn[5] == typeEmpty)
       w->writeText(fmt::sprintf("\t%s\t%s_Empty\n", (*vars.symCommands)[smpsDAC], options.label));
   }
   for (int i = 0; i < 5; i++) {
     if (vars.chanOn[i] == typeEmpty) w->writeText(fmt::sprintf("\t%s\t%s_Empty,\t$00, $00\n", (*vars.symCommands)[smpsFM], options.label));
-    if (vars.chanOn[i] == typeFM) w->writeText(fmt::sprintf("\t%s\t%s_%s,\t$00, $%.2X\n", (*vars.symCommands)[smpsFM], options.label, smpsChanName(i, vars.dualPCM), 0x7F - vars.startVol[i]));
+    if (vars.chanOn[i] == typeFM) w->writeText(fmt::sprintf("\t%s\t%s,\t$00, $%.2X\n", (*vars.symCommands)[smpsFM], smpsChanName(options, i, vars.dualPCM), 0x7F - vars.startVol[i]));
   }
   for (int i = 6 + (vars.dualPCM); i < 11; i++) {
     if (vars.chanOn[i] == typeEmpty) w->writeText(fmt::sprintf("\t%s\t%s_Empty,\t$00, $00, $00, $00\n", (*vars.symCommands)[smpsPSG], options.label));
-    if (vars.chanOn[i] >= typePSG) w->writeText(fmt::sprintf("\t%s\t%s_%s,\t$%.2X, $%.2X, $00, $%.2X\n", (*vars.symCommands)[smpsPSG], options.label, smpsChanName(i, vars.dualPCM), options.psgPitch ? 0 : 0xF4, (0x0F - vars.startVol[i]) * (options.style == verAMPS ? 8 : 1), 0));
+    if (vars.chanOn[i] >= typePSG) w->writeText(fmt::sprintf("\t%s\t%s,\t$%.2X, $%.2X, $00, $%.2X\n", (*vars.symCommands)[smpsPSG], smpsChanName(options, i, vars.dualPCM), uint8_t(options.psgPitch), (0x0F - vars.startVol[i]) * (options.style == verAMPS ? 8 : 1), 0));
   }
 }
 
+static void writeHeaderSource(SafeWriter* w, smpsVars& vars, DivSubSong*& s, DivSMPSOptions& options) {
+  w->writeText("\teven\n");
+  // constants
+  {
+    // Get the number of FM and PSG channels
+    int chansFM = 1, chansPSG = 0, i = 0;
+    for (; i < 5; i++) if (vars.chanOn[i] == typeFM || vars.chanOn[i] == typeEmpty) chansFM++;
+    i += 1 + vars.dualPCM;
+    for (; i < 11; i++) if (vars.chanOn[i] >= typePSG || vars.chanOn[i] == typeEmpty) chansPSG++;
+    w->writeText(fmt::sprintf("FM%s\tEQU\t\t%d\t\t\t\t; FM Channel Total\n", options.label, chansFM));
+    w->writeText(fmt::sprintf("PSG%s\tEQU\t\t%d\t\t\t\t; PSG Channel Total\n", options.label, chansPSG));
+  }
+  w->writeText(fmt::sprintf("TP%s\tEQU\t\t%d\t\t\t\t; Tempo\n", options.label, options.div));
+  w->writeText(fmt::sprintf("DL%s\tEQU\t\t%d\t\t\t\t; Speed\n", options.label, options.speed));
+  w->writeText(fmt::sprintf(";\tGiven Tempo = %.2f BPM\n", options.given));
+  w->writeText(fmt::sprintf(";\tApproximated Tempo = %.2f BPM\n\n", options.approx));
+  // pitch constants
+  uint8_t fmCnt = 0, psgCnt = 8;
+  for (int i = 0; i < 5; i++) {
+    if (fmCnt == 3) fmCnt++;
+    if (vars.chanOn[i] == typeEmpty) { w->writeText(fmt::sprintf("FB%s%X\tEQU\t\t%d\t\t\t\t; FM %Xch\n", options.label, fmCnt, 0, fmCnt)); fmCnt++; }
+    if (vars.chanOn[i] == typeFM) { w->writeText(fmt::sprintf("FB%s%X\tEQU\t\t%d\t\t\t\t; FM %Xch\n", options.label, fmCnt, 0, fmCnt)); fmCnt++; }
+  }
+  for (int i = 6; i < 11; i++) {
+    if (vars.chanOn[i] == typeEmpty) { w->writeText(fmt::sprintf("PB%s%X\tEQU\t\t%d\t\t\t\t; PSG %X0ch\n", options.label, psgCnt, 0, psgCnt)); psgCnt += 2; }
+    if (vars.chanOn[i] >= typePSG) { w->writeText(fmt::sprintf("PB%s%X\tEQU\t\t%d\t\t\t\t; PSG %X0ch\n", options.label, psgCnt, options.psgPitch, psgCnt)); psgCnt += 2; }
+  }
+  // volume constants
+  fmCnt = 0, psgCnt = 8;
+  for (int i = 0; i < 5; i++) {
+    if (fmCnt == 3) fmCnt++;
+    if (vars.chanOn[i] == typeEmpty) { w->writeText(fmt::sprintf("FA%s%X\tEQU\t\t%.2XH\t\t\t\t; FM %Xch\n", options.label, fmCnt, 0, fmCnt)); fmCnt++; }
+    if (vars.chanOn[i] == typeFM) { w->writeText(fmt::sprintf("FA%s%X\tEQU\t\t%.2XH\t\t\t\t; FM %Xch\n", options.label, fmCnt, 0x7F - vars.startVol[i], fmCnt)); fmCnt++; }
+  }
+  for (int i = 6; i < 11; i++) {
+    if (vars.chanOn[i] == typeEmpty) { w->writeText(fmt::sprintf("PA%s%X\tEQU\t\t%.2XH\t\t\t\t; PSG %X0ch\n", options.label, psgCnt, 0, psgCnt)); psgCnt += 2; }
+    if (vars.chanOn[i] >= typePSG) { w->writeText(fmt::sprintf("PA%s%X\tEQU\t\t%.2XH\t\t\t\t; PSG %X0ch\n", options.label, psgCnt, 0x0F - vars.startVol[i], psgCnt)); psgCnt += 2; }
+  }
+  // envelope constants
+  psgCnt = 8;
+  for (int i = 6; i < 11; i++) {
+    if (vars.chanOn[i] == typeEmpty) { w->writeText(fmt::sprintf("PE%s%X\tEQU\t\t%d\t\t\t\t; PSG %X0ch\n", options.label, psgCnt, 0, psgCnt)); psgCnt += 2; }
+    if (vars.chanOn[i] >= typePSG) { w->writeText(fmt::sprintf("PE%s%X\tEQU\t\t%d\t\t\t\t; PSG %X0ch\n", options.label, psgCnt, 0, psgCnt)); psgCnt += 2; }
+  }
+  // header
+  if (options.style != verSource) w->writeText(fmt::sprintf("\n%s:\n", options.label));
+  else w->writeText(fmt::sprintf("\nS%s:\n",options.label));
+  w->writeText(fmt::sprintf("\t\tTDW\t\tTIMB%s,S%s\t\t\t\t; Voice Top Address\n", options.label, options.label));
+  w->writeText(fmt::sprintf("\t\tDC.B\tFM%s,PSG%s,TP%s,DL%s\t\t\t\t; FM Total,PSG Total,Tempo,Delay\n\n", options.label, options.label, options.label, options.label));
+
+  if (vars.chanOn[5] == typePCM)
+    w->writeText(fmt::sprintf("\t\tTDW\t\t%s,S%s\t\t\t\t; PCM Drum Table Pointer\n\t\tDC.B\t0,0\t\t\t\t\t\t; Bias,Volm (Dummy)\n", smpsChanName(options, 5, false), options.label));
+  else if (vars.chanOn[5] == typeEmpty)
+    w->writeText(fmt::sprintf("\t\tTDW\t\tTAB%s_Empty,S%s\t\t\t\t; PCM Drum Table Pointer\n\t\tDC.B\t0,0\t\t\t\t\t\t; Bias,Volm (Dummy)\n", options.label, options.label));
+  fmCnt = 0, psgCnt = 8;
+  for (int i = 0; i < 5; i++) {
+    if (fmCnt == 3) fmCnt++;
+    if (vars.chanOn[i] == typeEmpty) { w->writeText(fmt::sprintf("\t\tTDW\t\tTAB%s_Empty,S%s\t\t\t\t; FM %Xch\n\t\tDC.B\tFB%s%X,FA%s%X\t\t\t\t\t\t; Bias,Volm\n", options.label, options.label, fmCnt, options.label, fmCnt, options.label, fmCnt)); fmCnt++; }
+    if (vars.chanOn[i] == typeFM) { w->writeText(fmt::sprintf("\t\tTDW\t\t%s,S%s\t\t\t\t; FM %Xch\n\t\tDC.B\tFB%s%X,FA%s%X\t\t\t\t\t\t; Bias,Volm\n", smpsChanName(options, i, false), options.label, fmCnt, options.label, fmCnt, options.label, fmCnt)); fmCnt++; }
+  }
+  for (int i = 6; i < 11; i++) {
+    if (vars.chanOn[i] == typeEmpty) { w->writeText(fmt::sprintf("\t\tTDW\t\tTAB%s_Empty,S%s\t\t\t\t; PSG %X0ch\n\t\tDC.B\tPB%s%X,PA%s%X,0,PE%s%X\t\t\t\t; Bias,Volm,Dummy,Enve\n", options.label, options.label, psgCnt, options.label, psgCnt, options.label, psgCnt, options.label, psgCnt)); psgCnt += 2; }
+    if (vars.chanOn[i] >= typePSG) { w->writeText(fmt::sprintf("\t\tTDW\t\t%s,S%s\t\t\t\t; PSG %X0ch\n\t\tDC.B\tPB%s%X,PA%s%X,0,PE%s%X\t\t\t\t; Bias,Volm,Dummy,Enve\n", smpsChanName(options, i, false), options.label, psgCnt, options.label, psgCnt, options.label, psgCnt, options.label, psgCnt)); psgCnt += 2; }
+  }
+
+}
+
 static void writeVoices(SafeWriter* w, smpsVars &vars, DivSong &song, DivSMPSOptions &options) {
-  w->writeText(fmt::sprintf("\n%s_Voices:\n", options.label));
+  if (options.style == verSource)
+    w->writeText(fmt::sprintf("\nTIMB%s\tEQU\t\t*\n", options.label));
+  else
+    w->writeText(fmt::sprintf("\n%s_Voices:\n", options.label));
   uint8_t fmVoice = 0;
   for (int i = 0; i < song.insLen; i++) {
     DivInstrument* ins = song.ins[i];
@@ -345,12 +407,12 @@ static void writeVoices(SafeWriter* w, smpsVars &vars, DivSong &song, DivSMPSOpt
 
       }
       else {
-        w->writeText(fmt::sprintf("\t%s\t\t$%.2X, $%.2X\n", (*vars.symCommands)[smpsAlg], ins->fm.alg, ins->fm.fb));
-        writeOperator(w, opParams[smpsDetune - smpsVoices], (*vars.symCommands)[smpsDetune], opParams[smpsMult - smpsVoices]);
+        w->writeText(fmt::sprintf("\t%s\t\t%d,%d\n", (*vars.symCommands)[smpsAlg], ins->fm.alg, ins->fm.fb));
+        writeOperator(w, opParams[smpsMult - smpsVoices], (*vars.symCommands)[smpsDetune], opParams[smpsDetune - smpsVoices]);
         writeOperator(w, opParams[smpsRtScale - smpsVoices], (*vars.symCommands)[smpsRtScale], opParams[smpsAttRt - smpsVoices]);
         writeOperator(w, opParams[smpsDecRt1 - smpsVoices], (*vars.symCommands)[smpsDecRt1], verSource);
         writeOperator(w, opParams[smpsDecRt2 - smpsVoices], (*vars.symCommands)[smpsDecRt2], verSource);
-        writeOperator(w, opParams[smpsSusLv - smpsVoices], (*vars.symCommands)[smpsSusLv], opParams[smpsRelRt - smpsVoices]);
+        writeOperator(w, opParams[smpsRelRt - smpsVoices], (*vars.symCommands)[smpsSusLv], opParams[smpsSusLv - smpsVoices]);
         writeOperator(w, opParams[smpsTotLv - smpsVoices], (*vars.symCommands)[smpsTotLv], verSource);
       }
       fmVoice++;
@@ -425,11 +487,14 @@ static String smpsCommands(const uint8_t effect, const uint8_t value, smpsVars &
       vars.vib[0] = 0x00;
       vars.vib[1] = 0x01;
       temp.timers[timeVib] = value * 4;
-      return fmt::sprintf("\n\t%s\t$%.2X, $%.2X, $%.2X, $%.2X", (*vars.symCommands)[smpsSetVib68k], vars.vib[0], vars.vib[1], vars.vib[2], vars.vib[3]);
+      if (options.style != verSource)
+        return fmt::sprintf("%s\t$%.2X, $%.2X, $%.2X, $%.2X", (*vars.symCommands)[smpsSetVib68k], vars.vib[0], vars.vib[1], vars.vib[2], vars.vib[3]);
+      else
+        return fmt::sprintf("%s,%d,%d,%d,%d", (*vars.symCommands)[smpsSetVib68k], vars.vib[0], vars.vib[1], vars.vib[2], vars.vib[3]);
     // vibrato
     case 0x04:
       if ((value & 0x0F) == 0)
-        return fmt::sprintf("\n\t%s", (*vars.symCommands)[smpsVibOff]);
+        return fmt::sprintf("%s", (*vars.symCommands)[smpsVibOff]);
 
       switch (options.vibrato) {
         case 0:
@@ -451,11 +516,14 @@ static String smpsCommands(const uint8_t effect, const uint8_t value, smpsVars &
       }
 
 
-      return fmt::sprintf("\n\t%s\t$%.2X, $%.2X, $%.2X, $%.2X", (*vars.symCommands)[smpsSetVib68k], vars.vib[0], vars.vib[1], vars.vib[2], vars.vib[3]);
+      if (options.style != verSource)
+        return fmt::sprintf("%s\t$%.2X, $%.2X, $%.2X, $%.2X", (*vars.symCommands)[smpsSetVib68k], vars.vib[0], vars.vib[1], vars.vib[2], vars.vib[3]);
+      else
+        return fmt::sprintf("%s,%d,%d,%d,%d", (*vars.symCommands)[smpsSetVib68k], vars.vib[0], vars.vib[1], vars.vib[2], vars.vib[3]);
 
     // tremolo
     case 0x07:
-      return "\n\t; tremolo";
+      return "\t; tremolo";
 
     // panning
     case 0x08:
@@ -465,7 +533,7 @@ static String smpsCommands(const uint8_t effect, const uint8_t value, smpsVars &
 
     // groove pattern
     case 0x09:
-      return "\n\t; groove pattern";
+      return "\t; groove pattern";
 
     // volume slide
     case 0x0A:
@@ -473,7 +541,7 @@ static String smpsCommands(const uint8_t effect, const uint8_t value, smpsVars &
         vars.volRate = (value & 0xF0) * 0x10;
       else
         vars.volRate = (value & 0x0F) * -0x100;
-      return "\n\t; volume slide";
+      return "\t; volume slide";
 
     // jump to pattern
     case 0x0B:
@@ -486,21 +554,21 @@ static String smpsCommands(const uint8_t effect, const uint8_t value, smpsVars &
     // retrigger
     case 0x0C:
       temp.timers[timeRetrigger] = value;
-      return "\n\t; retrigger";
+      return "\t; retrigger";
 
     // noise mode
     case 0x20:
       if (!(value & 0xF0))
-        return "\n\t; preset noise frequencies not supported";
+        return "\t; preset noise frequencies not supported";
       if (value & 0x0F)
         vars.noise = 0xE3;
       else
         vars.noise = 0xE7;
-      return fmt::sprintf("\n\t%s\t\t$%.2X", (*vars.symCommands)[smpsNoise], vars.noise);
+      return fmt::sprintf("%s\t\t$%.2X", (*vars.symCommands)[smpsNoise], vars.noise);
 
     // set tick rate (Hz)
     case 0xC0:
-      return "\n\t; set tick rate (Hz)";
+      return "\t; set tick rate (Hz)";
 
     // set pitch
     case 0xE5:
@@ -518,7 +586,7 @@ static String smpsCommands(const uint8_t effect, const uint8_t value, smpsVars &
     // note cut
     case 0xEC:
       temp.timers[timeCut] = value;
-      return fmt::sprintf("\n\t%s\t\t$%.2X", (*vars.symCommands)[smpsGate], value);
+      return fmt::sprintf("%s\t\t$%.2X", (*vars.symCommands)[smpsGate], value);
 
       // note delay
     case 0xED:
@@ -584,12 +652,28 @@ static void getTimer(DivPattern* p, smpsVars& vars, smpsTempVars& temp, DivSong&
     // check for instrument changes
     if (p->newData[furStep][DIV_PAT_INS] >= 0 && p->newData[furStep][DIV_PAT_INS] != temp.lastIns) {
       if (vars.chanOn[temp.channel] == typeFM) {
-        temp.effects[temp.numEffects] = fmt::sprintf("\n\t%s\t$%.2X", (*vars.symCommands)[smpsSetVoice], vars.fmVoices[p->newData[furStep][DIV_PAT_INS]]);
+        if (options.style != verSource)
+          temp.effects[temp.numEffects] = fmt::sprintf("\n\t%s\t$%.2X", (*vars.symCommands)[smpsSetVoice], vars.fmVoices[p->newData[furStep][DIV_PAT_INS]]);
+        else
+          temp.effects[temp.numEffects] = fmt::sprintf("%s,%d", (*vars.symCommands)[smpsSetVoice], vars.fmVoices[p->newData[furStep][DIV_PAT_INS]]);
         temp.numEffects++;
         found = true;
       }
       else if (vars.chanOn[temp.channel] > typePCM) {
-        temp.effects[temp.numEffects] = fmt::sprintf("\n\t%s\t%s", (*vars.symCommands)[smpsVolEnv], vars.psgVoices[p->newData[furStep][DIV_PAT_INS]]);
+        const String envName = vars.psgVoices[p->newData[furStep][DIV_PAT_INS]];
+        int envelope = 0, start = 0;
+        // search for the first valid number in the string and then convert that to decimal
+        for (char i : envName) {
+          if ((i >= '0' && i <= '9') || (i >= 'A' && i <= 'F') || (i >= 'a' && i <= 'f')) {
+            envelope = std::stoi(envName.substr(start), nullptr, 16);
+            break;
+          }
+          start++;
+        };
+        if (options.style != verSource)
+          temp.effects[temp.numEffects] = fmt::sprintf("%s\t%s%.2X", (*vars.symCommands)[smpsVolEnv], options.psgPrefix, envelope);
+        else
+          temp.effects[temp.numEffects] = fmt::sprintf("%s,%d", (*vars.symCommands)[smpsVolEnv], envelope);
         temp.numEffects++;
         found = true;
       }
@@ -664,16 +748,24 @@ static void getTimer(DivPattern* p, smpsVars& vars, smpsTempVars& temp, DivSong&
 };
 
 // separate notes
-static void separateNote(SafeWriter* w, smpsTempVars& temp) {
-  if (temp.lineCnt != 0)
-    w->writeText(", ");
-  else
-    w->writeText(fmt::sprintf("\n\tdc.b "));
+static void separateNote(SafeWriter* w, smpsTempVars& temp, bool source) {
+  if (!source) {
+    if (temp.lineCnt != 0)
+      w->writeText(", ");
+    else
+      w->writeText(fmt::sprintf("\n\tdc.b "));
+  }
+  else {
+    if (temp.lineCnt != 0)
+      w->writeText(",");
+    else
+      w->writeText(fmt::sprintf("\n\tDC.B "));
+  }
   temp.lineCnt = (temp.lineCnt + 1) % 16;
 }
 
 // get the note to write
-String DivEngine::getNote(SafeWriter* w, smpsVars& vars, smpsTempVars& temp) {
+String DivEngine::getNote(SafeWriter* w, smpsVars& vars, smpsTempVars& temp, DivSMPSOptions& options) {
   // write note
   temp.prevNote = temp.note;
   temp.lastOffset = temp.offset;
@@ -744,11 +836,9 @@ String DivEngine::getNote(SafeWriter* w, smpsVars& vars, smpsTempVars& temp) {
     else if (vars.chanOn[temp.channel] >= typePSG) {
       // convert note to frequency and back
       unsigned short psgFreqs[]{
-        /*
         8135, // A0
         7679, // A#0
         7248, // B0
-        */
         6841, // C1
         6457, // C#1
         6095, // D1
@@ -809,24 +899,46 @@ String DivEngine::getNote(SafeWriter* w, smpsVars& vars, smpsTempVars& temp) {
         254, // A5
         240, // A#5
         226, // B5
-        214 // C6
+        214, // C6
+        202, // C#6
+        191, // D6
+        180, // D#6
+        169, // E6
+        160, // F6
+        151, // F#6
+        143, // G6
+        135, // G#6
+        127, // A6
+        120, // A#6
+        113, // B6
+        107, // C7
+        101, // C#7
+        96, // D7
+        90, // D#7
+        85, // E7
+        80, // F7
+        76, // F#7
+        71, // G7
+        67, // G#7
+        63, // A7
+        60, // A#7
+        57, // B7
+        53, // C8
+        50 // C#8
       };
 
-      unsigned int baseFreq = round(calcBaseFreq(COLOR_NTSC, 64.0, calcArp(temp.note - 8 * 12, 0, 0), true));
+      unsigned int baseFreq = round(calcBaseFreq(COLOR_NTSC, 64.0, calcArp(temp.note - (8 * 12), 0, 0), true));
       unsigned int fNum = calcFreq(baseFreq, vars.pitch, temp.arpOff, false, true, 0, vars.pitch2, COLOR_NTSC, 64.0);
 
       //w->writeText(fmt::sprintf("%d %d ", baseFreq, fNum));
 
+      temp.offset = 0;
       if (fNum > psgFreqs[0]) {
-        temp.offset = 0;
-        return fmt::sprintf("%s", "nC0");
+        if (options.style != verSource) return fmt::sprintf("nA0");
+        else return fmt::sprintf("AN0");
       }
       short psgFreqsLen = sizeof(psgFreqs) / sizeof(psgFreqs[0]);
-      if (fNum < psgFreqs[psgFreqsLen - 1]) {
-        temp.offset = 0;
-        return fmt::sprintf("%s", (*vars.notesSet)[13]);
-      }
-
+      note = psgFreqsLen;
       for (int i = 1; i < psgFreqsLen; i++) {
         if (psgFreqs[i] < fNum) {
           if ((psgFreqs[i - 1] - fNum) > (fNum - psgFreqs[i])) {
@@ -841,15 +953,29 @@ String DivEngine::getNote(SafeWriter* w, smpsVars& vars, smpsTempVars& temp) {
           }
         }
       }
-      octave = note / 12 + 1;
+      note += 9;
+
+      if (note > options.psgMax) {
+        temp.offset = 0;
+        if (options.style == verFlamewing || options.style == verAMPS) {
+          if (options.psgPitch == 0)
+            return fmt::sprintf("%s", (*vars.notesSet)[13]);
+          else
+            return fmt::sprintf("%s+%d", (*vars.notesSet)[13], -options.psgPitch);
+        }
+        note = options.psgMax;
+      }
+
+      octave = note / 12;
       note = note % 12;
+
     }
     if (vars.chanOn[temp.channel] == typePCM) {
       octave = 0;
       int stupid = note + octave * 12 - song.sampleLen;
       if (stupid >= 0) goto normalNote;
       DivSample* sample = song.sample[note + octave * 12];
-      if (sample->name[0] != 'd' || sample->name[1] < 'A' || sample->name[1] > 'Z')
+      if (!((sample->name[0] >= 'a' && sample->name[0] <= 'z') || (sample->name[0] >= 'A' && sample->name[0] <= 'Z')))
         goto normalNote;
       String sampleOut = "";
       for (char letter : sample->name) {
@@ -866,16 +992,17 @@ String DivEngine::getNote(SafeWriter* w, smpsVars& vars, smpsTempVars& temp) {
 }
 
 // write notes and effects
-void DivEngine::writeNotes(SafeWriter* w, smpsVars& vars, smpsTempVars& temp, DivSMPSOptions options) {
+void DivEngine::writeNotes(SafeWriter* w, smpsVars& vars, smpsTempVars& temp, DivSMPSOptions& options) {
   // write timer
   if (temp.noteTime != 0) {
     if (temp.prevTime != temp.noteTime || temp.wroteNote == false) {
       if (temp.startTick) {
-        separateNote(w, temp);
+        separateNote(w, temp, options.style == verSource);
         w->writeText((*vars.symCommands)[smpsHold]);
       }
-      separateNote(w, temp);
-      w->writeText(fmt::sprintf("$%.2X", temp.noteTime));
+      separateNote(w, temp, options.style == verSource);
+      if (options.style != verSource) w->writeText(fmt::sprintf("$%.2X", temp.noteTime));
+      else w->writeText(fmt::sprintf("%d", temp.noteTime));
       temp.prevTime = temp.noteTime;
       temp.wroteLen = true;
     }
@@ -885,47 +1012,78 @@ void DivEngine::writeNotes(SafeWriter* w, smpsVars& vars, smpsTempVars& temp, Di
 
   // write effects
   for (int i = 0; i < temp.numEffects; i++) {
-    w->writeText(fmt::sprintf("%s", temp.effects[i]));
-    temp.lineCnt = 0;
+    if (options.style != verSource) {
+      w->writeText(fmt::sprintf("\n\t%s", temp.effects[i]));
+      temp.lineCnt = 0;
+    }
+    else {
+      separateNote(w, temp, true);
+      w->writeText(fmt::sprintf("%s", temp.effects[i]));
+      temp.lineCnt++;
+    }
     if (!temp.noteOn)
       temp.hold = true;
   }
   // volume changes
   if (temp.volChange != 0) {
-    if (vars.chanOn[temp.channel] == typeFM || (options.style == verAMPS && vars.chanOn[temp.channel] == typePCM)) {
-      w->writeText(fmt::sprintf("\n\t%s\t$%.2X", (*vars.symCommands)[smpsAltVolFM], uint8_t(temp.volChange)));
+    if (options.style != verSource) {
+      if (vars.chanOn[temp.channel] == typeFM || (options.style == verAMPS && vars.chanOn[temp.channel] == typePCM)) {
+        w->writeText(fmt::sprintf("\n\t%s\t$%.2X", (*vars.symCommands)[smpsAltVolFM], uint8_t(temp.volChange)));
+      }
+      else if (vars.chanOn[temp.channel] > typePCM) {
+        w->writeText(fmt::sprintf("\n\t%s\t$%.2X", (*vars.symCommands)[smpsAltVolPSG], uint8_t(temp.volChange * (options.style == verAMPS ? 8 : 1))));
+      }
+      temp.lineCnt = 0;
     }
-    else if (vars.chanOn[temp.channel] > typePCM) {
-      w->writeText(fmt::sprintf("\n\t%s\t$%.2X", (*vars.symCommands)[smpsAltVolPSG], uint8_t(temp.volChange * (options.style == verAMPS ? 8 : 1))));
+    else {
+      separateNote(w, temp, true);
+      if (vars.chanOn[temp.channel] == typeFM) {
+        w->writeText(fmt::sprintf("%s", (*vars.symCommands)[smpsAltVolFM]));
+      }
+      else if (vars.chanOn[temp.channel] > typePCM) {
+        w->writeText(fmt::sprintf("%s", (*vars.symCommands)[smpsAltVolPSG]));
+      }
+      separateNote(w, temp, true);
+      w->writeText(fmt::sprintf("%d",temp.volChange));
+      temp.lineCnt++;
+
     }
     temp.volChange = 0;
-    temp.lineCnt = 0;
     if (!temp.noteOn) temp.hold = true;
   }
 
   // panning changes
   if (temp.pan != temp.prevPan && vars.chanOn[temp.channel] <= typePCM) {
+    String pan;
     switch (temp.pan) {
     case 0:
-      w->writeText(fmt::sprintf("\n\t%s\t\t%s, $00", (*vars.symCommands)[smpsPan], (*vars.symCommands)[smpsPanNone]));
+      pan = (*vars.symCommands)[smpsPanNone];
       break;
     case 1:
-      w->writeText(fmt::sprintf("\n\t%s\t\t%s, $00", (*vars.symCommands)[smpsPan], (*vars.symCommands)[smpsPanRight]));
+      pan = (*vars.symCommands)[smpsPanRight];
       break;
     case 2:
-      w->writeText(fmt::sprintf("\n\t%s\t\t%s, $00", (*vars.symCommands)[smpsPan], (*vars.symCommands)[smpsPanLeft]));
+      pan = (*vars.symCommands)[smpsPanLeft];
       break;
     default:
-      w->writeText(fmt::sprintf("\n\t%s\t\t%s, $%.2X", (*vars.symCommands)[smpsPan], (*vars.symCommands)[smpsPanCenter], temp.pan));
+      pan = (*vars.symCommands)[smpsPanCenter];
+    }
+    if (options.style != verSource) {
+      w->writeText(fmt::sprintf("\n\t%s\t\t%s, $00", (*vars.symCommands)[smpsPan], pan));
+      temp.lineCnt = 0;
+    }
+    else {
+      separateNote(w, temp, true);
+      w->writeText(fmt::sprintf("%s,%s", (*vars.symCommands)[smpsPan], pan));
+      temp.lineCnt++;
     }
     temp.prevPan = temp.pan;
-    temp.lineCnt = 0;
     if (!temp.noteOn) temp.hold = true;
   }
 
   // hold note
   if ((temp.hold && !temp.noteOn)) {
-    separateNote(w, temp);
+    separateNote(w, temp, options.style == verSource);
     w->writeText((*vars.symCommands)[smpsHold]);
     if (!temp.legato)
       temp.hold = false;
@@ -935,12 +1093,12 @@ void DivEngine::writeNotes(SafeWriter* w, smpsVars& vars, smpsTempVars& temp, Di
 
   // write next note
   if (temp.noteOn && (temp.note != temp.prevNote || temp.wroteLen == false)) {
-    String noteText = getNote(w, vars, temp);
+    String noteText = getNote(w, vars, temp, options);
     if (temp.offset != temp.lastOffset) {
       w->writeText(fmt::sprintf("\n\t%s\t$%.2X", (*vars.symCommands)[smpsSetDetune], uint8_t(temp.offset)));
       temp.lineCnt = 0;
     }
-    separateNote(w, temp);
+    separateNote(w, temp, options.style == verSource);
     w->writeText(noteText);
     temp.prevNote = temp.note;
     temp.wroteNote = true;
@@ -991,7 +1149,10 @@ SafeWriter* DivEngine::saveASM(DivSMPSOptions options) {
   vars.chans = chans;
   smpsChanNum(song, s, vars);
 
-  writeHeader(w, vars, s, options);
+  if (options.style == verSource)
+    writeHeaderSource(w, vars, s, options);
+  else
+    writeHeader(w, vars, s, options);
   writeVoices(w, vars, song, options);
 
   w->writeText(fmt::sprintf("\t; Loop Pattern : % .2X\n", vars.loopPat));
@@ -1016,7 +1177,8 @@ SafeWriter* DivEngine::saveASM(DivSMPSOptions options) {
   // create placeholder channel
   for (int i : vars.chanOn) {
     if (i == typeEmpty) {
-      w->writeText(fmt::sprintf("\n%s_Empty:\n\t%s\n", options.label, (*vars.symCommands)[smpsStop]));
+      if (options.style != verSource) w->writeText(fmt::sprintf("\n%s_Empty:\n\t%s\n", options.label, (*vars.symCommands)[smpsStop]));
+      else w->writeText(fmt::sprintf("\n%s_Empty\tEQU\t\t*\n\t%s\n", options.label, (*vars.symCommands)[smpsStop]));
       goto skipEmpty;
     }
   }
@@ -1028,10 +1190,15 @@ skipEmpty:
     if (vars.chanOn[l] <= typeEmpty) continue;
     if (vars.chanOn[l] == typeNoise && vars.chanOn[l - 1] == typePSG) break;
     // Write order list
-    w->writeText(fmt::sprintf("\n%s_%s:", options.label, smpsChanName(l, vars.dualPCM)));
+    if (options.style != verSource) w->writeText(fmt::sprintf("\n%s:", smpsChanName(options, l, vars.dualPCM)));
+    else w->writeText(fmt::sprintf("\n%s\tEQU\t\t*", smpsChanName(options, l, vars.dualPCM)));
 
-    if (vars.chanOn[l] == typeNoise)
-      w->writeText(fmt::sprintf("\n\t%s\t$%.2X", (*vars.symCommands)[smpsNoise], 0xE7));
+    if (vars.chanOn[l] == typeNoise) {
+      if (options.style != verSource)
+        w->writeText(fmt::sprintf("\n\t%s\t$%.2X", (*vars.symCommands)[smpsNoise], 0xE7));
+      else
+        w->writeText(fmt::sprintf("\n\tDC.B %s,NOIS7", (*vars.symCommands)[smpsNoise]));
+    }
 
     // get the volume at the beginning of each pattern
     uint8_t startVols[0x101] = {};
@@ -1053,24 +1220,45 @@ skipEmpty:
     }
 
     for (int j = 0; j < s->ordersLen; j++) {
-      if (j == vars.loopPat)
-        w->writeText(fmt::sprintf("\n\n%s_%s_Jump:", options.label, smpsChanName(l, vars.dualPCM)));
-      w->writeText(fmt::sprintf("\n\t%s %s_%s_%.2X_%d_%d", (*vars.symCommands)[smpsCall], options.label, smpsChanName(l, vars.dualPCM), s->orders.ord[l][j], vars.lenTable[0][j], vars.lenTable[1][j]));
+      if (j == vars.loopPat) {
+        if (options.style != verSource) w->writeText(fmt::sprintf("\n\n%s_Jump:", smpsChanName(options, l, vars.dualPCM)));
+        else w->writeText(fmt::sprintf("\n\n%s_Jump\tEQU\t\t*", smpsChanName(options, l, vars.dualPCM)));
+      }
+
+      if (options.style != verSource) w->writeText(fmt::sprintf("\n\t%s ", (*vars.symCommands)[smpsCall]));
+      else w->writeText(fmt::sprintf("\n\tDC.B\t%s\n\tJDW\t\t", (*vars.symCommands)[smpsCall]));
+      w->writeText(fmt::sprintf("%s_%.2X_%d_%d", smpsChanName(options, l, vars.dualPCM), s->orders.ord[l][j], vars.lenTable[0][j], vars.lenTable[1][j]));
       if (startVols[j + 1] != startVols[j])
         w->writeText(fmt::sprintf("_%.2X",startVols[j]));
     }
 
     // Before jumping, reset volume
     uint8_t diffVol = (startVols[vars.endPat + 1] - startVols[vars.loopPat % 257]);
-    if (diffVol != 0)
-      if (vars.chanOn[l] == typeFM || (options.style == verAMPS && vars.chanOn[l] == typePCM))
-        w->writeText(fmt::sprintf("\n\t%s\t$%.2X", (*vars.symCommands)[smpsAltVolFM], diffVol));
-      else if (vars.chanOn[l] >= typePSG)
-        w->writeText(fmt::sprintf("\n\t%s\t$%.2X", (*vars.symCommands)[smpsAltVolPSG], diffVol * (options.style == verAMPS ? 8 : 1)));
-    if (vars.loopPat >= 0)
-      w->writeText(fmt::sprintf("\n\t%s %s_%s_Jump\n", (*vars.symCommands)[smpsJump], options.label, smpsChanName(l, vars.dualPCM)));
-    else
-      w->writeText(fmt::sprintf("\n\t%s\n", (*vars.symCommands)[smpsStop]));
+    if (options.style != verSource) {
+      if (diffVol != 0) {
+          if (vars.chanOn[l] == typeFM || (options.style == verAMPS && vars.chanOn[l] == typePCM))
+            w->writeText(fmt::sprintf("\n\t%s\t$%.2X", (*vars.symCommands)[smpsAltVolFM], diffVol));
+          else if (vars.chanOn[l] >= typePSG)
+            w->writeText(fmt::sprintf("\n\t%s\t$%.2X", (*vars.symCommands)[smpsAltVolPSG], diffVol * (options.style == verAMPS ? 8 : 1)));
+      }
+      if (vars.loopPat >= 0)
+        w->writeText(fmt::sprintf("\n\t%s %s_Jump\n", (*vars.symCommands)[smpsJump], smpsChanName(options, l, vars.dualPCM)));
+      else
+        w->writeText(fmt::sprintf("\n\t%s\n", (*vars.symCommands)[smpsStop]));
+    }
+    else {
+      w->writeText(fmt::sprintf("\n\tDC.B\t"));
+      if (diffVol != 0) {
+        if (vars.chanOn[l] == typeFM)
+          w->writeText(fmt::sprintf("%s,%d, ", (*vars.symCommands)[smpsAltVolFM], diffVol));
+        else if (vars.chanOn[l] >= typePSG)
+          w->writeText(fmt::sprintf("%s,%d, ", (*vars.symCommands)[smpsAltVolPSG], diffVol));
+      }
+      if (vars.loopPat >= 0)
+        w->writeText(fmt::sprintf("%s\n\tJDW\t\t%s_Jump\n", (*vars.symCommands)[smpsJump], smpsChanName(options, l, vars.dualPCM)));
+      else
+        w->writeText(fmt::sprintf("%s\n", (*vars.symCommands)[smpsStop]));
+    }
 
     // Create array to keep track of written patterns
     uint8_t patternsWritten[4][0x100] = {};
@@ -1105,10 +1293,11 @@ skipEmpty:
 
       DivPattern* p = s->pat[l].getPattern(orderNum, false);
 
-      w->writeText(fmt::sprintf("\n%s_%s_%.2X_%d_%d", options.label, smpsChanName(l, vars.dualPCM), orderNum, patStart, patLen));
+      w->writeText(fmt::sprintf("\n%s_%.2X_%d_%d", smpsChanName(options, l, vars.dualPCM), orderNum, patStart, patLen));
       if (startVols[j + 1] != startVols[j])
         w->writeText(fmt::sprintf("_%.2X", startVols[j]));
-      w->writeText(":");
+      if (options.style != verSource) w->writeText(":");
+      else w->writeText("\tEQU\t\t*");
 
       temp.order = j;
       temp.channel = l;
@@ -1120,7 +1309,8 @@ skipEmpty:
         getTimer(p, vars, temp, song, s, options);
         writeNotes(w, vars, temp, options);
       }
-      w->writeText(fmt::sprintf("\n\t%s\n", (*vars.symCommands)[smpsRet]));
+      if (options.style != verSource) w->writeText(fmt::sprintf("\n\t%s\n", (*vars.symCommands)[smpsRet]));
+      else w->writeText(fmt::sprintf("\n\tDC.B %s\n", (*vars.symCommands)[smpsRet]));
     }
   }
   saveLock.unlock();
