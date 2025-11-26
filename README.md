@@ -41,25 +41,53 @@ Before the 1.0 release:
   - 0A Volume slide
   - E1 Note slide up
   - E2 Note slide down
-  - F1 Volume Change Up
-  - F2 Volume Change Down
-  - F3 Volume Slide Up
-  - F4 Volume Slide Down
+  - E7 Macro release
+  - EC Note cut
+  - ED Note delay
+  - EE Send external command
+  - F1 Volume change up
+  - F2 Volume change down
+  - F3 Volume slide up
+  - F4 Volume slide down
+  - FA Fast volume slide
 - Macros
   - Pitch
-  - Volume
   - Arpeggio
-  - Panning
-- Set initial values for section before adding notes
 - Reset vibrato after pitch slide
 - Additional options
   - Only use initial offset values
 - Put volume macros in copy/paste format
+- Add macroVal and instrument to pattern identifiers
+  - Only display instrument if macroVal is 0
+- Add macro looping
+- Disabling channels removes them from export (good for debugging)
 
-Post 1.0 release:
+Post 1.0 release (higher demand features take priority):
 - Effects
   - 00 Arpeggio
   - 07 Tremolo
+  - 09 Set groove pattern
+  - OC Retrigger
+  - 0F Set speed
+  - Cx Set tick rate (hz)
+  - D3-D4 Volume portamento
+  - DC Delayed mute
+  - E0 Set arp speed
+  - E1 Note slide up
+  - E2 Note slide down
+  - E4 Set vibrato range
+  - E6 Quick legato
+  - E8 Quick legato up
+  - E9 Quick legato down
+  - F0 Set tick rate (tempo)
+  - F5 Disable macro
+  - F6 Enable macro
+  - F7 Restart macro
+  - F8 Single tick volume up
+  - F9 Single tick volume down
+  - FC Note release
+  - FD Virtual tempo numerator
+  - FE Virtual tempo denominator
 - Multiple speeds/grooves
 - SFX option
 - Use selected subsong
@@ -70,6 +98,43 @@ Post 1.0 release:
 - Pitched PCM mode (AMPS only)
 - ADSR and oscillating macros
 - FM macros
+- Virtual tempo
+- Patch modifiers (Each modification creates a new instrument)
+  - 11 Feedback
+  - 12 Op 1 Level
+  - 13 Op 2 Level
+  - 14 Op 3 Level
+  - 15 Op 4 Level
+  - 16 Multiplier
+  - 19 Attack of all 4
+  - 1A Op 1 Attack
+  - 1B Op 2 Attack
+  - 1C Op 3 Attack
+  - 1D Op 4 Attack
+  - 56 Decay of all 4
+  - 57 Op 1 Decay
+  - 58 Op 2 Decay
+  - 59 Op 3 Decay
+  - 5A Op 4 Decay
+  - 5B Decay 2 of all 4
+  - 5C Op 1 Decay 2
+  - 5D Op 2 Decay 2
+  - 5E Op 3 Decay 2
+  - 5F Op 4 Decay 2
+  - 60 Operator Mask
+  - 61 Algorithm
+  - 63 LFO AM Depth
+
+Unsupported effects:
+- 05 Volume slide + vibrato (compatibility only)
+- 06 Volume slide + portamento (compatibility only)
+- 10 Setup LFO (not possible with SMPS)
+- 30 Toggle hard envelope reset (not possible?)
+- 62 LFO FM depth (not possible with SMPS)
+- 80-84 Set panning (redundant)
+- 90-92 Set sample offset (can't edit samples)
+- DF Set sample playback (can't edit samples)
+- E3 Set vibrato shape (might change mind on this)
 
 Below is unchanged from the original README.md
 

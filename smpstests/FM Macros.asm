@@ -1,15 +1,15 @@
-Marble_Zone_Act_1_Header:
+FM_Macros_Header:
 	smpsHeaderStartSong 1
-	smpsHeaderVoice		Marble_Zone_Act_1_Voices
+	smpsHeaderVoice		FM_Macros_Voices
 	smpsHeaderChan		$02, $00
 	smpsHeaderTempo		$01, $00
 ;	Given Tempo = 150.00 BPM
 ;	Approximated Tempo = 150.00 BPM
 
-	smpsHeaderDAC	Marble_Zone_Act_1_DAC
-	smpsHeaderFM	Marble_Zone_Act_1_FM1,	$00, $00
+	smpsHeaderDAC	FM_Macros_DAC
+	smpsHeaderFM	FM_Macros_FM1,	$00, $00
 
-Marble_Zone_Act_1_Voices:
+FM_Macros_Voices:
 ;	FM Voice 00 -> 00: Instrument 0
 	smpsVcAlgorithm		$00
 	smpsVcFeedback		$00
@@ -34,17 +34,19 @@ Marble_Zone_Act_1_Voices:
 	; End Place :  10
 
 
-Marble_Zone_Act_1_FM1:
+FM_Macros_FM1:
 
-Marble_Zone_Act_1_FM1_Jump:
-	smpsCall Marble_Zone_Act_1_FM1_00_0_16
-	smpsJump Marble_Zone_Act_1_FM1_Jump
+FM_Macros_FM1_Jump:
+	smpsCall FM_Macros_FM1_00_0_16
+	smpsJump FM_Macros_FM1_Jump
 
-Marble_Zone_Act_1_FM1_00_0_16:
+FM_Macros_FM1_00_0_16:
+	
 	smpsSetvoice	$00
-	dc.b nC4, $01
-	smpsAlterVol	$0A
+	smpsAlterVol	$01
 	smpsPan		panLeft, $00
+	dc.b nC4, $01
+	smpsAlterVol	$09
 	dc.b smpsNoAttack, $01
 	smpsAlterVol	$07
 	dc.b smpsNoAttack, $01
@@ -53,6 +55,7 @@ Marble_Zone_Act_1_FM1_00_0_16:
 	smpsAlterVol	$04
 	dc.b smpsNoAttack, $01
 	smpsAlterVol	$09
+	smpsPan		panCenter, $00
 	dc.b smpsNoAttack, $01
 	smpsAlterVol	$FE
 	dc.b smpsNoAttack, $01
@@ -73,7 +76,7 @@ Marble_Zone_Act_1_FM1_00_0_16:
 	smpsAlterVol	$04
 	dc.b smpsNoAttack, $01
 	smpsAlterVol	$0E
-	smpsPan		panNone, $00
+	smpsPan		panRight, $00
 	dc.b smpsNoAttack, $01
 	smpsAlterVol	$15
 	dc.b smpsNoAttack, $01
@@ -94,7 +97,9 @@ Marble_Zone_Act_1_FM1_00_0_16:
 	smpsAlterVol	$E8
 	dc.b smpsNoAttack, $01
 	smpsAlterVol	$F8
-	dc.b smpsNoAttack, $01, $01, $01, $01
+	dc.b smpsNoAttack, $01
+	smpsPan		panCenter, $00
+	dc.b smpsNoAttack, $01, $01, $01
 	smpsAlterVol	$01
 	dc.b smpsNoAttack, $01
 	smpsAlterVol	$01
@@ -112,16 +117,17 @@ Marble_Zone_Act_1_FM1_00_0_16:
 	smpsAlterVol	$01
 	dc.b smpsNoAttack, $01
 	smpsAlterVol	$01
-	dc.b smpsNoAttack, $01, $01, $01, $01, $01, $01, $01, $01, $01, $01, $01, $01, $01, $01, $01
-	dc.b $2A
+	dc.b smpsNoAttack, $01, $01, $01, $01, $01, $01, $01, $01, $01, $01, $01, $01, $01, $01
+	smpsPan		panLeft, $00
+	dc.b smpsNoAttack, $01, $2A
 	smpsReturn
 
-Marble_Zone_Act_1_DAC:
+FM_Macros_DAC:
 
-Marble_Zone_Act_1_DAC_Jump:
-	smpsCall Marble_Zone_Act_1_DAC_00_0_16
-	smpsJump Marble_Zone_Act_1_DAC_Jump
+FM_Macros_DAC_Jump:
+	smpsCall FM_Macros_DAC_00_0_16
+	smpsJump FM_Macros_DAC_Jump
 
-Marble_Zone_Act_1_DAC_00_0_16:
+FM_Macros_DAC_00_0_16:
 	dc.b smpsNoAttack, $60
 	smpsReturn

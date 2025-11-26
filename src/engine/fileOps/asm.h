@@ -412,8 +412,8 @@ struct smpsTempVars {
   uint8_t macroTimer, macroVals[macLen];
   uint8_t lineCnt;
   uint8_t noteTime, prevTime;
-  uint8_t lastIns, lastVol, lastStep;
-  int steps, ticks;
+  uint8_t lastIns, lastVol;
+  int steps, ticks, lastFurStep, lastStep;
   uint8_t channel, order;
   short note, prevNote;
   bool redo;
@@ -425,7 +425,7 @@ struct smpsTempVars {
   int8_t volChange;
   bool noteOn, startTick;
   int arpOff;
-  uint8_t pan, prevPan;
+  uint8_t pan, prevPan, panSet;
   smpsTempVars() :
     numEffects(0),
     macroTimer(0),
@@ -434,9 +434,10 @@ struct smpsTempVars {
     prevTime(0),
     lastIns(-1),
     lastVol(0),
-    lastStep(-1),
     steps(0),
     ticks(0),
+    lastFurStep(-1),
+    lastStep(-1),
     channel(0),
     order(0),
     note(0),
@@ -455,6 +456,7 @@ struct smpsTempVars {
     arpOff(0),
     pan(3),
     prevPan(3),
+    panSet(3),
     startTick(true)
     {
     for (int i = 0; i < 0x10; i++) effects[i] = "";

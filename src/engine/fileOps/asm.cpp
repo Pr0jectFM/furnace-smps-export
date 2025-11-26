@@ -529,6 +529,7 @@ static String smpsCommands(const uint8_t effect, const uint8_t value, smpsVars &
     case 0x08:
       temp.pan = ((value & 0x0F) != 0) | (((value & 0xF0) != 0) * 2);
       if (temp.pan == 0) temp.pan = 3;
+      temp.panSet = temp.pan;
       return "";
 
     // groove pattern
@@ -617,133 +618,146 @@ static String smpsCommands(const uint8_t effect, const uint8_t value, smpsVars &
   }
 }
 
+static bool checkChanges(DivPattern* p, smpsVars& vars, smpsTempVars& temp, DivSubSong*& s, DivSMPSOptions& options, int furStep) {
+  bool found = false;
+  // check timers
+  for (int timer = 0; timer < timeLen; timer++) {
+    if ((temp.timers[timer] == 1)) {
+      int value = temp.timers[timer];
+      switch (timer) {
+      case timePitch:
+
+      case timeVib:
+        temp.effects[temp.numEffects] = fmt::sprintf("%s", (*vars.symCommands)[smpsVibOff]);
+
+        temp.numEffects++;
+
+      case timeVol:
+
+      case timeRetrigger:
+
+      case timeDelay:
+
+      default:
+        temp.timers[timer] = 0;
+        found = true;
+      }
+    }
+    else if (temp.timers[timer] > 1) {
+      --temp.timers[timer];
+    }
+  }
+
+  // check for instrument changes
+  if (p->newData[furStep][DIV_PAT_INS] >= 0 && p->newData[furStep][DIV_PAT_INS] != temp.lastIns) {
+    if (vars.chanOn[temp.channel] == typeFM) {
+      if (options.style != verSource)
+        temp.effects[temp.numEffects] = fmt::sprintf("\n\t%s\t$%.2X", (*vars.symCommands)[smpsSetVoice], vars.fmVoices[p->newData[furStep][DIV_PAT_INS]]);
+      else
+        temp.effects[temp.numEffects] = fmt::sprintf("%s,%d", (*vars.symCommands)[smpsSetVoice], vars.fmVoices[p->newData[furStep][DIV_PAT_INS]]);
+      temp.numEffects++;
+      found = true;
+    }
+    else if (vars.chanOn[temp.channel] > typePCM) {
+      const String envName = vars.psgVoices[p->newData[furStep][DIV_PAT_INS]];
+      int envelope = 0, start = 0;
+      // search for the first valid number in the string and then convert that to decimal
+      for (char i : envName) {
+        if ((i >= '0' && i <= '9') || (i >= 'A' && i <= 'F') || (i >= 'a' && i <= 'f')) {
+          envelope = std::stoi(envName.substr(start), nullptr, 16);
+          break;
+        }
+        start++;
+      };
+      if (options.style != verSource)
+        temp.effects[temp.numEffects] = fmt::sprintf("%s\t%s%.2X", (*vars.symCommands)[smpsVolEnv],
+          (envelope == 0 && options.style == verFlamewing) ? "$" : options.psgPrefix, envelope);
+      else
+        temp.effects[temp.numEffects] = fmt::sprintf("%s,%d", (*vars.symCommands)[smpsVolEnv], envelope);
+      temp.numEffects++;
+      found = true;
+    }
+    temp.lastIns = p->newData[furStep][DIV_PAT_INS];
+  }
+  // check for changes in volume
+  if (p->newData[furStep][DIV_PAT_VOL] >= 0 && p->newData[furStep][DIV_PAT_VOL] != temp.lastVol) {
+    temp.volChange -= p->newData[furStep][DIV_PAT_VOL] - temp.lastVol;
+    temp.lastVol = p->newData[furStep][DIV_PAT_VOL];
+    found = true;
+  }
+  // check effects
+  for (int layer = 0; layer < s->pat[temp.channel].effectCols; layer++)
+    if (p->newData[furStep][DIV_PAT_FX(layer)] >= 0) {
+      String line = smpsCommands(p->newData[furStep][DIV_PAT_FX(layer)], p->newData[furStep][DIV_PAT_FXVAL(layer)], vars, s, options, temp);
+      if (line != "") {
+        temp.effects[temp.numEffects] = line;
+        temp.numEffects++;
+        found = true;
+      }
+    }
+
+  // *checks notes*
+  temp.note = p->newData[furStep][DIV_PAT_NOTE];
+  if (temp.note != -1) {
+    temp.macroTimer = 0;
+    temp.noteOn = true;
+    found = true;
+  }
+  return found;
+}
+
+// check for changes in the macros
+static bool checkMacros(smpsVars& vars, smpsTempVars& temp, DivSong& song, DivSMPSOptions& options, int step) {
+  // check macros
+  bool found = false;
+  if (temp.lastIns < song.insLen && step != temp.lastStep) {
+    DivInstrument* ins = song.ins[temp.lastIns];
+    for (int macType = 0; macType < macLen; macType++) {
+      const DivInstrumentMacro m[macLen] = {
+        ins->std.volMacro,
+        ins->std.arpMacro,
+        ins->std.pitchMacro,
+        ins->std.panLMacro
+      };
+      if ((m[macType].open & 6) != 0 || m[macType].len > temp.macroTimer) {
+        int value = m[macType].val[temp.macroTimer];
+        if (vars.chanOn[temp.channel] == typeFM) value -= 0x7F;
+        if (vars.chanOn[temp.channel] >= typePSG) value -= 0x0F;
+        if (value != temp.macroVals[macType]) {
+          if (macType == macVol) {
+            if (vars.chanOn[temp.channel] != typeFM) continue;
+            temp.volChange -= value - temp.macroVals[macType];
+          }
+          if (macType == macPanL) {
+              temp.pan = temp.panSet & (value - 0x81);
+          }
+          temp.macroVals[macType] = value;
+          found = true;
+        }
+      }
+    }
+    temp.lastStep = step;
+  }
+  temp.macroTimer++;
+  return found;
+}
+
 // apply timer effects
 static void getTimer(DivPattern* p, smpsVars& vars, smpsTempVars& temp, DivSong& song, DivSubSong*& s, DivSMPSOptions &options) {
   for (int furStep = 0; furStep < vars.lenTable[1][temp.order]; temp.ticks += options.stepSz) {
-    bool found = false;
+    short found = 0;
     int step = temp.ticks / options.stepSz;
     furStep = temp.ticks / (s->speeds.val[0] * (s->effectDivider + 1));
     temp.numEffects = 0;
-    if (furStep == temp.lastStep) goto skipNotes;
-    temp.lastStep = furStep;
-    // check timers
-    for (int timer = 0; timer < timeLen; timer++) {
-      if ((temp.timers[timer] == 1)) {
-        int value = temp.timers[timer];
-        switch (timer) {
-        case timePitch:
-
-        case timeVib:
-          temp.effects[temp.numEffects] = fmt::sprintf("%s", (*vars.symCommands)[smpsVibOff]);
-
-          temp.numEffects++;
-
-        case timeVol:
-
-        case timeRetrigger:
-
-        case timeDelay:
-
-        default:
-          temp.timers[timer] = 0;
-          found = true;
-        }
-      }
-      else if (temp.timers[timer] > 1) {
-        --temp.timers[timer];
-      }
+    if (furStep != temp.lastFurStep) {
+      found = checkChanges(p, vars, temp, s, options, furStep);
+      temp.lastFurStep = furStep;
     }
+    found += checkMacros(vars, temp, song, options, step);
 
-    // check for instrument changes
-    if (p->newData[furStep][DIV_PAT_INS] >= 0 && p->newData[furStep][DIV_PAT_INS] != temp.lastIns) {
-      if (vars.chanOn[temp.channel] == typeFM) {
-        if (options.style != verSource)
-          temp.effects[temp.numEffects] = fmt::sprintf("\n\t%s\t$%.2X", (*vars.symCommands)[smpsSetVoice], vars.fmVoices[p->newData[furStep][DIV_PAT_INS]]);
-        else
-          temp.effects[temp.numEffects] = fmt::sprintf("%s,%d", (*vars.symCommands)[smpsSetVoice], vars.fmVoices[p->newData[furStep][DIV_PAT_INS]]);
-        temp.numEffects++;
-        found = true;
-      }
-      else if (vars.chanOn[temp.channel] > typePCM) {
-        const String envName = vars.psgVoices[p->newData[furStep][DIV_PAT_INS]];
-        int envelope = 0, start = 0;
-        // search for the first valid number in the string and then convert that to decimal
-        for (char i : envName) {
-          if ((i >= '0' && i <= '9') || (i >= 'A' && i <= 'F') || (i >= 'a' && i <= 'f')) {
-            envelope = std::stoi(envName.substr(start), nullptr, 16);
-            break;
-          }
-          start++;
-        };
-        if (options.style != verSource)
-          temp.effects[temp.numEffects] = fmt::sprintf("%s\t%s%.2X", (*vars.symCommands)[smpsVolEnv],
-            (envelope == 0 && options.style == verFlamewing) ? "$" : options.psgPrefix, envelope);
-        else
-          temp.effects[temp.numEffects] = fmt::sprintf("%s,%d", (*vars.symCommands)[smpsVolEnv], envelope);
-        temp.numEffects++;
-        found = true;
-      }
-      temp.lastIns = p->newData[furStep][DIV_PAT_INS];
-    }
-    // check for changes in volume
-    if (p->newData[furStep][DIV_PAT_VOL] >= 0 && p->newData[furStep][DIV_PAT_VOL] != temp.lastVol) {
-      temp.volChange -= p->newData[furStep][DIV_PAT_VOL] - temp.lastVol;
-      temp.lastVol = p->newData[furStep][DIV_PAT_VOL];
-      found = true;
-    }
-    // check effects
-    for (int layer = 0; layer < s->pat[temp.channel].effectCols; layer++)
-      if (p->newData[furStep][DIV_PAT_FX(layer)] >= 0) {
-        String line = smpsCommands(p->newData[furStep][DIV_PAT_FX(layer)], p->newData[furStep][DIV_PAT_FXVAL(layer)], vars, s, options, temp);
-        if (line != "") {
-          temp.effects[temp.numEffects] = line;
-          temp.numEffects++;
-          found = true;
-        }
-      }
-
-    // *checks notes*
-    temp.note = p->newData[furStep][DIV_PAT_NOTE];
-    if (temp.note != -1) {
-      temp.macroTimer = 0;
-      temp.noteOn = true;
-      found = true;
-    }
-
-  skipNotes:
-    // check macros
-    if (temp.lastIns < song.insLen && step > temp.steps) {
-      DivInstrument* ins = song.ins[temp.lastIns];
-      for (int macType = 0; macType < macLen; macType++) {
-        const DivInstrumentMacro m[macLen] = {
-          ins->std.volMacro,
-          ins->std.arpMacro,
-          ins->std.pitchMacro,
-          ins->std.panLMacro
-        };
-        if ((m[macType].open & 6) != 0 || m[macType].len > temp.macroTimer) {
-          int value = m[macType].val[temp.macroTimer];
-          if (vars.chanOn[temp.channel] == typeFM) value -= 0x7F;
-          if (vars.chanOn[temp.channel] >= typePSG) value -= 0x0F;
-          if (value != temp.macroVals[macType]) {
-            if (macType == macVol) {
-              if (vars.chanOn[temp.channel] != typeFM) continue;
-              temp.volChange -= value - temp.macroVals[macType];
-            }
-            if (macType == macPanL) {
-              temp.pan = temp.pan & (value - 0x81);
-            }
-            temp.macroVals[macType] = value;
-            found = true;
-          }
-        }
-      }
-    }
-
-    temp.macroTimer++;
     // leave if something is found
     if (found || (step - temp.steps + options.stepSz > 0x7F)) {
-      if (!found) temp.hold = true;
+      if (found == 0) temp.hold = true;
       temp.noteTime = step - temp.steps;
       temp.steps = step;
       temp.ticks++;
