@@ -105,16 +105,20 @@ enum smpsChanType {
 };
 
 // get the list of chans that are in use and get their starting volumes
-static void smpsChanNum(DivSong& song, DivSubSong*& s, smpsVars& vars) {
+void DivEngine::smpsChanNum(DivSong& song, DivSubSong*& s, smpsVars& vars) {
   // check which channels have notes
   for (int channel = 0; channel < vars.chans; channel++) {
     int type;
     vars.chanOn[channel] = typeNull;
     // check channel type
-    if (channel < 6) type = typeFM;
+    if (channel < 5) type = typeFM;
     else if (channel == 9 + (song.system[0] == DIV_SYSTEM_YM2612_DUALPCM)) type = typeNoise;
     else if (channel > 5 + (song.system[0] == DIV_SYSTEM_YM2612_DUALPCM)) type = typePSG;
-    else type = typePCM;
+    else {
+      type = typePCM;
+      vars.chanOn[channel] = typeEmpty;
+    }
+    if (isMuted[channel]) continue;
     // look for notes
     for (int orders = 0; orders < s->ordersLen; orders++) {
       DivPattern* p = s->pat[channel].getPattern(s->orders.ord[channel][orders], false);
@@ -136,36 +140,28 @@ static void smpsChanNum(DivSong& song, DivSubSong*& s, smpsVars& vars) {
             if (type == typeFM) vars.startVol[channel] = 0x7F;
             else if (type >= typePSG) vars.startVol[channel] = 0x0F;
           }
-          goto NextChannel;
+          break;
         }
       }
     }
-    // set PCM channels to be empty
-    if (channel == 5 || (channel == 6 && song.system[0] == DIV_SYSTEM_YM2612_DUALPCM))
-      if (vars.chanOn[channel] == typeNull)
-        vars.chanOn[channel] = typeEmpty;
-  NextChannel:
-    continue;
   }
 
   // check if FM6 is in use
   int channel = 5;
-  if (vars.chanOn[channel]) {
+  if (vars.chanOn[channel] > typeEmpty) {
     for (int orders = 0; orders < s->ordersLen; orders++) {
       DivPattern* p = s->pat[channel].getPattern(s->orders.ord[channel][orders], false);
       for (int step = vars.lenTable[0][orders]; step <= vars.lenTable[1][orders]; step++) {
         if (p->newData[step][DIV_PAT_INS] >= 0) {
           DivInstrument* ins = song.ins[p->newData[step][DIV_PAT_INS]];
           if (ins->type == DIV_INS_FM) {
-            goto Done;
+            vars.chanOn[channel] = typeFM;
+            return;
           }
         }
       }
     }
-    vars.chanOn[channel] = typePCM;
   }
-Done:
-  return;
 };
 
 // Gets the channel number and outputs the name of the channel
@@ -174,8 +170,17 @@ static String smpsChanName(DivSMPSOptions& options, int num, bool dualPCM) {
   const String label = options.label;
   if (options.style != verSource) {
     if (num < 5) return label + "_FM" + std::to_string(num + 1);
-    if (dualPCM) { if (num < 7) return label + "_DAC" + std::to_string(num - 4); }
-    else { if (num == 5) return label + "_DAC"; }
+    if (dualPCM) {
+      if (num < 7) return label + "_DAC" + std::to_string(num - 4);
+    }
+    else {
+      if (num == 5) {
+        //if (vars.chanOn[num] != typeFM)
+            return label + "_DAC";
+        //else
+            // return label + "_FM6";
+      }
+    }
     return label + "_PSG" + std::to_string(std::min(num - 5 - dualPCM, 3));
   }
   if (num < 5) return "TAB" + label + std::to_string((num >= 3) ? num + 1 : num);
@@ -252,10 +257,18 @@ static void writeHeader(SafeWriter* w, smpsVars& vars, DivSubSong*& s, DivSMPSOp
   {
     // Get the number of FM and PSG channels
     int chansFM = 0, chansPSG = 0, i = 0;
-    for (; i < 5; i++) if (vars.chanOn[i] == typeFM || vars.chanOn[i] == typeEmpty) chansFM++;
-    i += 1 + vars.dualPCM;
+    for (; i < 6; i++) if (vars.chanOn[i] == typeFM || vars.chanOn[i] == typeEmpty || (vars.chanOn[i] == typePCM && options.style != verAMPS))
+      chansFM++;
+    if (vars.chanOn[5] == typeEmpty && chansFM == 1) {
+      vars.chanOn[5] = typeNull;
+      chansFM = 0;
+    }
+    else if (vars.chanOn[5] == typeFM) {
+      chansFM++;
+    }
+    i += vars.dualPCM;
     for (; i < 11; i++) if (vars.chanOn[i] >= typePSG || vars.chanOn[i] == typeEmpty) chansPSG++;
-    w->writeText(fmt::sprintf("\n\t%s\t$%.2X, $%.2X", (*vars.symCommands)[smpsChan], chansFM + (options.style != verAMPS && chansFM != 0), chansPSG));
+    w->writeText(fmt::sprintf("\n\t%s\t$%.2X, $%.2X", (*vars.symCommands)[smpsChan], chansFM, chansPSG));
   }
   if (options.style != verAMPS)
     w->writeText(fmt::sprintf("\n\t%s\t$%.2X, $%.2X", (*vars.symCommands)[smpsTempo], options.div, options.speed));
@@ -275,11 +288,11 @@ static void writeHeader(SafeWriter* w, smpsVars& vars, DivSubSong*& s, DivSMPSOp
   else {
     if (vars.chanOn[5] == typePCM)
       w->writeText(fmt::sprintf("\t%s\t%s\n", (*vars.symCommands)[smpsDAC], smpsChanName(options, 5, vars.dualPCM)));
-    else if (vars.chanOn[5] == typeEmpty)
+    else if (vars.chanOn[5] == typeEmpty || vars.chanOn[5] == typeFM)
       w->writeText(fmt::sprintf("\t%s\t%s_Empty\n", (*vars.symCommands)[smpsDAC], options.label));
   }
-  for (int i = 0; i < 5; i++) {
-    if (vars.chanOn[i] == typeEmpty) w->writeText(fmt::sprintf("\t%s\t%s_Empty,\t$00, $00\n", (*vars.symCommands)[smpsFM], options.label));
+  for (int i = 0; i < 6; i++) {
+    if (vars.chanOn[i] == typeEmpty && i != 5) w->writeText(fmt::sprintf("\t%s\t%s_Empty,\t$00, $00\n", (*vars.symCommands)[smpsFM], options.label));
     if (vars.chanOn[i] == typeFM) w->writeText(fmt::sprintf("\t%s\t%s,\t$00, $%.2X\n", (*vars.symCommands)[smpsFM], smpsChanName(options, i, vars.dualPCM), 0x7F - vars.startVol[i]));
   }
   for (int i = 6 + (vars.dualPCM); i < 11; i++) {
@@ -294,8 +307,16 @@ static void writeHeaderSource(SafeWriter* w, smpsVars& vars, DivSubSong*& s, Div
   {
     // Get the number of FM and PSG channels
     int chansFM = 1, chansPSG = 0, i = 0;
-    for (; i < 5; i++) if (vars.chanOn[i] == typeFM || vars.chanOn[i] == typeEmpty) chansFM++;
-    i += 1 + vars.dualPCM;
+    for (; i < 6; i++) if (vars.chanOn[i] == typeFM || vars.chanOn[i] == typeEmpty || (vars.chanOn[i] == typePCM && options.style != verAMPS))
+      chansFM++;
+    if (vars.chanOn[5] == typeEmpty && chansFM == 1) {
+      vars.chanOn[5] = typeNull;
+      chansFM = 0;
+    }
+    else if (vars.chanOn[5] == typeFM) {
+      chansFM++;
+    }
+    i += vars.dualPCM;
     for (; i < 11; i++) if (vars.chanOn[i] >= typePSG || vars.chanOn[i] == typeEmpty) chansPSG++;
     w->writeText(fmt::sprintf("FM%s\tEQU\t\t%d\t\t\t\t; FM Channel Total\n", options.label, chansFM));
     w->writeText(fmt::sprintf("PSG%s\tEQU\t\t%d\t\t\t\t; PSG Channel Total\n", options.label, chansPSG));
@@ -306,9 +327,9 @@ static void writeHeaderSource(SafeWriter* w, smpsVars& vars, DivSubSong*& s, Div
   w->writeText(fmt::sprintf(";\tApproximated Tempo = %.2f BPM\n\n", options.approx));
   // pitch constants
   uint8_t fmCnt = 0, psgCnt = 8;
-  for (int i = 0; i < 5; i++) {
+  for (int i = 0; i < 6; i++) {
     if (fmCnt == 3) fmCnt++;
-    if (vars.chanOn[i] == typeEmpty) { w->writeText(fmt::sprintf("FB%s%X\tEQU\t\t%d\t\t\t\t; FM %Xch\n", options.label, fmCnt, 0, fmCnt)); fmCnt++; }
+    if (vars.chanOn[i] == typeEmpty && i != 5) { w->writeText(fmt::sprintf("FB%s%X\tEQU\t\t%d\t\t\t\t; FM %Xch\n", options.label, fmCnt, 0, fmCnt)); fmCnt++; }
     if (vars.chanOn[i] == typeFM) { w->writeText(fmt::sprintf("FB%s%X\tEQU\t\t%d\t\t\t\t; FM %Xch\n", options.label, fmCnt, 0, fmCnt)); fmCnt++; }
   }
   for (int i = 6; i < 11; i++) {
@@ -317,9 +338,9 @@ static void writeHeaderSource(SafeWriter* w, smpsVars& vars, DivSubSong*& s, Div
   }
   // volume constants
   fmCnt = 0, psgCnt = 8;
-  for (int i = 0; i < 5; i++) {
+  for (int i = 0; i < 6; i++) {
     if (fmCnt == 3) fmCnt++;
-    if (vars.chanOn[i] == typeEmpty) { w->writeText(fmt::sprintf("FA%s%X\tEQU\t\t%.2XH\t\t\t\t; FM %Xch\n", options.label, fmCnt, 0, fmCnt)); fmCnt++; }
+    if (vars.chanOn[i] == typeEmpty && i != 5) { w->writeText(fmt::sprintf("FA%s%X\tEQU\t\t%.2XH\t\t\t\t; FM %Xch\n", options.label, fmCnt, 0, fmCnt)); fmCnt++; }
     if (vars.chanOn[i] == typeFM) { w->writeText(fmt::sprintf("FA%s%X\tEQU\t\t%.2XH\t\t\t\t; FM %Xch\n", options.label, fmCnt, 0x7F - vars.startVol[i], fmCnt)); fmCnt++; }
   }
   for (int i = 6; i < 11; i++) {
@@ -333,19 +354,18 @@ static void writeHeaderSource(SafeWriter* w, smpsVars& vars, DivSubSong*& s, Div
     if (vars.chanOn[i] >= typePSG) { w->writeText(fmt::sprintf("PE%s%X\tEQU\t\t%d\t\t\t\t; PSG %X0ch\n", options.label, psgCnt, 0, psgCnt)); psgCnt += 2; }
   }
   // header
-  if (options.style != verSource) w->writeText(fmt::sprintf("\n%s:\n", options.label));
-  else w->writeText(fmt::sprintf("\nS%s:\n",options.label));
+  w->writeText(fmt::sprintf("\nS%s:\n",options.label));
   w->writeText(fmt::sprintf("\t\tTDW\t\tTIMB%s,S%s\t\t\t\t; Voice Top Address\n", options.label, options.label));
   w->writeText(fmt::sprintf("\t\tDC.B\tFM%s,PSG%s,TP%s,DL%s\t\t\t\t; FM Total,PSG Total,Tempo,Delay\n\n", options.label, options.label, options.label, options.label));
 
   if (vars.chanOn[5] == typePCM)
     w->writeText(fmt::sprintf("\t\tTDW\t\t%s,S%s\t\t\t\t; PCM Drum Table Pointer\n\t\tDC.B\t0,0\t\t\t\t\t\t; Bias,Volm (Dummy)\n", smpsChanName(options, 5, false), options.label));
-  else if (vars.chanOn[5] == typeEmpty)
+  else if (vars.chanOn[5] == typeEmpty || vars.chanOn[5] == typeFM)
     w->writeText(fmt::sprintf("\t\tTDW\t\tTAB%s_Empty,S%s\t\t\t\t; PCM Drum Table Pointer\n\t\tDC.B\t0,0\t\t\t\t\t\t; Bias,Volm (Dummy)\n", options.label, options.label));
   fmCnt = 0, psgCnt = 8;
-  for (int i = 0; i < 5; i++) {
+  for (int i = 0; i < 6; i++) {
     if (fmCnt == 3) fmCnt++;
-    if (vars.chanOn[i] == typeEmpty) { w->writeText(fmt::sprintf("\t\tTDW\t\tTAB%s_Empty,S%s\t\t\t\t; FM %Xch\n\t\tDC.B\tFB%s%X,FA%s%X\t\t\t\t\t\t; Bias,Volm\n", options.label, options.label, fmCnt, options.label, fmCnt, options.label, fmCnt)); fmCnt++; }
+    if (vars.chanOn[i] == typeEmpty && i != 5) { w->writeText(fmt::sprintf("\t\tTDW\t\tTAB%s_Empty,S%s\t\t\t\t; FM %Xch\n\t\tDC.B\tFB%s%X,FA%s%X\t\t\t\t\t\t; Bias,Volm\n", options.label, options.label, fmCnt, options.label, fmCnt, options.label, fmCnt)); fmCnt++; }
     if (vars.chanOn[i] == typeFM) { w->writeText(fmt::sprintf("\t\tTDW\t\t%s,S%s\t\t\t\t; FM %Xch\n\t\tDC.B\tFB%s%X,FA%s%X\t\t\t\t\t\t; Bias,Volm\n", smpsChanName(options, i, false), options.label, fmCnt, options.label, fmCnt, options.label, fmCnt)); fmCnt++; }
   }
   for (int i = 6; i < 11; i++) {
@@ -710,7 +730,7 @@ static bool checkChanges(DivPattern* p, smpsVars& vars, smpsTempVars& temp, DivS
 static bool checkMacros(smpsVars& vars, smpsTempVars& temp, DivSong& song, DivSMPSOptions& options, int step) {
   // check macros
   bool found = false;
-  if (temp.lastIns < song.insLen && step != temp.lastStep) {
+  if (temp.lastIns < song.insLen && step != temp.lastStep && temp.note != DIV_NOTE_OFF) {
     DivInstrument* ins = song.ins[temp.lastIns];
     for (int macType = 0; macType < macLen; macType++) {
       const DivInstrumentMacro m[macLen] = {
@@ -1121,6 +1141,7 @@ void DivEngine::writeNotes(SafeWriter* w, smpsVars& vars, smpsTempVars& temp, Di
     else
       temp.wroteNote = false;
   }
+  else temp.wroteNote = false;
 
   temp.noteOn = false;
   temp.startTick = false;
@@ -1192,7 +1213,7 @@ SafeWriter* DivEngine::saveASM(DivSMPSOptions options) {
 
   // create placeholder channel
   for (int i : vars.chanOn) {
-    if (i == typeEmpty) {
+    if (i == typeEmpty || vars.chanOn[5] == typeFM) {
       if (options.style != verSource) w->writeText(fmt::sprintf("\n%s_Empty:\n\t%s\n", options.label, (*vars.symCommands)[smpsStop]));
       else w->writeText(fmt::sprintf("\n%s_Empty\tEQU\t\t*\n\t%s\n", options.label, (*vars.symCommands)[smpsStop]));
       goto skipEmpty;

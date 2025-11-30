@@ -26,9 +26,13 @@ However, in order to ensure that no adjustments need to be made post-export, som
 ## Bugs
 - In some cases (either 1 order long song or no FM channels), the PSG volume resets to $C0 (occurs in Warning)
 - In some cases, the pattern lengths are a little bit off (occurs in SkBZ2)
-- Turning off linear pitch mode causes the FM parts to be pitched down
 - Macros cause timing issues
+  - After the macro releases, the length is 1 less than it's supposed to be
+
+Lesser importance:
+- Turning off linear pitch mode causes the FM parts to be pitched down
 - In Source style, there may be more than 16 bytes per line, notably when setting vibrato
+- FM6 is called "DAC"
 
 ## To do
 
@@ -53,15 +57,12 @@ Before the 1.0 release:
   - F4 Volume slide down
   - FA Fast volume slide
 - Reset vibrato after pitch slide
-- Additional options
-  - Only use initial offset values
 - Put macros in copy/paste format
 - Add macroVal and instrument to pattern identifiers
   - Only display instrument if macroVal is 0
 - Macro features
-  - Timing
+  - Step length
   - Delay
-- Disabling channels removes them from export (good for debugging)
 
 Post 1.0 release (higher demand features take priority):
 - Effects
@@ -100,6 +101,8 @@ Post 1.0 release (higher demand features take priority):
 - ADSR and oscillating macros
 - FM macros
 - Virtual tempo
+- Additional options
+  - Only use initial offset values
 - Patch modifiers (Each modification creates a new instrument)
   - 11 Feedback
   - 12 Op 1 Level

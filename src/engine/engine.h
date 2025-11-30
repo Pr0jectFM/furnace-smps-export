@@ -700,6 +700,7 @@ class DivEngine {
     void notifySampleChange(int sample);
 
     // SMPS functions
+    void smpsChanNum(DivSong& song, DivSubSong*& s, smpsVars& vars);
     String getNote(SafeWriter* w, smpsVars& vars, smpsTempVars& temp, DivSMPSOptions& options);
     void writeNotes(SafeWriter* w, smpsVars& vars, smpsTempVars& temp, DivSMPSOptions& options);
 
