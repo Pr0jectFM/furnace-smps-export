@@ -415,9 +415,9 @@ struct smpsTempVars {
   uint8_t lastIns, lastVol;
   int steps, ticks, lastFurStep, lastStep;
   uint8_t channel, order;
-  short note, prevNote;
+  short note;
   bool redo;
-  String noteString;
+  String noteString, prevNote;
   short offset, lastOffset;
   bool hold, legato;
   bool wroteLen, wroteNote;
@@ -441,7 +441,7 @@ struct smpsTempVars {
     channel(0),
     order(0),
     note(0),
-    prevNote(0),
+    prevNote(""),
     redo(false),
     noteString(""),
     offset(0),
@@ -464,6 +464,7 @@ struct smpsTempVars {
     for (int i = 0; i < macLen; i++) {
       macroVals[i] = 0;
     }
+    macroVals[macVol] = 0x7F;
 
   }
 };

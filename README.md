@@ -6,6 +6,8 @@ SMPS2ASM is a format for disassembling SMPS data so that it can more easily be e
 The aim of this fork is to allow Sega Genesis songs to be converted to files that can run in SMPS drivers with as much accuracy as the driver allows and without requiring the user to tweak the result post-export.
 There are a variety of options to choose from when exporting, including several variations on the SMPS2ASM format, such as [Flamewing's version](https://github.com/Brainulator9/SMPS2ASM-flamewing), the one used for [MD Music Player](https://github.com/Awuwunya/SMPS2ASM2), one compatible with the [AMPS sound driver](https://github.com/Awuwunya/AMPS), and the one used in the original [SMPS source code](https://github.com/superctr/SMPS).
 
+[![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/M4M8DHBVO)
+
 ## How to use
 
 Exporting your Furnace module to an SMPS2ASM files is simply a matter of choosing "file/export..." and selecting SMPS2ASM, choosing your options, and hitting "Export".
@@ -50,9 +52,6 @@ Before the 1.0 release:
   - F3 Volume slide up
   - F4 Volume slide down
   - FA Fast volume slide
-- Macros
-  - Pitch
-  - Arpeggio
 - Reset vibrato after pitch slide
 - Additional options
   - Only use initial offset values

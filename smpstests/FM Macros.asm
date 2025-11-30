@@ -45,81 +45,108 @@ FM_Macros_FM1_00_0_16:
 	smpsSetvoice	$00
 	smpsAlterVol	$01
 	smpsPan		panLeft, $00
-	dc.b nC4, $01
+	smpsAlterNote	$07
+	dc.b nDs4, $01
 	smpsAlterVol	$09
-	dc.b smpsNoAttack, $01
+	smpsAlterNote	$08
+	dc.b nE4
 	smpsAlterVol	$07
-	dc.b smpsNoAttack, $01
+	smpsAlterNote	$0C
+	dc.b nFs4
 	smpsAlterVol	$06
-	dc.b smpsNoAttack, $01
+	smpsAlterNote	$0D
+	dc.b nG4
 	smpsAlterVol	$04
-	dc.b smpsNoAttack, $01
+	smpsAlterNote	$0E
+	dc.b nG4
 	smpsAlterVol	$09
 	smpsPan		panCenter, $00
-	dc.b smpsNoAttack, $01
+	smpsAlterNote	$0F
+	dc.b nG4
 	smpsAlterVol	$FE
-	dc.b smpsNoAttack, $01
+	smpsAlterNote	$10
+	dc.b nG4
 	smpsAlterVol	$FD
-	dc.b smpsNoAttack, $01
+	smpsAlterNote	$11
+	dc.b nG4
 	smpsAlterVol	$FD
-	dc.b smpsNoAttack, $01
+	smpsAlterNote	$12
+	dc.b nFs4
 	smpsAlterVol	$FE
-	dc.b smpsNoAttack, $01
+	smpsAlterNote	$11
+	dc.b nE4
 	smpsAlterVol	$FE
-	dc.b smpsNoAttack, $01
+	dc.b nDs4
 	smpsAlterVol	$F9
-	dc.b smpsNoAttack, $01
+	smpsAlterNote	$10
+	dc.b nCs4
 	smpsAlterVol	$FE
-	dc.b smpsNoAttack, $01
+	smpsAlterNote	$11
+	dc.b nD3
 	smpsAlterVol	$02
-	dc.b smpsNoAttack, $01
+	dc.b nCs3
 	smpsAlterVol	$04
-	dc.b smpsNoAttack, $01
+	dc.b nC3
 	smpsAlterVol	$0E
 	smpsPan		panRight, $00
-	dc.b smpsNoAttack, $01
+	smpsAlterNote	$22
+	dc.b nB3
 	smpsAlterVol	$15
-	dc.b smpsNoAttack, $01
+	smpsAlterNote	$DD
+	dc.b nB3
 	smpsAlterVol	$04
-	dc.b smpsNoAttack, $01
+	dc.b nB3
 	smpsAlterVol	$02
-	dc.b smpsNoAttack, $01
+	smpsAlterNote	$22
+	dc.b nBb3
 	smpsAlterVol	$02
-	dc.b smpsNoAttack, $01
+	smpsAlterNote	$1F
+	dc.b nBb3
 	smpsAlterVol	$03
-	dc.b smpsNoAttack, $01, $01, $01
+	smpsAlterNote	$1B
+	dc.b nB3, nB3
+	smpsAlterNote	$0E
+	dc.b nC3
 	smpsAlterVol	$FD
-	dc.b smpsNoAttack, $01
+	smpsAlterNote	$0F
+	dc.b nCs3
 	smpsAlterVol	$F5
-	dc.b smpsNoAttack, $01
+	smpsAlterNote	$0E
+	dc.b nD3
 	smpsAlterVol	$EB
-	dc.b smpsNoAttack, $01
+	smpsAlterNote	$0C
+	dc.b nC4
 	smpsAlterVol	$E8
-	dc.b smpsNoAttack, $01
+	smpsAlterNote	$0A
+	dc.b nC4
 	smpsAlterVol	$F8
-	dc.b smpsNoAttack, $01
+	smpsAlterNote	$09
+	dc.b nC4
 	smpsPan		panCenter, $00
-	dc.b smpsNoAttack, $01, $01, $01
+	smpsAlterNote	$07
+	dc.b nC4
+	smpsAlterNote	$06
+	dc.b nC4
 	smpsAlterVol	$01
-	dc.b smpsNoAttack, $01
+	dc.b smpsNoAttack
 	smpsAlterVol	$01
-	dc.b smpsNoAttack, $01
+	dc.b smpsNoAttack
 	smpsAlterVol	$01
-	dc.b smpsNoAttack, $01
+	dc.b smpsNoAttack
 	smpsAlterVol	$02
-	dc.b smpsNoAttack, $01
+	dc.b smpsNoAttack
 	smpsAlterVol	$02
-	dc.b smpsNoAttack, $01
+	dc.b smpsNoAttack
 	smpsAlterVol	$01
-	dc.b smpsNoAttack, $01
+	dc.b smpsNoAttack
 	smpsAlterVol	$01
-	dc.b smpsNoAttack, $01
+	dc.b smpsNoAttack
 	smpsAlterVol	$01
-	dc.b smpsNoAttack, $01
+	dc.b smpsNoAttack
 	smpsAlterVol	$01
-	dc.b smpsNoAttack, $01, $01, $01, $01, $01, $01, $01, $01, $01, $01, $01, $01, $01, $01
+	dc.b smpsNoAttack, $0E
 	smpsPan		panLeft, $00
-	dc.b smpsNoAttack, $01, $2A
+	dc.b smpsNoAttack, $2B
 	smpsReturn
 
 FM_Macros_DAC:

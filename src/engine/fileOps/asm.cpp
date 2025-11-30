@@ -697,8 +697,8 @@ static bool checkChanges(DivPattern* p, smpsVars& vars, smpsTempVars& temp, DivS
     }
 
   // *checks notes*
-  temp.note = p->newData[furStep][DIV_PAT_NOTE];
-  if (temp.note != -1) {
+  if (p->newData[furStep][DIV_PAT_NOTE] != -1) {
+    temp.note = p->newData[furStep][DIV_PAT_NOTE];
     temp.macroTimer = 0;
     temp.noteOn = true;
     found = true;
@@ -721,15 +721,18 @@ static bool checkMacros(smpsVars& vars, smpsTempVars& temp, DivSong& song, DivSM
       };
       if ((m[macType].open & 6) != 0 || m[macType].len > temp.macroTimer) {
         int value = m[macType].val[temp.macroTimer];
-        if (vars.chanOn[temp.channel] == typeFM) value -= 0x7F;
-        if (vars.chanOn[temp.channel] >= typePSG) value -= 0x0F;
+        if (macType == macPitch) {
+          temp.noteOn = true;
+          found = true;
+        }
         if (value != temp.macroVals[macType]) {
-          if (macType == macVol) {
+          switch (macType) {
+          case macVol:
             if (vars.chanOn[temp.channel] != typeFM) continue;
             temp.volChange -= value - temp.macroVals[macType];
-          }
-          if (macType == macPanL) {
-              temp.pan = temp.panSet & (value - 0x81);
+            break;
+          case macPanL:
+            temp.pan = temp.panSet & value;
           }
           temp.macroVals[macType] = value;
           found = true;
@@ -787,11 +790,10 @@ static void separateNote(SafeWriter* w, smpsTempVars& temp, bool source) {
 // get the note to write
 String DivEngine::getNote(SafeWriter* w, smpsVars& vars, smpsTempVars& temp, DivSMPSOptions& options) {
   // write note
-  temp.prevNote = temp.note;
   temp.lastOffset = temp.offset;
   if (temp.note != DIV_NOTE_OFF) {
-    short note = (unsigned short)(temp.note) % 12;
-    short octave = (unsigned char)(temp.note - 60) / 12;
+    short note = (unsigned short)(calcArp(temp.note, temp.macroVals[macPitch], 0)) % 12;
+    short octave = (unsigned char)(calcArp(temp.note, temp.macroVals[macPitch], 0) - (5 * 12)) / 12;
     short octChange = 0;
 
     if (vars.chanOn[temp.channel] == typeFM) {
@@ -812,8 +814,8 @@ String DivEngine::getNote(SafeWriter* w, smpsVars& vars, smpsTempVars& temp, Div
         1216, // B
         1288  // C+
       };
-      unsigned int baseFreq = calcBaseFreq(1, 1, calcArp((unsigned short)(temp.note) % 12, 0, 0), false);
-      unsigned int fNum = calcFreq(baseFreq, vars.pitch, temp.arpOff, false, false, 2, vars.pitch2, COLOR_NTSC * 15.0 / 7.0, 9440540.0, 11);
+      unsigned int baseFreq = calcBaseFreq(1, 1, (unsigned short)(calcArp(temp.note, temp.macroVals[macPitch], 0)) % 12, false);
+      unsigned int fNum = calcFreq(baseFreq, vars.pitch + temp.macroVals[macDetune], temp.arpOff, false, false, 2, 0, COLOR_NTSC * 15.0 / 7.0, 9440540.0, 11);
 
       //w->writeText(fmt::sprintf("%d %d ", baseFreq, fNum));
 
@@ -932,8 +934,8 @@ String DivEngine::getNote(SafeWriter* w, smpsVars& vars, smpsTempVars& temp, Div
         15 // A#6
       };
 
-      unsigned int baseFreq = round(calcBaseFreq(COLOR_NTSC, 64.0, calcArp(temp.note - (5 * 12), 0, 0), true));
-      unsigned int fNum = calcFreq(baseFreq, vars.pitch, temp.arpOff, false, true, 0, vars.pitch2, COLOR_NTSC, 64.0);
+      unsigned int baseFreq = round(calcBaseFreq(COLOR_NTSC, 64.0, calcArp(temp.note, temp.macroVals[macPitch], 0) - (5 * 12), true));
+      unsigned int fNum = calcFreq(baseFreq, vars.pitch + temp.macroVals[macDetune], temp.arpOff, false, true, 0, 0, COLOR_NTSC, 64.0);
 
       
       temp.offset = 0;
@@ -1097,7 +1099,7 @@ void DivEngine::writeNotes(SafeWriter* w, smpsVars& vars, smpsTempVars& temp, Di
   // if on PSG channel 3 or 4, check to swap between channels
 
   // write next note
-  if (temp.noteOn && (temp.note != temp.prevNote || temp.wroteLen == false)) {
+  if (temp.noteOn) {
     String noteText = getNote(w, vars, temp, options);
     if (temp.offset != temp.lastOffset) {
       if (options.style != verSource) {
@@ -1110,13 +1112,15 @@ void DivEngine::writeNotes(SafeWriter* w, smpsVars& vars, smpsTempVars& temp, Di
         temp.lineCnt++;
       }
     }
-    separateNote(w, temp, options.style == verSource);
-    w->writeText(noteText);
-    temp.prevNote = temp.note;
-    temp.wroteNote = true;
+    if (noteText != temp.prevNote || temp.wroteLen == false) {
+      separateNote(w, temp, options.style == verSource);
+      w->writeText(noteText);
+      temp.prevNote = noteText;
+      temp.wroteNote = true;
+    }
+    else
+      temp.wroteNote = false;
   }
-  else
-    temp.wroteNote = false;
 
   temp.noteOn = false;
   temp.startTick = false;
@@ -1321,8 +1325,23 @@ skipEmpty:
         getTimer(p, vars, temp, song, s, options);
         writeNotes(w, vars, temp, options);
       }
-      if (options.style != verSource) w->writeText(fmt::sprintf("\n\t%s\n", (*vars.symCommands)[smpsRet]));
-      else w->writeText(fmt::sprintf("\n\tDC.B %s\n", (*vars.symCommands)[smpsRet]));
+      // reset volume changes due to macros
+      diffVol = temp.macroVals[macVol] - 0x7F;
+      if (options.style != verSource) {
+        if (diffVol != 0) {
+          if (vars.chanOn[l] == typeFM || (options.style == verAMPS && vars.chanOn[l] == typePCM))
+            w->writeText(fmt::sprintf("\n\t%s\t$%.2X", (*vars.symCommands)[smpsAltVolFM], diffVol));
+        }
+        w->writeText(fmt::sprintf("\n\t%s\n", (*vars.symCommands)[smpsRet]));
+      }
+      else {
+        w->writeText(fmt::sprintf("\n\tDC.B\t"));
+        if (diffVol != 0) {
+          if (vars.chanOn[l] == typeFM)
+            w->writeText(fmt::sprintf("%s,%d, ", (*vars.symCommands)[smpsAltVolFM], diffVol));
+        }
+        w->writeText(fmt::sprintf("%s\n", (*vars.symCommands)[smpsRet]));
+      }
     }
   }
   saveLock.unlock();
