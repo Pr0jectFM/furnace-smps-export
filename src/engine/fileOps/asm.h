@@ -335,52 +335,67 @@ enum smpsVersion {
   verSource
 };
 
+// pattern identifiers
+enum patId {
+  idPattern,
+  idStart,
+  idEnd,
+  idVol,
+  idMacro,
+  idVolRate,
+  idPitchTarget,
+  idPitchRate,
+  idVolMac,
+  idArp,
+  idDetune,
+  idNote,
+  idIns,
+  idLen
+};
+
 // Variables
 struct smpsVars {
   const char*(*symCommands)[smpsSymLen];
   const char*(*notesSet)[14];
   uint8_t fmVoices[0x100];
-  String psgVoices[0x100];
+  uint8_t psgVoices[0x100];
   // pattern and song length
-  int loopPat;
-  uint8_t endPat;
+  uint8_t loopPat, endPat;
   uint8_t lenTable[2][0x100];
   int endPlace;
   // note status
-  int volRate;
-  uint8_t vib[4];
-  int pitchTarget, pitchRate;
   uint8_t noise, retrigger;
   int chans;
   uint8_t chanOn[11];
   int8_t startVol[11];
-  bool dualPCM;
+  bool dualPCM, loop;
   int pitch, pitch2;
+  short patId[0x200][idLen];
   smpsVars() :
     symCommands(&smpsSymFlamewing),
     notesSet(&notesFlamewing),
     loopPat(0),
     endPat(0),
     endPlace(0),
-    volRate(0),
-    pitchTarget(0),
-    pitchRate(0),
     noise(0),
     retrigger(0),
     chans(0),
     dualPCM(false),
+    loop(true),
     pitch(0),
     pitch2(0)
   {
     for (int i = 0; i < 0x100; i++) fmVoices[i] = 0;
-    for (int i = 0; i < 0x100; i++) psgVoices[i] = "";
+    for (int i = 0; i < 0x100; i++) psgVoices[i] = 0;
     for (int i = 0; i < 0x100; i++) {
       lenTable[0][i] = 0;
       lenTable[1][i] = 0;
     }
-    for (int i = 0; i < 4; i++) vib[i] = 0;
     for (int i = 0; i < 11; i++) chanOn[i] = 0;
     for (int i = 0; i < 11; i++) startVol[i] = -1;
+    for (int i = 0; i < 0x100; i++)
+      for (int j = 0; j <= idLen; j++)
+        patId[i][j] = 0;
   }
 };
 
@@ -412,8 +427,9 @@ struct smpsTempVars {
   uint8_t macroTimer, macroVals[macLen];
   uint8_t lineCnt;
   uint8_t noteTime, prevTime;
-  uint8_t lastIns, lastVol;
-  int steps, ticks, lastFurStep, lastStep;
+  uint8_t lastVol;
+  int lastIns;
+  int steps, ticks, lastFurStep, lastStep, nextChange;
   uint8_t channel, order;
   short note;
   bool redo;
@@ -426,6 +442,10 @@ struct smpsTempVars {
   bool noteOn, startTick;
   int arpOff;
   uint8_t pan, prevPan, panSet;
+  int volRate;
+  int pitchTarget, pitchRate;
+  uint8_t vib[4];
+  short delayTime, delayNote;
   smpsTempVars() :
     numEffects(0),
     macroTimer(0),
@@ -438,6 +458,7 @@ struct smpsTempVars {
     ticks(0),
     lastFurStep(-1),
     lastStep(-1),
+    nextChange(-1),
     channel(0),
     order(0),
     note(0),
@@ -454,10 +475,15 @@ struct smpsTempVars {
     volChange(0),
     noteOn(false),
     arpOff(0),
-    pan(3),
-    prevPan(3),
-    panSet(3),
-    startTick(true)
+    pan(-1),
+    prevPan(-1),
+    panSet(-1),
+    startTick(true),
+    volRate(0),
+    pitchTarget(0),
+    pitchRate(0),
+    delayTime(-1),
+    delayNote(-1)
     {
     for (int i = 0; i < 0x10; i++) effects[i] = "";
     for (int i = 0; i < timeLen; i++) timers[i] = 0;
@@ -465,6 +491,7 @@ struct smpsTempVars {
       macroVals[i] = 0;
     }
     macroVals[macVol] = 0x7F;
+    for (int i = 0; i < 4; i++) vib[i] = 0;
 
   }
 };

@@ -683,7 +683,7 @@ class DivEngine {
     // export to text
     SafeWriter* saveText(bool separatePatterns = true);
     // export to SMPS2ASM
-    SafeWriter* saveASM(DivSMPSOptions options);
+    SafeWriter* saveASM(const DivSMPSOptions options);
     // export to an audio file
     bool saveAudio(const char* path, DivAudioExportOptions options);
     // wait for audio export to finish
@@ -700,9 +700,10 @@ class DivEngine {
     void notifySampleChange(int sample);
 
     // SMPS functions
-    void smpsChanNum(DivSong& song, DivSubSong*& s, smpsVars& vars);
-    String getNote(SafeWriter* w, smpsVars& vars, smpsTempVars& temp, DivSMPSOptions& options);
-    void writeNotes(SafeWriter* w, smpsVars& vars, smpsTempVars& temp, DivSMPSOptions& options);
+    void smpsChanNum(DivSubSong*& s, smpsVars& vars);
+    String getNote(SafeWriter* w, smpsVars& vars, smpsTempVars& temp, const DivSMPSOptions& options);
+    void writeNotes(SafeWriter* w, smpsVars& vars, smpsTempVars& temp, const DivSMPSOptions& options);
+    void getTimer(SafeWriter* w, const DivPattern* p, smpsVars& vars, smpsTempVars& temp, DivSubSong*& s, const DivSMPSOptions& options);
 
     // dispatch a command
     int dispatchCmd(DivCommand c);

@@ -24,12 +24,10 @@ However, in order to ensure that no adjustments need to be made post-export, som
   - This can include removing redundant patterns
 
 ## Bugs
-- In some cases (either 1 order long song or no FM channels), the PSG volume resets to $C0 (occurs in Warning)
-- In some cases, the pattern lengths are a little bit off (occurs in SkBZ2)
-- Macros cause timing issues
-  - After the macro releases, the length is 1 less than it's supposed to be
+- Held note is unnecessarily set when holding for longer than $7F
 
 Lesser importance:
+- Setting the step size ratio to a non-integer causes notes to be skipped
 - Turning off linear pitch mode causes the FM parts to be pitched down
 - In Source style, there may be more than 16 bytes per line, notably when setting vibrato
 - FM6 is called "DAC"
@@ -49,7 +47,6 @@ Before the 1.0 release:
   - E2 Note slide down
   - E7 Macro release
   - EC Note cut
-  - ED Note delay
   - EE Send external command
   - F1 Volume change up
   - F2 Volume change down
@@ -58,11 +55,11 @@ Before the 1.0 release:
   - FA Fast volume slide
 - Reset vibrato after pitch slide
 - Put macros in copy/paste format
-- Add macroVal and instrument to pattern identifiers
-  - Only display instrument if macroVal is 0
 - Macro features
   - Step length
   - Delay
+- Dividers
+- Adjust loop points for macros that are applied before end point but not before loop point
 
 Post 1.0 release (higher demand features take priority):
 - Effects
@@ -96,7 +93,6 @@ Post 1.0 release (higher demand features take priority):
 - Swap between PSG3 and noise channels
 - Split FM6 from PCM
 - SMS export
-- Adjust loop points for macros that are applied before end point but not before loop point
 - Pitched PCM mode (AMPS only)
 - ADSR and oscillating macros
 - FM macros
