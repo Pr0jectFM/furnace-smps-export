@@ -337,9 +337,6 @@ enum smpsVersion {
 
 // pattern identifiers
 enum patId {
-  idPattern,
-  idStart,
-  idEnd,
   idVol,
   idMacro,
   idVolRate,
@@ -357,11 +354,10 @@ enum patId {
 struct smpsVars {
   const char*(*symCommands)[smpsSymLen];
   const char*(*notesSet)[14];
-  uint8_t fmVoices[0x100];
-  uint8_t psgVoices[0x100];
+  uint8_t voices[0x100];
   // pattern and song length
   uint8_t loopPat, endPat;
-  uint8_t lenTable[2][0x100];
+  uint8_t lenTable[2][0xFF];
   int endPlace;
   // note status
   uint8_t noise, retrigger;
@@ -370,7 +366,6 @@ struct smpsVars {
   int8_t startVol[11];
   bool dualPCM, loop;
   int pitch, pitch2;
-  short patId[0x200][idLen];
   smpsVars() :
     symCommands(&smpsSymFlamewing),
     notesSet(&notesFlamewing),
@@ -385,17 +380,13 @@ struct smpsVars {
     pitch(0),
     pitch2(0)
   {
-    for (int i = 0; i < 0x100; i++) fmVoices[i] = 0;
-    for (int i = 0; i < 0x100; i++) psgVoices[i] = 0;
-    for (int i = 0; i < 0x100; i++) {
+    for (int i = 0; i < 0x100; i++) voices[i] = 0;
+    for (int i = 0; i < 0xFF; i++) {
       lenTable[0][i] = 0;
       lenTable[1][i] = 0;
     }
     for (int i = 0; i < 11; i++) chanOn[i] = 0;
     for (int i = 0; i < 11; i++) startVol[i] = -1;
-    for (int i = 0; i < 0x100; i++)
-      for (int j = 0; j <= idLen; j++)
-        patId[i][j] = 0;
   }
 };
 
@@ -424,7 +415,8 @@ struct smpsTempVars {
   String effects[0x10];
   uint8_t numEffects;
   int timers[timeLen];
-  uint8_t macroTimer, macroVals[macLen];
+  unsigned short macroTimer;
+  uint8_t macroVals[macLen];
   uint8_t lineCnt;
   uint8_t noteTime, prevTime;
   uint8_t lastVol;
@@ -448,7 +440,7 @@ struct smpsTempVars {
   short delayTime, delayNote;
   smpsTempVars() :
     numEffects(0),
-    macroTimer(0),
+    macroTimer(-1),
     lineCnt(0),
     noteTime(0),
     prevTime(0),

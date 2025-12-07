@@ -25,6 +25,9 @@ However, in order to ensure that no adjustments need to be made post-export, som
 
 ## Bugs
 - Held note is unnecessarily set when holding for longer than $7F
+- SkBZ2 Issues:
+  - On loop, some patterns are mismatched
+  - PSG2 uses the wrong instrument after loop (or something)
 
 Lesser importance:
 - Setting the step size ratio to a non-integer causes notes to be skipped
@@ -59,7 +62,7 @@ Before the 1.0 release:
   - Step length
   - Delay
 - Dividers
-- Adjust loop points for macros that are applied before end point but not before loop point
+- Fixed arp macro
 
 Post 1.0 release (higher demand features take priority):
 - Effects

@@ -390,7 +390,7 @@ static void writeVoices(SafeWriter* w, smpsVars &vars, const DivSong &song, cons
     // For FM voices
     if (ins->type == DIV_INS_FM) {
       w->writeText(fmt::sprintf(";\tFM Voice %.2X -> %.2X: %s\n", i, fmVoice, ins->name));
-      vars.fmVoices[i] = fmVoice;
+      vars.voices[i] = fmVoice;
       const int opCount = 4;
 
       // create table of operator values
@@ -454,7 +454,7 @@ static void writeVoices(SafeWriter* w, smpsVars &vars, const DivSong &song, cons
         start++;
       };
       w->writeText(fmt::sprintf(";\tPSG Voice %.2X -> %s%.2X\n", i, options.psgPrefix, envelope));
-      vars.psgVoices[i] = envelope;
+      vars.voices[i] = envelope;
     }
     bool header = false;
     // To Do: apply volume macros for FM
@@ -596,9 +596,9 @@ static String smpsCommands(const uint8_t effect, const uint8_t value, smpsVars &
       if (!(value & 0xF0))
         return "\t; preset noise frequencies not supported";
       if (value & 0x0F)
-        vars.noise = 0xE3;
-      else
         vars.noise = 0xE7;
+      else
+        vars.noise = 0xE3;
 
       if (options.style != verSource)
         return fmt::sprintf("%s\t\t$%.2X", (*vars.symCommands)[smpsNoise], vars.noise);
@@ -682,14 +682,14 @@ static bool checkChanges(const DivPattern* p, smpsVars& vars, smpsTempVars& temp
   if (p->newData[furStep][DIV_PAT_INS] >= 0 && p->newData[furStep][DIV_PAT_INS] != temp.lastIns) {
     if (vars.chanOn[temp.channel] == typeFM) {
       if (options.style != verSource)
-        temp.effects[temp.numEffects] = fmt::sprintf("\n\t%s\t$%.2X", (*vars.symCommands)[smpsSetVoice], vars.fmVoices[p->newData[furStep][DIV_PAT_INS]]);
+        temp.effects[temp.numEffects] = fmt::sprintf("%s\t$%.2X", (*vars.symCommands)[smpsSetVoice], vars.voices[p->newData[furStep][DIV_PAT_INS]]);
       else
-        temp.effects[temp.numEffects] = fmt::sprintf("%s,%d", (*vars.symCommands)[smpsSetVoice], vars.fmVoices[p->newData[furStep][DIV_PAT_INS]]);
+        temp.effects[temp.numEffects] = fmt::sprintf("%s,%d", (*vars.symCommands)[smpsSetVoice], vars.voices[p->newData[furStep][DIV_PAT_INS]]);
       temp.numEffects++;
       found = true;
     }
     else if (vars.chanOn[temp.channel] > typePCM) {
-      const uint8_t envelope = vars.psgVoices[p->newData[furStep][DIV_PAT_INS]];
+      const uint8_t envelope = vars.voices[p->newData[furStep][DIV_PAT_INS]];
       if (options.style != verSource)
         temp.effects[temp.numEffects] = fmt::sprintf("%s\t%s%.2X", (*vars.symCommands)[smpsVolEnv],
           (envelope == 0 && options.style == verFlamewing) ? "$" : options.psgPrefix, envelope);
@@ -721,8 +721,8 @@ static bool checkChanges(const DivPattern* p, smpsVars& vars, smpsTempVars& temp
 
   // *checks notes*
   if (p->newData[furStep][DIV_PAT_NOTE] != -1) {
+    temp.macroTimer = (p->newData[furStep][DIV_PAT_NOTE] == DIV_NOTE_OFF) ? -1 : 0;
     temp.note = p->newData[furStep][DIV_PAT_NOTE];
-    temp.macroTimer = 0;
     temp.noteOn = true;
     found = true;
   }
@@ -733,6 +733,7 @@ static bool checkChanges(const DivPattern* p, smpsVars& vars, smpsTempVars& temp
 static bool checkMacros(smpsVars& vars, smpsTempVars& temp, const DivSong& song, const DivSMPSOptions& options, int step) {
   // check macros
   bool found = false;
+  bool going = false;
   if (temp.lastIns != -1 && temp.lastIns < song.insLen && temp.note != DIV_NOTE_OFF) {
     const DivInstrument* ins = song.ins[temp.lastIns];
     for (int macType = 0; macType < macLen; macType++) {
@@ -760,10 +761,13 @@ static bool checkMacros(smpsVars& vars, smpsTempVars& temp, const DivSong& song,
           temp.macroVals[macType] = value;
           found = true;
         }
+        if (m[macType].len > temp.macroTimer + options.stepSz)
+          going = true;
       }
     }
   }
-  temp.macroTimer += options.stepSz;
+  if (going) temp.macroTimer += options.stepSz;
+  else temp.macroTimer = -1;
   return found;
 }
 
@@ -807,7 +811,8 @@ void DivEngine::getTimer(SafeWriter* w, const DivPattern* p, smpsVars& vars, smp
       found = checkChanges(p, vars, temp, s, options, furStep);
       temp.nextChange = temp.stepConv * (furStep + 1);
     }
-    found += checkMacros(vars, temp, song, options, step);
+    if (temp.macroTimer != -1)
+      found += checkMacros(vars, temp, song, options, step);
 
     // leave if something is found
     if (found || (step - temp.steps == 0x7F)) {
@@ -1171,6 +1176,23 @@ void DivEngine::writeNotes(SafeWriter* w, smpsVars& vars, smpsTempVars& temp, co
   temp.startTick = false;
 }
 
+size_t round_up_to(size_t n, size_t multiple) {
+  size_t const remainder = n % multiple;
+  return remainder == 0 ? n : n + multiple - remainder;
+}
+
+void** matrix2d_new(size_t esize, size_t ealign, size_t idim, size_t jdim) {
+  // ensure &elements[0][0] is suitably aligned
+  size_t const ptrs_size = round_up_to(sizeof(void*) * idim, ealign);
+  size_t const row_size = esize * jdim;
+  // allocate the row pointers followed by the elements
+  void** const rows = (void**)malloc(ptrs_size + idim * row_size);
+  char* const elements = (char*)rows + ptrs_size;
+  for (size_t i = 0; i < idim; ++i)
+    rows[i] = &elements[i * row_size];
+  return rows;
+}
+
 SafeWriter* DivEngine::saveASM(const DivSMPSOptions options) {
 
   // Get symbols for the corresponding version
@@ -1252,29 +1274,48 @@ skipEmpty:
     if ((vars.chanOn[l] == typeNoise && vars.chanOn[(l > 0) ? l - 1 : 0] == typePSG)) break;
 
     // Create array to keep track of written patterns
-    uint8_t patNum[0x100] = {};
+    uint8_t patNum[2 * 0xFF] = {};
+
+    short* patId[idLen];
+    for (int row = 0; row < idLen; row++) {
+      patId[row] = (short*)malloc(2 * 0xFF * sizeof(short));
+      for (int col = 0; col < 2 * 0xFF; col++)
+        patId[row][col] = 0;
+    }
 
     vars.pitch = vars.pitch2 = 0;
-    vars.patId[0][idVolMac] = 0x7F;
-    vars.patId[0][idVol] = vars.startVol[l];
-    vars.patId[0][idIns] = -1;
+    patId[idVolMac][0] = 0x7F;
+    patId[idVol][0] = vars.startVol[l];
+    patId[idIns][0] = -1;
+    int loopPat = vars.loopPat;
 
-    for (int j = 0; j <= vars.endPat; j++) {
+    for (int j = 0; j < (vars.endPat - 1) * 2; j++) {
       // Don't write duplicate patterns
-      const int orderNum = s->orders.ord[l][j];
-      const int patStart = vars.lenTable[0][j];
-      const int patLen = vars.lenTable[1][j];
+      const int matching = (j > vars.endPat) ? ((j - vars.loopPat) % (vars.endPat + 1 - vars.loopPat) + vars.loopPat) : j;
+      const int orderNum = s->orders.ord[l][matching];
+      const int patStart = vars.lenTable[0][matching];
+      const int patLen = vars.lenTable[1][matching];
       smpsTempVars temp;
 
-      vars.patId[j][idPattern] = orderNum;
-      vars.patId[j][idStart] = patStart;
-      vars.patId[j][idEnd] = patLen;
       bool diff = true;
       for (int pattern = 0; pattern < j; pattern++) {
+        diff = false;
+        if (orderNum != s->orders.ord[l][pattern % (vars.endPat + 1)] ||
+          patStart != vars.lenTable[0][pattern % (vars.endPat + 1)] ||
+          patLen != vars.lenTable[1][pattern % (vars.endPat + 1)]) {
+          diff = true;
+          continue;
+        }
         for (int id = 0; id < idLen; id++) {
-          if (vars.patId[pattern][id] != vars.patId[j][id]) {
-            if ((id == idNote || id == idIns) && vars.patId[j][idIns] != -1) {
-              const DivInstrument* ins = song.ins[vars.patId[j][idIns]];
+          if (patId[id][pattern] != patId[id][j]) {
+            // only check volume if it changes
+            if (id == idVol) {
+              if ((patId[id][pattern + 1] - patId[id][pattern]) != 0)
+                diff = true;
+            }
+            // only check for note instrument if macros are doing stuff
+            else if ((id == idNote || id == idIns) && patId[idIns][j] != -1) {
+              const DivInstrument* ins = song.ins[patId[idIns][j]];
               for (int macType = 0; macType < macLen; macType++) {
                 const DivInstrumentMacro m[macLen] = {
                   ins->std.volMacro,
@@ -1284,14 +1325,14 @@ skipEmpty:
                 };
                 if ((m[macType].open & 6) != 0 || m[macType].len > temp.macroTimer) {
                   diff = true;
+                  w->writeText(fmt::sprintf("\n\t; Failed match: %.2X because of id %d\n\t;\t%.2X %.2X", pattern, id, patId[id][j], patId[id][pattern]));
                   break;
                 }
               }
-              if (diff) continue;
             }
             else {
               diff = true;
-              continue;
+              w->writeText(fmt::sprintf("\n\t; Failed match: %.2X because of id %d\n\t;\t%.2X %.2X", pattern, id, patId[id][j], patId[id][pattern]));
             }
           }
         }
@@ -1302,20 +1343,28 @@ skipEmpty:
       }
       if (!diff) {
         for (int i = 0; i < idLen; i++)
-          vars.patId[j + 1][i] = vars.patId[patNum[j] + 1][i];
+          patId[i][j + 1] = patId[i][patNum[j] + 1];
+        if (j > vars.endPat) {
+          if (patNum[j] == patNum[matching]) {
+            loopPat = matching;
+            break;
+          }
+          else w->writeText(fmt::sprintf("\n\t; Failed to match pattern %.2X", patNum[matching]));
+        }
         continue;
       }
+      if (j > vars.endPat) w->writeText(fmt::sprintf("\n\t; Failed to match pattern %.2X", patNum[matching]));
       patNum[j] = j;
-      temp.lastVol = vars.patId[j][idVol];
-      temp.macroTimer = vars.patId[j][idMacro];
-      temp.volRate = vars.patId[j][idVolRate];
-      temp.pitchTarget = vars.patId[j][idPitchTarget];
-      temp.pitchRate = vars.patId[j][idPitchRate];
-      temp.macroVals[macVol] = vars.patId[j][idVolMac];
-      temp.macroVals[macPitch] = vars.patId[j][idArp];
-      temp.macroVals[macDetune] = vars.patId[j][idDetune];
-      temp.note = vars.patId[j][idNote];
-      temp.lastIns = vars.patId[j][idIns];
+      temp.lastVol = patId[idVol][j];
+      temp.macroTimer = patId[idMacro][j];
+      temp.volRate = patId[idVolRate][j];
+      temp.pitchTarget = patId[idPitchTarget][j];
+      temp.pitchRate = patId[idPitchRate][j];
+      temp.macroVals[macVol] = patId[idVolMac][j];
+      temp.macroVals[macPitch] = patId[idArp][j];
+      temp.macroVals[macDetune] = patId[idDetune][j];
+      temp.note = patId[idNote][j];
+      temp.lastIns = patId[idIns][j];
 
       int cntWait = 0;
       int lastNote = 0, lastWait = 0;
@@ -1329,7 +1378,7 @@ skipEmpty:
       if (options.style != verSource) w->writeText(":");
       else w->writeText("\tEQU\t\t*");
 
-      temp.order = j;
+      temp.order = matching;
       temp.channel = l;
       temp.steps = patStart * temp.stepConv;
       temp.ticks = temp.steps * options.stepSz;
@@ -1341,16 +1390,17 @@ skipEmpty:
       else
         w->writeText(fmt::sprintf("\nDC.B\t%s\n", (*vars.symCommands)[smpsRet]));
 
-      vars.patId[j + 1][idVol] = temp.lastVol;
-      vars.patId[j + 1][idMacro] = temp.macroTimer;
-      vars.patId[j + 1][idVolRate] = temp.volRate;
-      vars.patId[j + 1][idPitchTarget] = temp.pitchTarget;
-      vars.patId[j + 1][idPitchRate] = temp.pitchRate;
-      vars.patId[j + 1][idVolMac] = temp.macroVals[macVol];
-      vars.patId[j + 1][idArp] = temp.macroVals[macPitch];
-      vars.patId[j + 1][idDetune] = temp.macroVals[macDetune];
-      vars.patId[j + 1][idNote] = temp.note;
-      vars.patId[j + 1][idIns] = temp.lastIns;
+      patId[idVol][j + 1] = temp.lastVol;
+      patId[idMacro][j + 1] = temp.macroTimer;
+      patId[idVolRate][j + 1] = temp.volRate;
+      patId[idPitchTarget][j + 1] = temp.pitchTarget;
+      patId[idPitchRate][j + 1] = temp.pitchRate;
+      patId[idVolMac][j + 1] = temp.macroVals[macVol];
+      patId[idArp][j + 1] = temp.macroVals[macPitch];
+      patId[idDetune][j + 1] = temp.macroVals[macDetune];
+      patId[idNote][j + 1] = temp.note;
+      patId[idIns][j + 1] = temp.lastIns;
+
     }
 
     // Write order list
@@ -1364,8 +1414,15 @@ skipEmpty:
         w->writeText(fmt::sprintf("\n\tDC.B %s,NOIS7", (*vars.symCommands)[smpsNoise]));
     }
 
-    for (int j = 0; j <= vars.endPat; j++) {
-      if (j == vars.loopPat) {
+    const int fullPat = (vars.endPat + 1) * 2 - vars.loopPat;
+    int endPat = fullPat;
+    for (int j = 0; j < fullPat; j++) {
+      const int matching = (j > vars.endPat) ? ((j - vars.loopPat) % (vars.endPat + 1 - vars.loopPat) + vars.loopPat) : j;
+      if (j > vars.endPat && patNum[j] == patNum[matching]) {
+        endPat = j;
+        break;
+      }
+      if (j == loopPat) {
         if (options.style != verSource) w->writeText(fmt::sprintf("\n\n%s_Jump:", smpsChanName(options, l, vars.dualPCM)));
         else w->writeText(fmt::sprintf("\n\n%s_Jump\tEQU\t\t*", smpsChanName(options, l, vars.dualPCM)));
       }
@@ -1374,9 +1431,11 @@ skipEmpty:
       else w->writeText(fmt::sprintf("\n\tDC.B\t%s\n\tJDW\t\t", (*vars.symCommands)[smpsCall]));
       w->writeText(fmt::sprintf("%s_%.2X", smpsChanName(options, l, vars.dualPCM), patNum[j]));
     }
+    if (endPat == (vars.endPat + 1) * 2)
+      w->writeText(fmt::sprintf("\n\t; Failed to match second loop with first"));
 
-    const uint8_t diffVol = (vars.patId[vars.endPat + 1][idVol] + vars.patId[vars.endPat + 1][idVolMac])
-      - (vars.patId[vars.loopPat][idVol] + vars.patId[vars.loopPat][idVolMac]);
+    const uint8_t diffVol = (patId[idVol][endPat] + patId[idVolMac][endPat])
+      - (patId[idVol][vars.loopPat] + patId[idVolMac][vars.loopPat]);
     // Before jumping, reset volume
     if (options.style != verSource) {
       if (vars.loop) {
@@ -1405,7 +1464,10 @@ skipEmpty:
       else
         w->writeText(fmt::sprintf("%s\n", (*vars.symCommands)[smpsStop]));
     }
-
+    // Free only dynamically allocated space
+    for (int row = 0; row < idLen; row++) {
+      free(patId[row]);
+    }
   }
   saveLock.unlock();
   return w;
