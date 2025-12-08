@@ -41,17 +41,13 @@ Before the 1.0 release:
   - 02 Pitch slide down
   - 03 Portamento
   - 04 Vibrato
-  - 0A Volume slide
   - E1 Note slide up
   - E2 Note slide down
   - E7 Macro release
   - EC Note cut
   - EE Send external command
-  - F1 Volume change up
-  - F2 Volume change down
-  - F3 Volume slide up
-  - F4 Volume slide down
-  - FA Fast volume slide
+  - F1 Pitch change up
+  - F2 Pitch change down
 - Reset vibrato after pitch slide
 - Put macros in copy/paste format
 - Macro features

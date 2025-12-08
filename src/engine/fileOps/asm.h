@@ -432,16 +432,17 @@ struct smpsTempVars {
   bool hold, legato;
   bool wroteLen, wroteNote;
   double stepConv;
-  int8_t volChange;
+  uint8_t vol, volLast, volMac;
   bool noteOn, startTick;
   int arpOff;
   uint8_t pan, prevPan, panSet;
-  int volRate;
+  short volRate;
+  unsigned short volTimer;
   int pitchTarget, pitchRate;
   uint8_t vib[4];
   short delayTime, delayNote;
   bool volCheck;
-  smpsTempVars() :
+  smpsTempVars():
     numEffects(0),
     macroTimer(-1),
     lineCnt(0),
@@ -467,7 +468,9 @@ struct smpsTempVars {
     wroteLen(false),
     wroteNote(false),
     stepConv(0),
-    volChange(0),
+    volLast(0),
+    volMac(0),
+    vol(0),
     noteOn(false),
     arpOff(0),
     pan(-1),
@@ -475,6 +478,7 @@ struct smpsTempVars {
     panSet(-1),
     startTick(true),
     volRate(0),
+    volTimer(0),
     pitchTarget(0),
     pitchRate(0),
     delayTime(-1),
@@ -483,9 +487,7 @@ struct smpsTempVars {
     {
     for (int i = 0; i < 0x10; i++) effects[i] = "";
     for (int i = 0; i < timeLen; i++) timers[i] = 0;
-    for (int i = 0; i < macLen; i++) {
-      macroVals[i] = 0;
-    }
+    for (int i = 0; i < macLen; i++) macroVals[i] = 0;
     macroVals[macVol] = 0x7F;
     for (int i = 0; i < 4; i++) vib[i] = 0;
 
