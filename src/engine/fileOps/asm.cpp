@@ -842,6 +842,7 @@ void DivEngine::getTimer(SafeWriter* w, const DivPattern* p, smpsVars& vars, smp
 String DivEngine::getNote(SafeWriter* w, smpsVars& vars, smpsTempVars& temp, const DivSMPSOptions& options) {
   // write note
   temp.lastOffset = temp.offset;
+  if (temp.note == 0) return temp.prevNote;
   if (temp.note != DIV_NOTE_OFF) {
     short note = (unsigned short)(calcArp(temp.note, temp.macroVals[macPitch], 0)) % 12;
     short octave = (unsigned char)(calcArp(temp.note, temp.macroVals[macPitch], 0) - (5 * 12)) / 12;
@@ -1107,6 +1108,7 @@ void DivEngine::writeNotes(SafeWriter* w, smpsVars& vars, smpsTempVars& temp, co
       temp.lineCnt++;
 
     }
+    temp.volCheck = true;
     temp.volChange = 0;
     if (!temp.noteOn) temp.hold = true;
   }
@@ -1160,11 +1162,13 @@ void DivEngine::writeNotes(SafeWriter* w, smpsVars& vars, smpsTempVars& temp, co
   if ((temp.hold && !temp.noteOn)) {
     separateNote(w, temp, options.style == verSource);
     w->writeText((*vars.symCommands)[smpsHold]);
+    temp.wroteLen = true;
     if (!temp.legato)
       temp.hold = false;
   }
 
-  if (noteText != temp.prevNote || temp.wroteLen == false) {
+  // write note name
+  if (noteText != temp.prevNote || !temp.wroteLen) {
     separateNote(w, temp, options.style == verSource);
     w->writeText(noteText);
     temp.prevNote = noteText;
@@ -1174,23 +1178,6 @@ void DivEngine::writeNotes(SafeWriter* w, smpsVars& vars, smpsTempVars& temp, co
     temp.wroteNote = false;
   temp.noteOn = false;
   temp.startTick = false;
-}
-
-size_t round_up_to(size_t n, size_t multiple) {
-  size_t const remainder = n % multiple;
-  return remainder == 0 ? n : n + multiple - remainder;
-}
-
-void** matrix2d_new(size_t esize, size_t ealign, size_t idim, size_t jdim) {
-  // ensure &elements[0][0] is suitably aligned
-  size_t const ptrs_size = round_up_to(sizeof(void*) * idim, ealign);
-  size_t const row_size = esize * jdim;
-  // allocate the row pointers followed by the elements
-  void** const rows = (void**)malloc(ptrs_size + idim * row_size);
-  char* const elements = (char*)rows + ptrs_size;
-  for (size_t i = 0; i < idim; ++i)
-    rows[i] = &elements[i * row_size];
-  return rows;
 }
 
 SafeWriter* DivEngine::saveASM(const DivSMPSOptions options) {
@@ -1300,21 +1287,22 @@ skipEmpty:
       bool diff = true;
       for (int pattern = 0; pattern < j; pattern++) {
         diff = false;
-        if (orderNum != s->orders.ord[l][pattern % (vars.endPat + 1)] ||
-          patStart != vars.lenTable[0][pattern % (vars.endPat + 1)] ||
-          patLen != vars.lenTable[1][pattern % (vars.endPat + 1)]) {
+        const int pMatching = (pattern > vars.endPat) ? ((pattern - vars.loopPat) % (vars.endPat + 1 - vars.loopPat) + vars.loopPat) : pattern;
+        if (orderNum != s->orders.ord[l][pMatching] ||
+          patStart != vars.lenTable[0][pMatching] ||
+          patLen != vars.lenTable[1][pMatching]) {
           diff = true;
           continue;
         }
-        for (int id = 0; id < idLen; id++) {
+        for (int id = 0; id < idDupLen; id++) {
           if (patId[id][pattern] != patId[id][j]) {
             // only check volume if it changes
             if (id == idVol) {
-              if ((patId[id][pattern + 1] - patId[id][pattern]) != 0)
-                diff = true;
+              if (patId[idVolCheck][pattern] = true) diff = true;
             }
             // only check for note instrument if macros are doing stuff
-            else if ((id == idNote || id == idIns) && patId[idIns][j] != -1) {
+            else if (id == idNote || id == idIns) {
+              if (patId[idIns][j] == -1) continue;
               const DivInstrument* ins = song.ins[patId[idIns][j]];
               for (int macType = 0; macType < macLen; macType++) {
                 const DivInstrumentMacro m[macLen] = {
@@ -1363,8 +1351,6 @@ skipEmpty:
       temp.macroVals[macVol] = patId[idVolMac][j];
       temp.macroVals[macPitch] = patId[idArp][j];
       temp.macroVals[macDetune] = patId[idDetune][j];
-      temp.note = patId[idNote][j];
-      temp.lastIns = patId[idIns][j];
 
       int cntWait = 0;
       int lastNote = 0, lastWait = 0;
@@ -1390,6 +1376,7 @@ skipEmpty:
       else
         w->writeText(fmt::sprintf("\nDC.B\t%s\n", (*vars.symCommands)[smpsRet]));
 
+      patId[idVolCheck][j] = temp.volCheck;
       patId[idVol][j + 1] = temp.lastVol;
       patId[idMacro][j + 1] = temp.macroTimer;
       patId[idVolRate][j + 1] = temp.volRate;
@@ -1435,7 +1422,7 @@ skipEmpty:
       w->writeText(fmt::sprintf("\n\t; Failed to match second loop with first"));
 
     const uint8_t diffVol = (patId[idVol][endPat] + patId[idVolMac][endPat])
-      - (patId[idVol][vars.loopPat] + patId[idVolMac][vars.loopPat]);
+      - (patId[idVol][loopPat] + patId[idVolMac][loopPat]);
     // Before jumping, reset volume
     if (options.style != verSource) {
       if (vars.loop) {

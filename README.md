@@ -24,10 +24,6 @@ However, in order to ensure that no adjustments need to be made post-export, som
   - This can include removing redundant patterns
 
 ## Bugs
-- Held note is unnecessarily set when holding for longer than $7F
-- SkBZ2 Issues:
-  - On loop, some patterns are mismatched
-  - PSG2 uses the wrong instrument after loop (or something)
 
 Lesser importance:
 - Setting the step size ratio to a non-integer causes notes to be skipped

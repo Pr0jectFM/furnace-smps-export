@@ -347,6 +347,8 @@ enum patId {
   idDetune,
   idNote,
   idIns,
+  idDupLen,
+  idVolCheck = idDupLen,
   idLen
 };
 
@@ -438,6 +440,7 @@ struct smpsTempVars {
   int pitchTarget, pitchRate;
   uint8_t vib[4];
   short delayTime, delayNote;
+  bool volCheck;
   smpsTempVars() :
     numEffects(0),
     macroTimer(-1),
@@ -475,7 +478,8 @@ struct smpsTempVars {
     pitchTarget(0),
     pitchRate(0),
     delayTime(-1),
-    delayNote(-1)
+    delayNote(-1),
+    volCheck(false)
     {
     for (int i = 0; i < 0x10; i++) effects[i] = "";
     for (int i = 0; i < timeLen; i++) timers[i] = 0;
