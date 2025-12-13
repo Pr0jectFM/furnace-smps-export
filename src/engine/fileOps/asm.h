@@ -441,7 +441,7 @@ struct smpsTempVars {
   int pitchTarget, pitchRate;
   uint8_t vib[4];
   short delayTime, delayNote;
-  bool volCheck;
+  bool volCheck, fixed;
   smpsTempVars():
     numEffects(0),
     macroTimer(-1),
@@ -483,7 +483,8 @@ struct smpsTempVars {
     pitchRate(0),
     delayTime(-1),
     delayNote(-1),
-    volCheck(false)
+    volCheck(false),
+    fixed(false)
     {
     for (int i = 0; i < 0x10; i++) effects[i] = "";
     for (int i = 0; i < timeLen; i++) timers[i] = 0;

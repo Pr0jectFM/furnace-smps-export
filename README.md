@@ -49,12 +49,9 @@ Before the 1.0 release:
   - F1 Pitch change up
   - F2 Pitch change down
 - Reset vibrato after pitch slide
-- Put macros in copy/paste format
 - Macro features
-  - Step length
-  - Delay
-- Dividers
-- Fixed arp macro
+  - Fixed arp
+- Detune pitch slide option
 
 Post 1.0 release (higher demand features take priority):
 - Effects
