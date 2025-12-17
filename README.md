@@ -1,8 +1,8 @@
 # Furnace SMPS2ASM Exporter
 
 This is a fork of Tildearrow's Furnace tracker which adds the option to export to SMPS2ASM.
-SMPS (Sample Music Playback System) is a family of sound drivers used by a variety of games on the Sega Genesis, among other consoles.
-SMPS2ASM is a format for disassembling SMPS data so that it can more easily be edited and be made portable between variations of SMPS drivers.
+SMPS (Sample Music Playback System) is a family of sound drivers used by a variety of games on the Sega Genesis, among other Sega systems.
+SMPS2ASM is a format for disassembling SMPS data so that it can more easily be edited and ported between variations of SMPS drivers.
 The aim of this fork is to allow Sega Genesis songs to be converted to files that can run in SMPS drivers with as much accuracy as the driver allows and without requiring the user to tweak the result post-export.
 There are a variety of options to choose from when exporting, including several variations on the SMPS2ASM format, such as [Flamewing's version](https://github.com/Brainulator9/SMPS2ASM-flamewing), the one used for [MD Music Player](https://github.com/Awuwunya/SMPS2ASM2), one compatible with the [AMPS sound driver](https://github.com/Awuwunya/AMPS), and the one used in the original [SMPS source code](https://github.com/superctr/SMPS).
 
@@ -12,16 +12,15 @@ There are a variety of options to choose from when exporting, including several 
 
 Exporting your Furnace module to an SMPS2ASM files is simply a matter of choosing "file/export..." and selecting SMPS2ASM, choosing your options, and hitting "Export".
 However, in order to ensure that no adjustments need to be made post-export, some considerations will need to be made beforehand to ensure that the result is accurate and makes full use of your chosen sound driver:
-- The maximum speed a song can play at is one step per frame. If there's one beat per step, this comes out to about 3600 BPM on NTSC systems on 3000 BPM on PAL systems. This is just because most games run the sound driver once per frame.
-- FM instruments are song specific, but PSG envelopes and PCM samples are universal. This means that Furnace can only reference them and use placeholders rather than convert them directly.
+- The maximum speed a song can play at is one step per frame. If there's one beat per step, this comes out to about 3600 BPM on NTSC systems or 3000 BPM on PAL systems. This is just because most games run the sound driver once per frame.
+- In SMPS, FM instruments are song specific while PSG volume envelopes and PCM samples are universal.  This exporter will export FM instruments only. PSG volume macros and PCM sample can only be referenced. All other macros will be accounted for in the song data.
   - The template files provided include recreations of the PSG envelopes and PCM samples used in some specific variations of SMPS. You must either restrict your options to the ones provided by these templates, or modify the sound driver of the game you're exporting to as well as the SMPS2ASM constants file to add the new PSG envelopes and samples that you want to use.
-- PSG envelopes will be named after their instrument's name, so the names must be set to valid envelope names
-  - In order to ensure accuracy, the volume macro should reflect the volume envelope being represented.
-  - Semicolons can be used for assembly comments, allowing the user to use their custom instrument name
-  - e.g. fTone_02 ; Pedal Hi-Hat
-- PCM samples should be named after a valid drum name. These always start with a lowercase "d" followed by a capital letter. If this naming format isn't followed, then instead, corresponding note names will be used.
-- It is up to the user to optimize their song in order to minimize the files size
-  - This can include removing redundant patterns
+- PSG envelopes will be identified by a 2 digit hexadecimal number in the instrument name. If it fails to find a valid number, it will default to the instrument's number.
+- PCM samples should be named after a valid drum name. These always start with a lowercase "d" followed by a capital letter. Everything in the instrument name after a space will be ignored, so a more accurate description can be put there if desired.
+- There are a number of techniques the user can use to reduce the size of the result:
+  - Remove redundant patterns
+  - Use a larger step ratio
+  - Avoid the use of lengthy macros
 
 ## Bugs
 
