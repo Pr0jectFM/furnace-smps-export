@@ -2,6 +2,11 @@
 ; Name: Marble Zone Act 1
 ; Author: ProjectFM
 ; Album/Game: Sonic 1 Co-Op
+; Given Tempo = 135.00 BPM
+; Approximated Tempo = 135.00 BPM
+; Loop Pattern = 01
+; End Pattern = 0E
+; End Place = 3F
 ; ===========================================================================
 ; Header
 ; ===========================================================================
@@ -10,11 +15,7 @@ Marble_Zone_Act_1_Header:
 	smpsHeaderStartSong 1
 	smpsHeaderVoice		Marble_Zone_Act_1_Voices
 	smpsHeaderChan		$06, $03
-	smpsHeaderTempo		$01, $0A
-;	Given Tempo = 135.00 BPM
-;	Approximated Tempo = 135.00 BPM
-
-	smpsHeaderDAC	Marble_Zone_Act_1_DAC
+	smpsHeaderTempo		$01, $0A	smpsHeaderDAC	Marble_Zone_Act_1_DAC
 	smpsHeaderFM	Marble_Zone_Act_1_FM1,	$00, $00
 	smpsHeaderFM	Marble_Zone_Act_1_FM2,	$00, $00
 	smpsHeaderFM	Marble_Zone_Act_1_FM3,	$00, $00
@@ -23,9 +24,6 @@ Marble_Zone_Act_1_Header:
 	smpsHeaderPSG	Marble_Zone_Act_1_PSG1,	$F4, $07, $00, $00
 	smpsHeaderPSG	Marble_Zone_Act_1_PSG2,	$F4, $07, $00, $00
 	smpsHeaderPSG	Marble_Zone_Act_1_PSG3,	$F4, $04, $00, $00
-;	Loop Pattern :  01
-;	End Pattern :  0E
-;	End Place :  3F
 
 ; ===========================================================================
 ; Voices
@@ -75,17 +73,21 @@ Marble_Zone_Act_1_Voices:
 	smpsVcTotalLevel	$17, $27, $28, $18
 
 ;	PSG Voice 03 -> fTone_02
-;	macros:
-;		vol: 15 15 14 11 6 4 0
-;		arp: 1073741920
+;	vol:
+;		dc.b $70, $70, $71, $74, $79, $7B, $7F
+;	arp:
+;		dc.b $60
 
 ;	PSG Voice 04 -> fTone_04
-;	macros:
-;		vol: 15 15 15 15 14 14 13 13 12 12 11 11 10 8 6
+;	vol:
+;		dc.b $70, $70, $70, $70, $71, $71, $72, $72, $73, $73, $74, $74, $75, $77, $79
 
 ;	PSG Voice 05 -> fTone_07
-;	macros:
-;		vol: 14 15 15 15 15 15 14 14 14 14 14 14 13 13 13 13 13 13 12 12 12 12 12 12 11 11 11 11 11 11 10 10 10 10 10 10 9 9 9 9 9 9 8 8 8 8 8 8 7 7 7 7 7 7 0
+;	vol:
+;		dc.b $71, $70, $70, $70, $70, $70, $71, $71, $71, $71, $71, $71, $72, $72, $72, $72
+;		dc.b $72, $72, $73, $73, $73, $73, $73, $73, $74, $74, $74, $74, $74, $74, $75, $75
+;		dc.b $75, $75, $75, $75, $76, $76, $76, $76, $76, $76, $77, $77, $77, $77, $77, $77
+;		dc.b $78, $78, $78, $78, $78, $78, $7F
 
 ;	FM Voice 07 -> 03: FM2 - Bass
 	smpsVcAlgorithm		$02
@@ -130,7 +132,7 @@ Marble_Zone_Act_1_Voices:
 	smpsVcTotalLevel	$00, $2F, $2D, $2D
 
 ; ===========================================================================
-; Song
+; Pattern Data
 ; ===========================================================================
 
 Marble_Zone_Act_1_FM1_00:
@@ -1984,6 +1986,10 @@ Marble_Zone_Act_1_PSG1_0E:
 	; $C0
 	smpsReturn
 
+	; Failed match: 01 because of id 8
+	;	FD 00
+	; Failed match: 01 because of id 9
+	;	05 FFFFFFFF
 	; Failed to match pattern 01
 Marble_Zone_Act_1_PSG1_0F:
 	dc.b smpsNoAttack, $09
@@ -2394,6 +2400,10 @@ Marble_Zone_Act_1_PSG2_0E:
 	; $C0
 	smpsReturn
 
+	; Failed match: 01 because of id 8
+	;	FD 00
+	; Failed match: 01 because of id 9
+	;	05 FFFFFFFF
 	; Failed to match pattern 01
 Marble_Zone_Act_1_PSG2_0F:
 	smpsPSGvoice	fTone_07
@@ -2451,6 +2461,10 @@ Marble_Zone_Act_1_PSG3_01:
 	; $C0
 	smpsReturn
 
+	; Failed match: 01 because of id 8
+	;	9C 8C
+	; Failed match: 01 because of id 9
+	;	03 04
 Marble_Zone_Act_1_PSG3_02:
 	smpsPSGvoice	fTone_02
 	dc.b nMaxPSG+12, $0C, $0C, $0C, $0C, $0C
@@ -2465,6 +2479,14 @@ Marble_Zone_Act_1_PSG3_02:
 	; $C0
 	smpsReturn
 
+	; Failed match: 01 because of id 8
+	;	9C 8C
+	; Failed match: 01 because of id 9
+	;	03 04
+	; Failed match: 01 because of id 8
+	;	9C 8C
+	; Failed match: 01 because of id 9
+	;	03 04
 Marble_Zone_Act_1_PSG3_05:
 	smpsPSGvoice	fTone_02
 	dc.b nMaxPSG+12, $06, $06, $06, $06
@@ -2500,6 +2522,35 @@ Marble_Zone_Act_1_PSG3_09:
 	; $C0
 	smpsReturn
 
+	; Failed match: 09 because of id 8
+	;	8C 9C
+	; Failed match: 09 because of id 9
+	;	04 03
+Marble_Zone_Act_1_PSG3_0A:
+	dc.b smpsNoAttack, $0C
+	smpsPSGvoice	fTone_02
+	dc.b nMaxPSG+12, $06, $12, $06, $12, $06, $12, $06
+	smpsPSGvoice	fTone_04
+	dc.b $12
+	smpsPSGvoice	fTone_02
+	dc.b $06, $12, $06, $12, $06, $12, $06
+	smpsPSGvoice	fTone_04
+	dc.b $06
+	; $C0
+	smpsReturn
+
+	; Failed match: 09 because of id 8
+	;	8C 9C
+	; Failed match: 09 because of id 9
+	;	04 03
+	; Failed match: 09 because of id 8
+	;	8C 9C
+	; Failed match: 09 because of id 9
+	;	04 03
+	; Failed match: 09 because of id 8
+	;	8C 9C
+	; Failed match: 09 because of id 9
+	;	04 03
 Marble_Zone_Act_1_PSG3_0E:
 	dc.b smpsNoAttack, $0C
 	smpsPSGvoice	fTone_02
@@ -2509,7 +2560,37 @@ Marble_Zone_Act_1_PSG3_0E:
 	; $C0
 	smpsReturn
 
-	; Failed to match pattern 01; ---------------------------------------------------------------------------
+	; Failed match: 02 because of id 8
+	;	8C 9C
+	; Failed match: 02 because of id 9
+	;	04 03
+	; Failed match: 03 because of id 8
+	;	8C 9C
+	; Failed match: 03 because of id 9
+	;	04 03
+	; Failed match: 04 because of id 8
+	;	8C 9C
+	; Failed match: 04 because of id 9
+	;	04 03
+	; Failed to match pattern 01
+Marble_Zone_Act_1_PSG3_0F:
+	smpsPSGvoice	fTone_02
+	dc.b nMaxPSG+12, $0C, $0C, $0C, $0C, $0C
+	smpsPSGvoice	fTone_04
+	dc.b $0C
+	smpsPSGvoice	fTone_02
+	dc.b $0C, $0C, $0C, $0C, $0C, $0C, $0C
+	smpsPSGvoice	fTone_04
+	dc.b $0C
+	smpsPSGvoice	fTone_02
+	dc.b $0C, $0C
+	; $C0
+	smpsReturn
+
+	; Failed match: 01 because of id 8
+	;	9C 8C
+	; Failed match: 01 because of id 9
+	;	03 04; ---------------------------------------------------------------------------
 
 ; PSG3 Data
 Marble_Zone_Act_1_PSG3:
@@ -2526,10 +2607,10 @@ Marble_Zone_Act_1_PSG3_Jump:
 	smpsCall Marble_Zone_Act_1_PSG3_05
 	smpsCall Marble_Zone_Act_1_PSG3_05
 	smpsCall Marble_Zone_Act_1_PSG3_09
-	smpsCall Marble_Zone_Act_1_PSG3_09
-	smpsCall Marble_Zone_Act_1_PSG3_09
-	smpsCall Marble_Zone_Act_1_PSG3_09
-	smpsCall Marble_Zone_Act_1_PSG3_09
+	smpsCall Marble_Zone_Act_1_PSG3_0A
+	smpsCall Marble_Zone_Act_1_PSG3_0A
+	smpsCall Marble_Zone_Act_1_PSG3_0A
+	smpsCall Marble_Zone_Act_1_PSG3_0A
 	smpsCall Marble_Zone_Act_1_PSG3_0E
-	smpsCall Marble_Zone_Act_1_PSG3_02
+	smpsCall Marble_Zone_Act_1_PSG3_0F
 	smpsJump Marble_Zone_Act_1_PSG3_Jump

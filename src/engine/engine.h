@@ -701,6 +701,10 @@ class DivEngine {
 
     // SMPS functions
     void smpsChanNum(DivSubSong*& s, smpsVars& vars);
+    String smpsCommands(const uint8_t effect, const uint8_t value, smpsVars& vars, DivSubSong*& s, const DivSMPSOptions& options, smpsTempVars& temp);
+    bool checkChanges(const DivPattern* p, smpsVars& vars, smpsTempVars& temp, DivSubSong*& s, const DivSMPSOptions& options, int furStep);
+    void fmNote(smpsVars& vars, smpsTempVars& temp, const unsigned short arp, short& note, short& octave);
+    void psgNote(smpsVars& vars, smpsTempVars& temp, const unsigned short arp, short& note, short& octave);
     String getNote(SafeWriter* w, smpsVars& vars, smpsTempVars& temp, const DivSMPSOptions& options);
     void writeNotes(SafeWriter* w, smpsVars& vars, smpsTempVars& temp, const DivSMPSOptions& options);
     void getTimer(SafeWriter* w, const DivPattern* p, smpsVars& vars, smpsTempVars& temp, DivSubSong*& s, const DivSMPSOptions& options);

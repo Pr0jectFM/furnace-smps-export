@@ -29,7 +29,6 @@ Lesser importance:
 - Setting the step size ratio to a non-integer causes notes to be skipped
 - Turning off linear pitch mode causes the FM parts to be pitched down
 - In Source style, there may be more than 16 bytes per line, notably when setting vibrato
-- FM6 is called "DAC"
 
 ## To do
 
@@ -49,9 +48,14 @@ Before the 1.0 release:
   - F1 Pitch change up
   - F2 Pitch change down
 - Reset vibrato after pitch slide
-- Macro features
-  - Fixed arp
 - Detune pitch slide option
+- Improve pattern identification
+  - Don't consider volume when determing macro length in PSG
+  - Ignore macro length when first note of the pattern is played or silent
+    - Make exception for 03 and ED
+    - Also ignore if EC 00 is used
+  - Add legato to pattern identifiers
+  - Figure out cases where macro length is 00 versus FF
 
 Post 1.0 release (higher demand features take priority):
 - Effects

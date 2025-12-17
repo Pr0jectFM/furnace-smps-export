@@ -444,7 +444,7 @@ struct smpsTempVars {
   bool volCheck, fixed;
   smpsTempVars():
     numEffects(0),
-    macroTimer(-1),
+    macroTimer(0),
     lineCnt(0),
     noteTime(0),
     prevTime(0),

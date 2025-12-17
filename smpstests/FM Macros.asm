@@ -41,8 +41,8 @@ FM_Macros_Voices:
 ;		dc.b $38, $3C, $3E, $40, $43, $43, $43, $40, $35, $20, $08, $00, $00, $00, $00, $01
 ;		dc.b $02, $03, $05, $07, $08, $09, $0A, $0B
 ;	arp:
-;		dc.b $03, $04, $06, $07, $07, $07, $07, $07, $06, $04, $03, $01, $FE, $FD, $FC, $FB
-;		dc.b $FA, $FA, $FA, $FA, $FB, $FB, $FC, $FD, $FE, $00, $00, $00, $00, $00
+;		dc.b $03, $04, $06, $07, $07, $07, $07, $07, $06, $04, $03, $3C, $3C, $3C, $3B, $3A
+;		dc.b $3A, $38, $36, $35, $34, $33, $31, $2F, $2D, $00, $00, $00, $00, $00
 ;	pitch:
 ;		dc.b $12, $16, $1A, $1E, $20, $22, $25, $27, $2A, $2D, $2F, $32, $34, $36, $39, $3E
 ;		dc.b $40, $40, $3E, $38, $32, $31, $2F, $2E, $2C, $2A, $23, $1E, $18, $13, $10, $0D
@@ -69,114 +69,118 @@ FM_Macros_Voices:
 FM_Macros_FM1_00:
 	smpsSetvoice	$00
 	smpsAlterVol	$01
-	smpsPan		panLeft, $00
+	smpsPan		panLeft, $00 3 111
 	smpsAlterNote	$07
 	dc.b nDs4, $01
-	smpsAlterVol	$09
+	smpsAlterVol	$09 4 112
 	smpsAlterNote	$08
 	dc.b nE4
-	smpsAlterVol	$07
+	smpsAlterVol	$07 6 114
 	smpsAlterNote	$0C
 	dc.b nFs4
-	smpsAlterVol	$06
+	smpsAlterVol	$06 7 115
 	smpsAlterNote	$0D
 	dc.b nG4
-	smpsAlterVol	$04
+	smpsAlterVol	$04 7 115
 	smpsAlterNote	$0E
 	dc.b nG4
 	smpsAlterVol	$09
-	smpsPan		panCenter, $00
+	smpsPan		panCenter, $00 7 115
 	smpsAlterNote	$0F
 	dc.b nG4
-	smpsAlterVol	$FE
+	smpsAlterVol	$FE 7 115
 	smpsAlterNote	$10
 	dc.b nG4
-	smpsAlterVol	$FD
+	smpsAlterVol	$FD 7 115
 	smpsAlterNote	$11
 	dc.b nG4
-	smpsAlterVol	$FD
+	smpsAlterVol	$FD 6 114
 	smpsAlterNote	$12
 	dc.b nFs4
-	smpsAlterVol	$FE
+	smpsAlterVol	$FE 4 112
 	smpsAlterNote	$11
 	dc.b nE4
-	smpsAlterVol	$FE
+	smpsAlterVol	$FE 3 111
 	dc.b nDs4
-	smpsAlterVol	$F9
-	smpsAlterNote	$10
-	dc.b nCs4
-	smpsAlterVol	$FE
-	smpsAlterNote	$11
-	dc.b nD3
-	smpsAlterVol	$02
-	dc.b nCs3
-	smpsAlterVol	$04
-	dc.b nC3
-	smpsAlterVol	$0E
-	smpsPan		panRight, $00
-	smpsAlterNote	$22
-	dc.b nB3
-	smpsAlterVol	$15
-	smpsAlterNote	$DD
-	dc.b nB3
-	smpsAlterVol	$04
-	dc.b nB3
-	smpsAlterVol	$02
-	smpsAlterNote	$22
-	dc.b nBb3
-	smpsAlterVol	$02
-	smpsAlterNote	$1F
-	dc.b nBb3
-	smpsAlterVol	$03
-	smpsAlterNote	$1B
-	dc.b nB3, nB3
-	smpsAlterNote	$0E
-	dc.b nC3
-	smpsAlterVol	$FD
+	smpsAlterVol	$F9 120 120
 	smpsAlterNote	$0F
-	dc.b nCs3
-	smpsAlterVol	$F5
-	smpsAlterNote	$0E
-	dc.b nD3
-	smpsAlterVol	$EB
+	dc.b nC5
+	smpsAlterVol	$FE 120 120
+	dc.b nC5
+	smpsAlterVol	$02 120 120
+	smpsAlterNote	$10
+	dc.b nC5
+	smpsAlterVol	$04 119 119
+	smpsAlterNote	$1F
+	dc.b nB4
+	smpsAlterVol	$0E
+	smpsPan		panRight, $00 118 118
+	smpsAlterNote	$22
+	dc.b nBb4
+	smpsAlterVol	$15 118 118
+	smpsAlterNote	$DD
+	dc.b nB4
+	smpsAlterVol	$04 116 116
+	smpsAlterNote	$1E
+	dc.b nAb4
+	smpsAlterVol	$02 114 114
+	smpsAlterNote	$1B
+	dc.b nFs4
+	smpsAlterVol	$02 113 113
+	smpsAlterNote	$16
+	dc.b nF4
+	smpsAlterVol	$03 112 112
+	smpsAlterNote	$13
+	dc.b nE4 111 111
+	smpsAlterNote	$12
+	dc.b nDs4 109 109
+	smpsAlterNote	$0F
+	dc.b nCs4
+	smpsAlterVol	$FD 107 107
+	smpsAlterNote	$19
+	dc.b nB3
+	smpsAlterVol	$F5 105 105
+	smpsAlterNote	$16
+	dc.b nA3
+	smpsAlterVol	$EB 0 108
 	smpsAlterNote	$0C
 	dc.b nC4
-	smpsAlterVol	$E8
+	smpsAlterVol	$E8 0 108
 	smpsAlterNote	$0A
 	dc.b nC4
-	smpsAlterVol	$F8
+	smpsAlterVol	$F8 0 108
 	smpsAlterNote	$09
 	dc.b nC4
-	smpsPan		panCenter, $00
+	smpsPan		panCenter, $00 0 108
 	smpsAlterNote	$07
-	dc.b nC4
+	dc.b nC4 0 108
 	smpsAlterNote	$06
-	dc.b nC4
+	dc.b nC4 0 108
 	smpsAlterNote	$05
 	dc.b nC4
-	smpsAlterVol	$01
+	smpsAlterVol	$01 0 108
 	smpsAlterNote	$04
 	dc.b smpsNoAttack, $01
-	smpsAlterVol	$01
+	smpsAlterVol	$01 0 108
 	smpsAlterNote	$03
 	dc.b smpsNoAttack, $01
-	smpsAlterVol	$01
+	smpsAlterVol	$01 0 108
 	smpsAlterNote	$02
 	dc.b smpsNoAttack, $01
-	smpsAlterVol	$02
+	smpsAlterVol	$02 0 108
 	dc.b smpsNoAttack, $01
-	smpsAlterVol	$02
+	smpsAlterVol	$02 0 108
 	dc.b smpsNoAttack, $01
-	smpsAlterVol	$01
+	smpsAlterVol	$01 0 108
 	dc.b smpsNoAttack, $01
-	smpsAlterVol	$01
+	smpsAlterVol	$01 0 108
 	dc.b smpsNoAttack, $01
-	smpsAlterVol	$01
+	smpsAlterVol	$01 0 108
 	smpsAlterNote	$03
 	dc.b smpsNoAttack, $01
-	smpsAlterVol	$01
+	smpsAlterVol	$01 0 108
 	dc.b smpsNoAttack, $0E
-	smpsPan		panLeft, $00
+	smpsPan		panLeft, $00 0 108
 	dc.b smpsNoAttack, $1F, nRst, $0C
 	; $60
 	smpsReturn
@@ -185,114 +189,244 @@ FM_Macros_FM1_01:
 	dc.b smpsNoAttack, $18
 	smpsSetvoice	$00
 	smpsAlterVol	$F6
-	smpsPan		panLeft, $00
+	smpsPan		panLeft, $00 3 113
 	smpsAlterNote	$07
 	dc.b nF4, $01
-	smpsAlterVol	$09
+	smpsAlterVol	$09 4 114
 	smpsAlterNote	$0A
 	dc.b nFs4
-	smpsAlterVol	$07
+	smpsAlterVol	$07 6 116
 	smpsAlterNote	$0C
 	dc.b nAb4
-	smpsAlterVol	$06
+	smpsAlterVol	$06 7 117
 	smpsAlterNote	$0F
 	dc.b nA4
-	smpsAlterVol	$04
+	smpsAlterVol	$04 7 117
 	smpsAlterNote	$10
 	dc.b nA4
 	smpsAlterVol	$09
-	smpsPan		panCenter, $00
+	smpsPan		panCenter, $00 7 117
 	smpsAlterNote	$11
 	dc.b nA4
-	smpsAlterVol	$FE
+	smpsAlterVol	$FE 7 117
 	smpsAlterNote	$12
 	dc.b nA4
-	smpsAlterVol	$FD
+	smpsAlterVol	$FD 7 117
 	smpsAlterNote	$13
 	dc.b nA4
-	smpsAlterVol	$FD
+	smpsAlterVol	$FD 6 116
 	smpsAlterNote	$14
 	dc.b nAb4
-	smpsAlterVol	$FE
+	smpsAlterVol	$FE 4 114
 	smpsAlterNote	$13
 	dc.b nFs4
-	smpsAlterVol	$FE
+	smpsAlterVol	$FE 3 113
 	smpsAlterNote	$12
 	dc.b nF4
-	smpsAlterVol	$F9
-	dc.b nDs4
-	smpsAlterVol	$FE
-	smpsAlterNote	$14
-	dc.b nE4
-	smpsAlterVol	$02
-	dc.b nDs3
-	smpsAlterVol	$04
-	smpsAlterNote	$13
-	dc.b nD3
-	smpsAlterVol	$0E
-	smpsPan		panRight, $00
-	smpsAlterNote	$14
-	dc.b nCs3
-	smpsAlterVol	$15
-	smpsAlterNote	$ED
-	dc.b nCs3
-	smpsAlterVol	$04
-	dc.b nCs3
-	smpsAlterVol	$02
-	smpsAlterNote	$12
-	dc.b nC3
-	smpsAlterVol	$02
-	smpsAlterNote	$10
-	dc.b nC3
-	smpsAlterVol	$03
-	dc.b nCs3, nCs3
+	smpsAlterVol	$F9 120 120
 	smpsAlterNote	$0F
-	dc.b nD3
-	smpsAlterVol	$FD
-	smpsAlterNote	$11
-	dc.b nDs3
-	smpsAlterVol	$F5
-	dc.b nE4
-	smpsAlterVol	$EB
+	dc.b nC5
+	smpsAlterVol	$FE 120 120
+	dc.b nC5
+	smpsAlterVol	$02 120 120
+	smpsAlterNote	$10
+	dc.b nC5
+	smpsAlterVol	$04 119 119
+	smpsAlterNote	$1F
+	dc.b nB4
+	smpsAlterVol	$0E
+	smpsPan		panRight, $00 118 118
+	smpsAlterNote	$22
+	dc.b nBb4
+	smpsAlterVol	$15 118 118
+	smpsAlterNote	$DD
+	dc.b nB4
+	smpsAlterVol	$04 116 116
+	smpsAlterNote	$1E
+	dc.b nAb4
+	smpsAlterVol	$02 114 114
+	smpsAlterNote	$1B
+	dc.b nFs4
+	smpsAlterVol	$02 113 113
+	smpsAlterNote	$16
+	dc.b nF4
+	smpsAlterVol	$03 112 112
+	smpsAlterNote	$13
+	dc.b nE4 111 111
+	smpsAlterNote	$12
+	dc.b nDs4 109 109
+	smpsAlterNote	$0F
+	dc.b nCs4
+	smpsAlterVol	$FD 107 107
+	smpsAlterNote	$19
+	dc.b nB3
+	smpsAlterVol	$F5 105 105
+	smpsAlterNote	$16
+	dc.b nA3
+	smpsAlterVol	$EB 0 110
 	smpsAlterNote	$0E
 	dc.b nD4
-	smpsAlterVol	$E8
+	smpsAlterVol	$E8 0 110
 	smpsAlterNote	$0B
 	dc.b nD4
-	smpsAlterVol	$F8
+	smpsAlterVol	$F8 0 110
 	smpsAlterNote	$0A
 	dc.b nD4
-	smpsPan		panCenter, $00
+	smpsPan		panCenter, $00 0 110
 	smpsAlterNote	$08
-	dc.b nD4
+	dc.b nD4 0 110
 	smpsAlterNote	$06
-	dc.b nD4
+	dc.b nD4 0 110
 	smpsAlterNote	$05
 	dc.b nD4
-	smpsAlterVol	$01
+	smpsAlterVol	$01 0 110
 	smpsAlterNote	$04
 	dc.b smpsNoAttack, $01
-	smpsAlterVol	$01
+	smpsAlterVol	$01 0 110
 	smpsAlterNote	$03
 	dc.b smpsNoAttack, $01
-	smpsAlterVol	$01
+	smpsAlterVol	$01 0 110
 	smpsAlterNote	$02
 	dc.b smpsNoAttack, $01
-	smpsAlterVol	$02
+	smpsAlterVol	$02 0 110
 	dc.b smpsNoAttack, $01
-	smpsAlterVol	$02
+	smpsAlterVol	$02 0 110
 	dc.b smpsNoAttack, $01
-	smpsAlterVol	$01
+	smpsAlterVol	$01 0 110
 	dc.b smpsNoAttack, $01
-	smpsAlterVol	$01
+	smpsAlterVol	$01 0 110
 	dc.b smpsNoAttack, $01
-	smpsAlterVol	$01
+	smpsAlterVol	$01 0 110
 	smpsAlterNote	$03
 	dc.b smpsNoAttack, $01
-	smpsAlterVol	$01
+	smpsAlterVol	$01 0 110
 	smpsAlterNote	$04
 	dc.b smpsNoAttack, $0E
-	smpsPan		panLeft, $00
+	smpsPan		panLeft, $00 0 110
+	dc.b smpsNoAttack, $13
+	; $60
+	smpsReturn
+
+	; Failed match: 01 because of id 8
+	;	6E FD
+FM_Macros_FM1_02:
+	dc.b smpsNoAttack, $18
+	smpsSetvoice	$00
+	smpsAlterVol	$F6
+	smpsPan		panLeft, $00 3 113
+	smpsAlterNote	$07
+	dc.b nF4, $01
+	smpsAlterVol	$09 4 114
+	smpsAlterNote	$0A
+	dc.b nFs4
+	smpsAlterVol	$07 6 116
+	smpsAlterNote	$0C
+	dc.b nAb4
+	smpsAlterVol	$06 7 117
+	smpsAlterNote	$0F
+	dc.b nA4
+	smpsAlterVol	$04 7 117
+	smpsAlterNote	$10
+	dc.b nA4
+	smpsAlterVol	$09
+	smpsPan		panCenter, $00 7 117
+	smpsAlterNote	$11
+	dc.b nA4
+	smpsAlterVol	$FE 7 117
+	smpsAlterNote	$12
+	dc.b nA4
+	smpsAlterVol	$FD 7 117
+	smpsAlterNote	$13
+	dc.b nA4
+	smpsAlterVol	$FD 6 116
+	smpsAlterNote	$14
+	dc.b nAb4
+	smpsAlterVol	$FE 4 114
+	smpsAlterNote	$13
+	dc.b nFs4
+	smpsAlterVol	$FE 3 113
+	smpsAlterNote	$12
+	dc.b nF4
+	smpsAlterVol	$F9 120 120
+	smpsAlterNote	$0F
+	dc.b nC5
+	smpsAlterVol	$FE 120 120
+	dc.b nC5
+	smpsAlterVol	$02 120 120
+	smpsAlterNote	$10
+	dc.b nC5
+	smpsAlterVol	$04 119 119
+	smpsAlterNote	$1F
+	dc.b nB4
+	smpsAlterVol	$0E
+	smpsPan		panRight, $00 118 118
+	smpsAlterNote	$22
+	dc.b nBb4
+	smpsAlterVol	$15 118 118
+	smpsAlterNote	$DD
+	dc.b nB4
+	smpsAlterVol	$04 116 116
+	smpsAlterNote	$1E
+	dc.b nAb4
+	smpsAlterVol	$02 114 114
+	smpsAlterNote	$1B
+	dc.b nFs4
+	smpsAlterVol	$02 113 113
+	smpsAlterNote	$16
+	dc.b nF4
+	smpsAlterVol	$03 112 112
+	smpsAlterNote	$13
+	dc.b nE4 111 111
+	smpsAlterNote	$12
+	dc.b nDs4 109 109
+	smpsAlterNote	$0F
+	dc.b nCs4
+	smpsAlterVol	$FD 107 107
+	smpsAlterNote	$19
+	dc.b nB3
+	smpsAlterVol	$F5 105 105
+	smpsAlterNote	$16
+	dc.b nA3
+	smpsAlterVol	$EB 0 110
+	smpsAlterNote	$0E
+	dc.b nD4
+	smpsAlterVol	$E8 0 110
+	smpsAlterNote	$0B
+	dc.b nD4
+	smpsAlterVol	$F8 0 110
+	smpsAlterNote	$0A
+	dc.b nD4
+	smpsPan		panCenter, $00 0 110
+	smpsAlterNote	$08
+	dc.b nD4 0 110
+	smpsAlterNote	$06
+	dc.b nD4 0 110
+	smpsAlterNote	$05
+	dc.b nD4
+	smpsAlterVol	$01 0 110
+	smpsAlterNote	$04
+	dc.b smpsNoAttack, $01
+	smpsAlterVol	$01 0 110
+	smpsAlterNote	$03
+	dc.b smpsNoAttack, $01
+	smpsAlterVol	$01 0 110
+	smpsAlterNote	$02
+	dc.b smpsNoAttack, $01
+	smpsAlterVol	$02 0 110
+	dc.b smpsNoAttack, $01
+	smpsAlterVol	$02 0 110
+	dc.b smpsNoAttack, $01
+	smpsAlterVol	$01 0 110
+	dc.b smpsNoAttack, $01
+	smpsAlterVol	$01 0 110
+	dc.b smpsNoAttack, $01
+	smpsAlterVol	$01 0 110
+	smpsAlterNote	$03
+	dc.b smpsNoAttack, $01
+	smpsAlterVol	$01 0 110
+	smpsAlterNote	$04
+	dc.b smpsNoAttack, $0E
+	smpsPan		panLeft, $00 0 110
 	dc.b smpsNoAttack, $13
 	; $60
 	smpsReturn
@@ -303,118 +437,126 @@ FM_Macros_FM1_01:
 	;	74 7F
 	; Failed match: 00 because of id 7
 	;	0C 00
+	; Failed match: 00 because of id 8
+	;	6E 00
+	; Failed match: 00 because of id 9
+	;	00 FFFFFFFF
 	; Failed to match pattern 00
 FM_Macros_FM1_03:
 	smpsSetvoice	$00
 	smpsAlterVol	$F6
-	smpsPan		panLeft, $00
+	smpsPan		panLeft, $00 3 111
 	smpsAlterNote	$07
 	dc.b nDs4, $01
-	smpsAlterVol	$09
+	smpsAlterVol	$09 4 112
 	smpsAlterNote	$08
 	dc.b nE4
-	smpsAlterVol	$07
+	smpsAlterVol	$07 6 114
 	smpsAlterNote	$0C
 	dc.b nFs4
-	smpsAlterVol	$06
+	smpsAlterVol	$06 7 115
 	smpsAlterNote	$0D
 	dc.b nG4
-	smpsAlterVol	$04
+	smpsAlterVol	$04 7 115
 	smpsAlterNote	$0E
 	dc.b nG4
 	smpsAlterVol	$09
-	smpsPan		panCenter, $00
+	smpsPan		panCenter, $00 7 115
 	smpsAlterNote	$0F
 	dc.b nG4
-	smpsAlterVol	$FE
+	smpsAlterVol	$FE 7 115
 	smpsAlterNote	$10
 	dc.b nG4
-	smpsAlterVol	$FD
+	smpsAlterVol	$FD 7 115
 	smpsAlterNote	$11
 	dc.b nG4
-	smpsAlterVol	$FD
+	smpsAlterVol	$FD 6 114
 	smpsAlterNote	$12
 	dc.b nFs4
-	smpsAlterVol	$FE
+	smpsAlterVol	$FE 4 112
 	smpsAlterNote	$11
 	dc.b nE4
-	smpsAlterVol	$FE
+	smpsAlterVol	$FE 3 111
 	dc.b nDs4
-	smpsAlterVol	$F9
-	smpsAlterNote	$10
-	dc.b nCs4
-	smpsAlterVol	$FE
-	smpsAlterNote	$11
-	dc.b nD3
-	smpsAlterVol	$02
-	dc.b nCs3
-	smpsAlterVol	$04
-	dc.b nC3
-	smpsAlterVol	$0E
-	smpsPan		panRight, $00
-	smpsAlterNote	$22
-	dc.b nB3
-	smpsAlterVol	$15
-	smpsAlterNote	$DD
-	dc.b nB3
-	smpsAlterVol	$04
-	dc.b nB3
-	smpsAlterVol	$02
-	smpsAlterNote	$22
-	dc.b nBb3
-	smpsAlterVol	$02
-	smpsAlterNote	$1F
-	dc.b nBb3
-	smpsAlterVol	$03
-	smpsAlterNote	$1B
-	dc.b nB3, nB3
-	smpsAlterNote	$0E
-	dc.b nC3
-	smpsAlterVol	$FD
+	smpsAlterVol	$F9 120 120
 	smpsAlterNote	$0F
-	dc.b nCs3
-	smpsAlterVol	$F5
-	smpsAlterNote	$0E
-	dc.b nD3
-	smpsAlterVol	$EB
+	dc.b nC5
+	smpsAlterVol	$FE 120 120
+	dc.b nC5
+	smpsAlterVol	$02 120 120
+	smpsAlterNote	$10
+	dc.b nC5
+	smpsAlterVol	$04 119 119
+	smpsAlterNote	$1F
+	dc.b nB4
+	smpsAlterVol	$0E
+	smpsPan		panRight, $00 118 118
+	smpsAlterNote	$22
+	dc.b nBb4
+	smpsAlterVol	$15 118 118
+	smpsAlterNote	$DD
+	dc.b nB4
+	smpsAlterVol	$04 116 116
+	smpsAlterNote	$1E
+	dc.b nAb4
+	smpsAlterVol	$02 114 114
+	smpsAlterNote	$1B
+	dc.b nFs4
+	smpsAlterVol	$02 113 113
+	smpsAlterNote	$16
+	dc.b nF4
+	smpsAlterVol	$03 112 112
+	smpsAlterNote	$13
+	dc.b nE4 111 111
+	smpsAlterNote	$12
+	dc.b nDs4 109 109
+	smpsAlterNote	$0F
+	dc.b nCs4
+	smpsAlterVol	$FD 107 107
+	smpsAlterNote	$19
+	dc.b nB3
+	smpsAlterVol	$F5 105 105
+	smpsAlterNote	$16
+	dc.b nA3
+	smpsAlterVol	$EB 0 108
 	smpsAlterNote	$0C
 	dc.b nC4
-	smpsAlterVol	$E8
+	smpsAlterVol	$E8 0 108
 	smpsAlterNote	$0A
 	dc.b nC4
-	smpsAlterVol	$F8
+	smpsAlterVol	$F8 0 108
 	smpsAlterNote	$09
 	dc.b nC4
-	smpsPan		panCenter, $00
+	smpsPan		panCenter, $00 0 108
 	smpsAlterNote	$07
-	dc.b nC4
+	dc.b nC4 0 108
 	smpsAlterNote	$06
-	dc.b nC4
+	dc.b nC4 0 108
 	smpsAlterNote	$05
 	dc.b nC4
-	smpsAlterVol	$01
+	smpsAlterVol	$01 0 108
 	smpsAlterNote	$04
 	dc.b smpsNoAttack, $01
-	smpsAlterVol	$01
+	smpsAlterVol	$01 0 108
 	smpsAlterNote	$03
 	dc.b smpsNoAttack, $01
-	smpsAlterVol	$01
+	smpsAlterVol	$01 0 108
 	smpsAlterNote	$02
 	dc.b smpsNoAttack, $01
-	smpsAlterVol	$02
+	smpsAlterVol	$02 0 108
 	dc.b smpsNoAttack, $01
-	smpsAlterVol	$02
+	smpsAlterVol	$02 0 108
 	dc.b smpsNoAttack, $01
-	smpsAlterVol	$01
+	smpsAlterVol	$01 0 108
 	dc.b smpsNoAttack, $01
-	smpsAlterVol	$01
+	smpsAlterVol	$01 0 108
 	dc.b smpsNoAttack, $01
-	smpsAlterVol	$01
+	smpsAlterVol	$01 0 108
 	smpsAlterNote	$03
 	dc.b smpsNoAttack, $01
-	smpsAlterVol	$01
+	smpsAlterVol	$01 0 108
 	dc.b smpsNoAttack, $0E
-	smpsPan		panLeft, $00
+	smpsPan		panLeft, $00 0 108
 	dc.b smpsNoAttack, $1F, nRst, $0C
 	; $60
 	smpsReturn
@@ -426,17 +568,17 @@ FM_Macros_FM1:
 
 FM_Macros_FM1_Jump:
 	smpsCall FM_Macros_FM1_01
-	smpsCall FM_Macros_FM1_01
+	smpsCall FM_Macros_FM1_02
 	smpsCall FM_Macros_FM1_03
 	smpsJump FM_Macros_FM1_Jump
 ; ===========================================================================
 
-FM_Macros_DAC_00:
+FM_Macros_DAC_00: 0 60
 	dc.b nC0, $60
 	; $60
 	smpsReturn
 
-FM_Macros_DAC_01:
+FM_Macros_DAC_01: 0 60
 	dc.b nC0, $60
 	; $60
 	smpsReturn
@@ -444,7 +586,7 @@ FM_Macros_DAC_01:
 	; Failed match: 00 because of id 1
 	;	FFFFFFFF 00
 	; Failed to match pattern 00
-FM_Macros_DAC_03:
+FM_Macros_DAC_03: 0 60
 	dc.b nC0, $60
 	; $60
 	smpsReturn
@@ -462,35 +604,35 @@ FM_Macros_DAC_Jump:
 ; ===========================================================================
 
 FM_Macros_PSG1_00:
-	smpsPSGvoice	$00
+	smpsPSGvoice	$00 3 87
 	smpsAlterNote	$FD
-	dc.b nDs2, $01, nE2, nFs2, nG2
+	dc.b nDs2, $01 4 88, nE2 6 90, nFs2 7 91, nG2 7 91
 	smpsAlterNote	$FC
-	dc.b nG2, nG2, nG2
+	dc.b nG2 7 91, nG2 7 91, nG2 7 91
 	smpsAlterNote	$FB
-	dc.b nG2, nFs2
+	dc.b nG2 6 90, nFs2 4 88
 	smpsAlterNote	$FA
-	dc.b nE2
+	dc.b nE2 3 87
 	smpsAlterNote	$F8
-	dc.b nDs2
+	dc.b nDs2 1 85
 	smpsAlterNote	$F7
-	dc.b nCs2
+	dc.b nCs2 254 338
 	smpsAlterNote	$00
-	dc.b nMaxPSG+12, nMaxPSG+12, nMaxPSG+12, nMaxPSG+12, nMaxPSG+12, nMaxPSG+12, nMaxPSG+12, nMaxPSG+12, nMaxPSG+12, nMaxPSG+12, nMaxPSG+12, nMaxPSG+12, nMaxPSG+12
+	dc.b nMaxPSG+12 253 337, nMaxPSG+12 252 336, nMaxPSG+12 251 335, nMaxPSG+12 250 334, nMaxPSG+12 250 334, nMaxPSG+12 250 334, nMaxPSG+12 250 334, nMaxPSG+12 251 335, nMaxPSG+12 251 335, nMaxPSG+12 252 336, nMaxPSG+12 253 337, nMaxPSG+12 254 338, nMaxPSG+12 0 84
 	smpsAlterNote	$F8
-	dc.b nC2
+	dc.b nC2 0 84
 	smpsAlterNote	$F9
-	dc.b nC2
+	dc.b nC2 0 84
 	smpsAlterNote	$FA
-	dc.b nC2
+	dc.b nC2 0 84
 	smpsAlterNote	$FB
-	dc.b nC2
+	dc.b nC2 0 84
 	smpsAlterNote	$FC
-	dc.b nC2, nC2
+	dc.b nC2 0 84, nC2 0 84
 	smpsAlterNote	$FD
-	dc.b nC2
+	dc.b nC2 0 84
 	smpsAlterNote	$FE
-	dc.b nC2, nC2, nC2, $04, $01
+	dc.b nC2 0 84, nC2 0 84, nC2, $04 0 84, $01 0 84
 	smpsAlterNote	$FD
 	dc.b $2D, nRst, $0C
 	; $60
@@ -498,27 +640,55 @@ FM_Macros_PSG1_00:
 
 FM_Macros_PSG1_01:
 	dc.b smpsNoAttack, $18
-	smpsPSGvoice	$00
+	smpsPSGvoice	$00 3 113
 	smpsAlterNote	$FF
-	dc.b nF4, $01, nFs4
+	dc.b nF4, $01 4 114, nFs4 6 116
 	smpsAlterNote	$00
-	dc.b nAb4
+	dc.b nAb4 7 117
 	smpsAlterNote	$FF
-	dc.b nA4, nA4, nA4, nA4
+	dc.b nA4 7 117, nA4 7 117, nA4 7 117, nA4 7 117
 	smpsAlterNote	$FE
-	dc.b nA4
+	dc.b nA4 6 116
 	smpsAlterNote	$FF
-	dc.b nAb4
+	dc.b nAb4 4 114
 	smpsAlterNote	$FE
-	dc.b nFs4, nF4, nDs4
+	dc.b nFs4 3 113, nF4 1 111, nDs4 254 364
 	smpsAlterNote	$00
-	dc.b nMaxPSG+12, nMaxPSG+12, nMaxPSG+12, nMaxPSG+12, nMaxPSG+12, nMaxPSG+12, nMaxPSG+12, nMaxPSG+12, nMaxPSG+12, nMaxPSG+12, nMaxPSG+12, nMaxPSG+12, nMaxPSG+12
+	dc.b nMaxPSG+12 253 363, nMaxPSG+12 252 362, nMaxPSG+12 251 361, nMaxPSG+12 250 360, nMaxPSG+12 250 360, nMaxPSG+12 250 360, nMaxPSG+12 250 360, nMaxPSG+12 251 361, nMaxPSG+12 251 361, nMaxPSG+12 252 362, nMaxPSG+12 253 363, nMaxPSG+12 254 364, nMaxPSG+12 0 110
 	smpsAlterNote	$FE
-	dc.b nD4
+	dc.b nD4 0 110
 	smpsAlterNote	$FF
-	dc.b nD4, nD4, nD4, nD4
+	dc.b nD4 0 110, nD4 0 110, nD4 0 110, nD4 0 110
 	smpsAlterNote	$00
-	dc.b nD4, nD4, nD4, nD4, nD4, $04, $01, $21
+	dc.b nD4 0 110, nD4 0 110, nD4 0 110, nD4 0 110, nD4, $04 0 110, $01 0 110, $21
+	; $60
+	smpsReturn
+
+	; Failed match: 01 because of id 8
+	;	6E FD
+FM_Macros_PSG1_02:
+	dc.b smpsNoAttack, $18
+	smpsPSGvoice	$00 3 113
+	smpsAlterNote	$FF
+	dc.b nF4, $01 4 114, nFs4 6 116
+	smpsAlterNote	$00
+	dc.b nAb4 7 117
+	smpsAlterNote	$FF
+	dc.b nA4 7 117, nA4 7 117, nA4 7 117, nA4 7 117
+	smpsAlterNote	$FE
+	dc.b nA4 6 116
+	smpsAlterNote	$FF
+	dc.b nAb4 4 114
+	smpsAlterNote	$FE
+	dc.b nFs4 3 113, nF4 1 111, nDs4 254 364
+	smpsAlterNote	$00
+	dc.b nMaxPSG+12 253 363, nMaxPSG+12 252 362, nMaxPSG+12 251 361, nMaxPSG+12 250 360, nMaxPSG+12 250 360, nMaxPSG+12 250 360, nMaxPSG+12 250 360, nMaxPSG+12 251 361, nMaxPSG+12 251 361, nMaxPSG+12 252 362, nMaxPSG+12 253 363, nMaxPSG+12 254 364, nMaxPSG+12 0 110
+	smpsAlterNote	$FE
+	dc.b nD4 0 110
+	smpsAlterNote	$FF
+	dc.b nD4 0 110, nD4 0 110, nD4 0 110, nD4 0 110
+	smpsAlterNote	$00
+	dc.b nD4 0 110, nD4 0 110, nD4 0 110, nD4 0 110, nD4, $04 0 110, $01 0 110, $21
 	; $60
 	smpsReturn
 
@@ -526,37 +696,41 @@ FM_Macros_PSG1_01:
 	;	FFFFFFFF 00
 	; Failed match: 00 because of id 7
 	;	0C 00
+	; Failed match: 00 because of id 8
+	;	6E 00
+	; Failed match: 00 because of id 9
+	;	01 FFFFFFFF
 	; Failed to match pattern 00
 FM_Macros_PSG1_03:
-	smpsPSGvoice	$00
+	smpsPSGvoice	$00 3 87
 	smpsAlterNote	$FD
-	dc.b nDs2, $01, nE2, nFs2, nG2
+	dc.b nDs2, $01 4 88, nE2 6 90, nFs2 7 91, nG2 7 91
 	smpsAlterNote	$FC
-	dc.b nG2, nG2, nG2
+	dc.b nG2 7 91, nG2 7 91, nG2 7 91
 	smpsAlterNote	$FB
-	dc.b nG2, nFs2
+	dc.b nG2 6 90, nFs2 4 88
 	smpsAlterNote	$FA
-	dc.b nE2
+	dc.b nE2 3 87
 	smpsAlterNote	$F8
-	dc.b nDs2
+	dc.b nDs2 1 85
 	smpsAlterNote	$F7
-	dc.b nCs2
+	dc.b nCs2 254 338
 	smpsAlterNote	$00
-	dc.b nMaxPSG+12, nMaxPSG+12, nMaxPSG+12, nMaxPSG+12, nMaxPSG+12, nMaxPSG+12, nMaxPSG+12, nMaxPSG+12, nMaxPSG+12, nMaxPSG+12, nMaxPSG+12, nMaxPSG+12, nMaxPSG+12
+	dc.b nMaxPSG+12 253 337, nMaxPSG+12 252 336, nMaxPSG+12 251 335, nMaxPSG+12 250 334, nMaxPSG+12 250 334, nMaxPSG+12 250 334, nMaxPSG+12 250 334, nMaxPSG+12 251 335, nMaxPSG+12 251 335, nMaxPSG+12 252 336, nMaxPSG+12 253 337, nMaxPSG+12 254 338, nMaxPSG+12 0 84
 	smpsAlterNote	$F8
-	dc.b nC2
+	dc.b nC2 0 84
 	smpsAlterNote	$F9
-	dc.b nC2
+	dc.b nC2 0 84
 	smpsAlterNote	$FA
-	dc.b nC2
+	dc.b nC2 0 84
 	smpsAlterNote	$FB
-	dc.b nC2
+	dc.b nC2 0 84
 	smpsAlterNote	$FC
-	dc.b nC2, nC2
+	dc.b nC2 0 84, nC2 0 84
 	smpsAlterNote	$FD
-	dc.b nC2
+	dc.b nC2 0 84
 	smpsAlterNote	$FE
-	dc.b nC2, nC2, nC2, $04, $01
+	dc.b nC2 0 84, nC2 0 84, nC2, $04 0 84, $01 0 84
 	smpsAlterNote	$FD
 	dc.b $2D, nRst, $0C
 	; $60
@@ -569,6 +743,6 @@ FM_Macros_PSG1:
 
 FM_Macros_PSG1_Jump:
 	smpsCall FM_Macros_PSG1_01
-	smpsCall FM_Macros_PSG1_01
+	smpsCall FM_Macros_PSG1_02
 	smpsCall FM_Macros_PSG1_03
 	smpsJump FM_Macros_PSG1_Jump
