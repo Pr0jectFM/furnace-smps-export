@@ -14,7 +14,8 @@ FM_Macros_Header:
 	smpsHeaderStartSong 1
 	smpsHeaderVoice		FM_Macros_Voices
 	smpsHeaderChan		$02, $01
-	smpsHeaderTempo		$01, $00	smpsHeaderDAC	FM_Macros_DAC
+	smpsHeaderTempo		$01, $00
+	smpsHeaderDAC	FM_Macros_DAC
 	smpsHeaderFM	FM_Macros_FM1,	$00, $00
 	smpsHeaderPSG	FM_Macros_PSG1,	$F4, $00, $00, $00
 
