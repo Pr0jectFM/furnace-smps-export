@@ -41,9 +41,7 @@ Before the 1.0 release:
   - 04 Vibrato
   - E1 Note slide up
   - E2 Note slide down
-  - E7 Macro release
   - EC Note cut
-  - EE Send external command
   - F1 Pitch change up
   - F2 Pitch change down
 - Reset vibrato after pitch slide
@@ -71,6 +69,7 @@ Post 1.0 release (higher demand features take priority):
   - E2 Note slide down
   - E4 Set vibrato range
   - E6 Quick legato
+  - E7 Macro release
   - E8 Quick legato up
   - E9 Quick legato down
   - F0 Set tick rate (tempo)

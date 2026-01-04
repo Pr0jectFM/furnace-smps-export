@@ -55,6 +55,7 @@ enum smpsSymbols {
   smpsGate,
   smpsFreqNote,
   smpsNoise,
+  smpsComm,
   // Parameters
   smpsPanCenter,
   smpsPanLeft,
@@ -117,6 +118,7 @@ static const char* smpsSymFlamewing[smpsSymLen] = {
   "smpsNoteFill",
   "smpsSetNote",
   "smpsPSGform",
+  "; smpsComm Not Implemented",
   // Parameters
   "panCenter",
   "panLeft",
@@ -178,6 +180,7 @@ static const char* smpsSymMDMP[smpsSymLen] = {
   "sGate",
   "ssTransposeS3K",
   "sNoisePSG",
+  "sComm",
   // Parameters
   "spCenter",
   "spLeft",
@@ -239,6 +242,7 @@ static const char* smpsSymAMPS[smpsSymLen] = {
    "sGate",
    "ssFreqNote",
    "sNoisePSG",
+  "; smpsComm Not Implemented",
    // Parameters
    "spCenter",
    "spLeft",
@@ -300,6 +304,7 @@ static const char* smpsSymSource[smpsSymLen] = {
   "CMGATE",
   "; smpsFreqNote Not Implemented",
   "CMNOIS",
+  "; smpsComm Not Implemented",
   // Parameters
   "LRSET",
   "LSET",
@@ -434,14 +439,13 @@ struct smpsTempVars {
   double stepConv;
   uint8_t vol, volLast, volMac;
   bool noteOn, startTick;
-  int arpOff;
   uint8_t pan, prevPan, panSet;
   short volRate;
   unsigned short volTimer;
-  int pitchTarget, pitchRate;
+  int pitchTarget, pitchRate, pitchPort;
   uint8_t vib[4];
   short delayTime, delayNote;
-  bool volCheck, fixed;
+  bool volCheck, fixed, portamento, vibChange;
   smpsTempVars():
     numEffects(0),
     macroTimer(0),
@@ -472,7 +476,6 @@ struct smpsTempVars {
     volMac(0),
     vol(0),
     noteOn(false),
-    arpOff(0),
     pan(-1),
     prevPan(-1),
     panSet(-1),
@@ -481,10 +484,13 @@ struct smpsTempVars {
     volTimer(0),
     pitchTarget(0),
     pitchRate(0),
+    pitchPort(0),
     delayTime(-1),
     delayNote(-1),
     volCheck(false),
-    fixed(false)
+    fixed(false),
+    portamento(false),
+    vibChange(false)
     {
     for (int i = 0; i < 0x10; i++) effects[i] = "";
     for (int i = 0; i < timeLen; i++) timers[i] = 0;

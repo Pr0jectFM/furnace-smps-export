@@ -253,14 +253,14 @@ static void writeHeader(SafeWriter* w, smpsVars& vars, DivSubSong*& s, const Div
   w->writeText("; Header\n");
   w->writeText("; ===========================================================================\n\n");
   // Write header
-  w->writeText(fmt::sprintf("%s_Header:", options.label));
-  w->writeText(fmt::sprintf("\n\t%s", (*vars.symCommands)[smpsStart]));
+  w->writeText(fmt::sprintf("%s_Header:\n", options.label));
+  w->writeText(fmt::sprintf("\t%s", (*vars.symCommands)[smpsStart]));
   if (options.style == verFlamewing)
     w->writeText(fmt::sprintf(" %d", options.tempo + 1));
   if (options.style != verAMPS)
-    w->writeText(fmt::sprintf("\n\t%s\t%s_Voices", (*vars.symCommands)[smpsVoice], options.label));
-  if (options.style == verAMPS)
-    w->writeText(fmt::sprintf("\n\t%s\t$%.2X, $%.2X", (*vars.symCommands)[smpsTempo], options.div, options.speed));
+    w->writeText(fmt::sprintf("\n\t%s\t%s_Voices\n", (*vars.symCommands)[smpsVoice], options.label));
+  else
+    w->writeText(fmt::sprintf("\n\t%s\t$%.2X, $%.2X\n", (*vars.symCommands)[smpsTempo], options.div, options.speed));
   {
     // Get the number of FM and PSG channels
     int chansFM = 0, chansPSG = 0, i = 0;
@@ -275,10 +275,10 @@ static void writeHeader(SafeWriter* w, smpsVars& vars, DivSubSong*& s, const Div
     }
     i += vars.dualPCM;
     for (; i < 11; i++) if (vars.chanOn[i] >= typePSG || vars.chanOn[i] == typeEmpty) chansPSG++;
-    w->writeText(fmt::sprintf("\n\t%s\t$%.2X, $%.2X", (*vars.symCommands)[smpsChan], chansFM, chansPSG));
+    w->writeText(fmt::sprintf("\t%s\t$%.2X, $%.2X\n", (*vars.symCommands)[smpsChan], chansFM, chansPSG));
   }
   if (options.style != verAMPS)
-    w->writeText(fmt::sprintf("\n\t%s\t$%.2X, $%.2X", (*vars.symCommands)[smpsTempo], options.div, options.speed));
+    w->writeText(fmt::sprintf("\t%s\t$%.2X, $%.2X\n", (*vars.symCommands)[smpsTempo], options.div, options.speed));
 
   if (options.style == verAMPS) {
     if (vars.chanOn[5] == typePCM)
@@ -514,41 +514,248 @@ static void separateNote(SafeWriter* w, uint8_t& lineCnt, bool source) {
   lineCnt = (lineCnt + 1) % 16;
 }
 
+// get the note, octave, and offset of a given FM note
+short DivEngine::fmNote(const unsigned short arp, short& note, short& octave, short offset) {
+  short octChange = 0;
+  // convert note to frequency and back
+  unsigned short noteFreqs[]{
+    644, // C
+    682, // C#
+    723, // D
+    765, // D#
+    811, // E
+    860, // F
+    910, // F#
+    965, // G
+    1022, // G#
+    1083, // A
+    1146, // A#
+    1216, // B
+    1288  // C+
+  };
+  const unsigned int baseFreq = calcBaseFreq(1, 1, arp % 12, false);
+  unsigned int fNum = calcFreq(baseFreq, offset, 0, false, false, 2, 0, COLOR_NTSC * 15.0 / 7.0, 9440540.0, 11);
+
+  if (noteFreqs[0] > fNum) {
+    while (noteFreqs[0] > fNum) {
+      fNum *= 2;
+      octChange--;
+    }
+  }
+  else if (noteFreqs[12] <= fNum) {
+    while (noteFreqs[12] <= fNum) {
+      fNum /= 2;
+      octChange++;
+    }
+  }
+
+  for (int i = 1; i < 13; i++) {
+    if (noteFreqs[i] >= fNum) {
+      if ((noteFreqs[i] - fNum) > (fNum - noteFreqs[i - 1])) {
+        note = i - 1;
+        offset = fNum - noteFreqs[i - 1];
+        break;
+      }
+      else {
+        note = i;
+        offset = fNum - noteFreqs[i];
+        break;
+      }
+    }
+  }
+
+  if (note == 12) {
+    note = 0;
+    octChange++;
+  }
+
+  octave += octChange;
+  return offset;
+}
+
+// get the note, octave, and offset of a given PSG note
+short DivEngine::psgNote(const unsigned short arp, short& note, short& octave, short offset) {
+  // convert note to frequency and back
+  unsigned short psgFreqs[]{
+    1017, // A0
+    960, // A#0
+    906, // B0
+    855, // C1
+    807, // C#1
+    762, // D1
+    719, // D#1
+    679, // E1
+    641, // F1
+    605, // F#1
+    571, // G1
+    539, // G#1
+    508, // A1
+    480, // A#1
+    453, // B1
+    428, // C2
+    404, // C#2
+    381, // D2
+    360, // D#2
+    339, // E2
+    320, // F2
+    302, // F#2
+    285, // G2
+    269, // G#2
+    254, // A2
+    240, // A#2
+    226, // B2
+    214, // C3
+    202, // C#3
+    190, // D3
+    180, // D#3
+    170, // E3
+    160, // F3
+    151, // F#3
+    143, // G3
+    135, // G#3
+    127, // A3
+    120, // A#3
+    113, // B3
+    107, // C4
+    101, // C#4
+    95, // D4
+    90, // D#4
+    85, // E4
+    80, // F4
+    76, // F#4
+    71, // G4
+    67, // G#4
+    64, // A4
+    60, // A#4
+    57, // B4
+    53, // C5
+    50, // C#5
+    48, // D5
+    45, // D#5
+    42, // E5
+    40, // F5
+    38, // F#5
+    36, // G5
+    34, // G#5
+    32, // A5
+    30, // A#5
+    28, // B5
+    27, // C6
+    25, // C#6
+    24, // D6
+    22, // D#6
+    21, // E6
+    20, // F6
+    19, // F#6
+    18, // G6
+    17, // G#6
+    16, // A6
+    15 // A#6
+  };
+
+  const unsigned int baseFreq = round(calcBaseFreq(COLOR_NTSC, 64.0, arp, true));
+  unsigned int fNum = calcFreq(baseFreq, offset, 0, false, true, 0, 0, COLOR_NTSC, 64.0);
+
+  offset = 0;
+  if (fNum > psgFreqs[0]) {
+    note = 9;
+    octave = 0;
+    return offset;
+  }
+  short psgFreqsLen = sizeof(psgFreqs) / sizeof(psgFreqs[0]);
+  note = psgFreqsLen;
+  for (int i = 1; i < psgFreqsLen; i++) {
+    if (psgFreqs[i] < fNum) {
+      if ((psgFreqs[i - 1] - fNum) > (fNum - psgFreqs[i])) {
+        note = i;
+        offset = fNum - psgFreqs[i];
+        break;
+      }
+      else {
+        note = i - 1;
+        offset = fNum - psgFreqs[i - 1];
+        break;
+      }
+    }
+  }
+  note += 9;
+  octave = note / 12;
+  note = note % 12;
+  return offset;
+}
+
+bool DivEngine::portSet(SafeWriter* w, smpsVars& vars, smpsTempVars& temp, const DivSMPSOptions& options) {
+  bool cont = false;
+  for (int i = 0; i < 4; i++) {
+    if (temp.vib[i] != 0) cont = true;
+  }
+  if (!cont && temp.pitchRate == 0) return false;
+  unsigned int startFreq = 0, endFreq = 0;
+  uint8_t vib[4] = {};
+  bool found = false;
+  if (temp.noteOn && !temp.hold)
+    temp.pitchPort = 0;
+  if (vars.chanOn[temp.channel] == typeFM) {
+    const unsigned int baseFreq1 = calcBaseFreq(1, 1, temp.note % 12, false);
+    startFreq = calcFreq(baseFreq1, temp.offset, 0, false, false, 2, 0, COLOR_NTSC * 15.0 / 7.0, 9440540.0, 11);
+    const unsigned int baseFreq2 = calcBaseFreq(1, 1, temp.pitchTarget % 12, false);
+    endFreq = calcFreq(baseFreq2, temp.offset, 0, false, false, 2, 0, COLOR_NTSC * 15.0 / 7.0, 9440540.0, 11);
+  }
+  else if (vars.chanOn[temp.channel] >= typePSG) {
+    const unsigned int baseFreq1 = round(calcBaseFreq(COLOR_NTSC, 64.0, temp.note, true));
+    startFreq = calcFreq(baseFreq1, temp.offset, 0, false, true, 0, 0, COLOR_NTSC, 64.0);
+    const unsigned int baseFreq2 = round(calcBaseFreq(COLOR_NTSC, 64.0, temp.pitchTarget, true));
+    endFreq = calcFreq(baseFreq2, temp.offset, 0, false, true, 0, 0, COLOR_NTSC, 64.0);
+  }
+  const int diff = endFreq - startFreq - temp.pitchPort;
+  const double rate = temp.pitchRate * 4;
+  vib[0] = 0x01;
+  vib[1] = abs(temp.pitchRate);
+  vib[3] = 0xFF;
+  if (rate >= 0) {
+    if (rate > diff || rate == 0) {
+      for (int i = 0; i < 4; i++) vib[i] = 0;
+    }
+    else vib[2] = 0x01;
+  }
+  else {
+    if (rate < diff) {
+      for (int i = 0; i < 4; i++) vib[i] = 0;
+    }
+    else vib[2] = -0x01;
+  }
+  temp.pitchPort += rate;
+  for (int i = 0; i < 4; i++) {
+    if (vib[i] != temp.vib[i]) {
+      temp.vib[i] = vib[i];
+      temp.vibChange = true;
+    }
+  }
+  return temp.vibChange;
+}
+
 // command-specific code
-String DivEngine::smpsCommands(const uint8_t effect, const uint8_t value, smpsVars &vars, DivSubSong*& s, const DivSMPSOptions &options, smpsTempVars &temp) {
+String DivEngine::smpsCommands(const uint8_t effect, const uint8_t value, const uint8_t note, smpsVars &vars, DivSubSong*& s, const DivSMPSOptions &options, smpsTempVars &temp) {
   switch (effect) {
     // arpeggio
     case 0x00:
       return "\t; arpeggio";
-
     // pitch slide up
     case 0x01:
       temp.pitchRate = value;
-      temp.pitchTarget = 0;
-      temp.vib[2] = 0x04;
-      temp.vib[3] = 0x7F;
-      goto setVib;
+      temp.pitchTarget = -1;
+      return "";
     // pitch slide down
     case 0x02:
       temp.pitchRate = value;
       temp.pitchTarget = 0;
-      temp.vib[2] = -0x04;
-      temp.vib[3] = -0x80;
-      goto setVib;
+      return "";
     // portamento
     case 0x03:
-      temp.vib[2] = 0x04;
-      temp.vib[3] = 0x7F;
-    setVib:
       temp.pitchRate = value;
-      temp.pitchTarget = 0;
-      temp.vib[0] = 0x00;
-      temp.vib[1] = 0x01;
-      temp.timers[timeVib] = value * 4;
-      if (options.style != verSource)
-        return fmt::sprintf("%s\t$%.2X, $%.2X, $%.2X, $%.2X", (*vars.symCommands)[smpsSetVib68k], temp.vib[0], temp.vib[1], temp.vib[2], temp.vib[3]);
-      else
-        return fmt::sprintf("%s,%d,%d,%d,%d", (*vars.symCommands)[smpsSetVib68k], temp.vib[0], temp.vib[1], temp.vib[2], temp.vib[3]);
+      temp.pitchTarget = note;
+      temp.portamento = true;
+      return "";
     // vibrato
     case 0x04:
       if ((value & 0x0F) == 0)
@@ -660,7 +867,7 @@ String DivEngine::smpsCommands(const uint8_t effect, const uint8_t value, smpsVa
 
     // send external command
     case 0xEE:
-      return "\t; send external command";
+      return fmt::sprintf("%s\t\t%.2X", (*vars.symCommands)[smpsComm], value);
 
     // set tick rate (bpm)
     case 0xF0:
@@ -738,9 +945,9 @@ bool DivEngine::checkChanges(const DivPattern* p, smpsVars& vars, smpsTempVars& 
   }
 
   // check effects
-  for (int layer = 0; layer < s->pat[temp.channel].effectCols; layer++)
+  for (int layer = 0; layer < s->pat[temp.channel].effectCols; layer++) {
     if (p->newData[furStep][DIV_PAT_FX(layer)] >= 0) {
-      String line = smpsCommands(p->newData[furStep][DIV_PAT_FX(layer)], p->newData[furStep][DIV_PAT_FXVAL(layer)], vars, s, options, temp);
+      String line = smpsCommands(p->newData[furStep][DIV_PAT_FX(layer)], p->newData[furStep][DIV_PAT_FXVAL(layer)], p->newData[furStep][DIV_PAT_NOTE], vars, s, options, temp);
       if (line != "") {
         if (line != "!") {
           temp.effects[temp.numEffects] = line;
@@ -749,14 +956,16 @@ bool DivEngine::checkChanges(const DivPattern* p, smpsVars& vars, smpsTempVars& 
         found = true;
       }
     }
+  }
 
   // *checks notes*
-  if (p->newData[furStep][DIV_PAT_NOTE] != -1) {
+  if (p->newData[furStep][DIV_PAT_NOTE] != -1 && !temp.portamento) {
     temp.macroTimer = (p->newData[furStep][DIV_PAT_NOTE] == DIV_NOTE_OFF) ? -1 : 0;
     temp.note = p->newData[furStep][DIV_PAT_NOTE];
     temp.noteOn = true;
     found = true;
   }
+  temp.portamento = false;
   return found;
 }
 
@@ -869,6 +1078,7 @@ void DivEngine::getTimer(SafeWriter* w, const DivPattern* p, smpsVars& vars, smp
     if (temp.macroTimer != -1)
       found += checkMacros(vars, temp, song, options, step);
     found += checkTimers(w, vars, temp, s, options);
+    found += portSet(w, vars, temp, options);
 
     // leave if something is found
     if (found || (step - temp.steps == 0x7F)) {
@@ -894,174 +1104,6 @@ void DivEngine::getTimer(SafeWriter* w, const DivPattern* p, smpsVars& vars, smp
   w->writeText(fmt::sprintf("\n\t; $%.2X", waitCheck));
 };
 
-void DivEngine::fmNote(smpsVars& vars, smpsTempVars& temp, const unsigned short arp, short &note, short &octave) {
-  short octChange = 0;
-  // convert note to frequency and back
-  unsigned short noteFreqs[]{
-    644, // C
-    682, // C#
-    723, // D
-    765, // D#
-    811, // E
-    860, // F
-    910, // F#
-    965, // G
-    1022, // G#
-    1083, // A
-    1146, // A#
-    1216, // B
-    1288  // C+
-  };
-  unsigned int baseFreq = calcBaseFreq(1, 1, arp % 12, false);
-  unsigned int fNum = calcFreq(baseFreq, vars.pitch + temp.macroVals[macDetune], temp.arpOff, false, false, 2, 0, COLOR_NTSC * 15.0 / 7.0, 9440540.0, 11);
-
-  //w->writeText(fmt::sprintf("%d %d ", baseFreq, fNum));
-
-  if (noteFreqs[0] > fNum) {
-    while (noteFreqs[0] > fNum) {
-      fNum *= 2;
-      octChange--;
-    }
-  }
-  else if (noteFreqs[12] <= fNum) {
-    while (noteFreqs[12] <= fNum) {
-      fNum /= 2;
-      octChange++;
-    }
-  }
-
-  for (int i = 1; i < 13; i++) {
-    if (noteFreqs[i] >= fNum) {
-      if ((noteFreqs[i] - fNum) > (fNum - noteFreqs[i - 1])) {
-        note = i - 1;
-        temp.offset = fNum - noteFreqs[i - 1];
-        break;
-      }
-      else {
-        note = i;
-        temp.offset = fNum - noteFreqs[i];
-        break;
-      }
-    }
-  }
-
-  if (note == 12) {
-    note = 0;
-    octChange++;
-  }
-
-  octave += octChange;
- }
-
-void DivEngine::psgNote(smpsVars& vars, smpsTempVars& temp, const unsigned short arp, short& note, short& octave) {
-  // convert note to frequency and back
-  unsigned short psgFreqs[]{
-    1017, // A0
-    960, // A#0
-    906, // B0
-    855, // C1
-    807, // C#1
-    762, // D1
-    719, // D#1
-    679, // E1
-    641, // F1
-    605, // F#1
-    571, // G1
-    539, // G#1
-    508, // A1
-    480, // A#1
-    453, // B1
-    428, // C2
-    404, // C#2
-    381, // D2
-    360, // D#2
-    339, // E2
-    320, // F2
-    302, // F#2
-    285, // G2
-    269, // G#2
-    254, // A2
-    240, // A#2
-    226, // B2
-    214, // C3
-    202, // C#3
-    190, // D3
-    180, // D#3
-    170, // E3
-    160, // F3
-    151, // F#3
-    143, // G3
-    135, // G#3
-    127, // A3
-    120, // A#3
-    113, // B3
-    107, // C4
-    101, // C#4
-    95, // D4
-    90, // D#4
-    85, // E4
-    80, // F4
-    76, // F#4
-    71, // G4
-    67, // G#4
-    64, // A4
-    60, // A#4
-    57, // B4
-    53, // C5
-    50, // C#5
-    48, // D5
-    45, // D#5
-    42, // E5
-    40, // F5
-    38, // F#5
-    36, // G5
-    34, // G#5
-    32, // A5
-    30, // A#5
-    28, // B5
-    27, // C6
-    25, // C#6
-    24, // D6
-    22, // D#6
-    21, // E6
-    20, // F6
-    19, // F#6
-    18, // G6
-    17, // G#6
-    16, // A6
-    15 // A#6
-  };
-
-  unsigned int baseFreq = round(calcBaseFreq(COLOR_NTSC, 64.0, arp, true));
-  unsigned int fNum = calcFreq(baseFreq, vars.pitch + temp.macroVals[macDetune], temp.arpOff, false, true, 0, 0, COLOR_NTSC, 64.0);
-
-  temp.offset = 0;
-  if (fNum > psgFreqs[0]) {
-    note = 9;
-    octave = 0;
-    return;
-  }
-  short psgFreqsLen = sizeof(psgFreqs) / sizeof(psgFreqs[0]);
-  note = psgFreqsLen;
-  for (int i = 1; i < psgFreqsLen; i++) {
-    if (psgFreqs[i] < fNum) {
-      if ((psgFreqs[i - 1] - fNum) > (fNum - psgFreqs[i])) {
-        note = i;
-        temp.offset = fNum - psgFreqs[i];
-        break;
-      }
-      else {
-        note = i - 1;
-        temp.offset = fNum - psgFreqs[i - 1];
-        break;
-      }
-    }
-  }
-  note += 9;
-  octave = note / 12;
-  note = note % 12;
-}
-
 // get the note to write
 String DivEngine::getNote(SafeWriter* w, smpsVars& vars, smpsTempVars& temp, const DivSMPSOptions& options) {
   // write note
@@ -1072,9 +1114,9 @@ String DivEngine::getNote(SafeWriter* w, smpsVars& vars, smpsTempVars& temp, con
     short octave = arp / 12;
     short note = arp % 12;
 
-    if (vars.chanOn[temp.channel] == typeFM) fmNote(vars, temp, arp, note, octave);
+    if (vars.chanOn[temp.channel] == typeFM) temp.offset = fmNote(arp, note, octave, vars.pitch + temp.macroVals[macDetune]);
     else if (vars.chanOn[temp.channel] >= typePSG) {
-      psgNote(vars, temp, arp, note, octave);
+      temp.offset = psgNote(arp, note, octave, vars.pitch + temp.macroVals[macDetune]);
       if ((note + octave * 12) > options.psgMax) {
         temp.offset = 0;
         if (options.style == verFlamewing || options.style == verAMPS) {
@@ -1170,6 +1212,15 @@ void DivEngine::writeNotes(SafeWriter* w, smpsVars& vars, smpsTempVars& temp, co
     }
     temp.volCheck = true;
     temp.volLast = volRanged;
+    if (!temp.noteOn) temp.hold = true;
+  }
+
+  // vibrato changes
+  if (temp.vibChange) {
+    temp.vibChange = false;
+    temp.lineCnt = 0;
+    if (temp.vib[2] == 0) w->writeText(fmt::sprintf("\n\t%s", (*vars.symCommands)[smpsVibOff]));
+    else w->writeText(fmt::sprintf("\n\t%s\t\t$%.2X, $%.2X, $%.2X, $%.2X", (*vars.symCommands)[smpsSetVib68k], temp.vib[0], temp.vib[1], temp.vib[2], temp.vib[3]));
     if (!temp.noteOn) temp.hold = true;
   }
 
