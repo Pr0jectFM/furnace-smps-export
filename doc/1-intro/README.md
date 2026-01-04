@@ -33,5 +33,3 @@ once familiar with the tracker, look to [9-guides](../9-guides/README.md) for us
 ## for more information
 
 see the [frequently asked questions](faq.md).
-
-if something seems to be going wrong and nothing else in the manual helps, see the [troubleshooting](troubleshooting.md) page.

@@ -714,11 +714,7 @@ static void close_libgl(void)
 
 static int is_library_loaded(const char* name, void** lib)
 {
-#if defined(__HAIKU__)
-    *lib = NULL; // no support for RTLD_NOLOAD on Haiku.
-#else
     *lib = dlopen(name, RTLD_LAZY | RTLD_LOCAL | RTLD_NOLOAD);
-#endif
     return *lib != NULL;
 }
 

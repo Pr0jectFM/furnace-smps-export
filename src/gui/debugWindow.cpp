@@ -540,7 +540,6 @@ void FurnaceGUI::drawDebug() {
       ImGui::Text("Canvas: %dx%d",canvasW,canvasH);
       ImGui::Text("Maximized: %d",scrMax);
       ImGui::Text("System Managed Scale: %d",sysManagedScale);
-      ImGui::Text("Input Scale: %f",ImGui::GetIO().InputScale);
       ImGui::TreePop();
     }
     if (ImGui::TreeNode("Audio Debug")) {
@@ -851,7 +850,7 @@ void FurnaceGUI::drawDebug() {
       auto DrawSpot=[&](const CursorJumpPoint& spot) {
         ImGui::Text("[%d:%d] <%d:%d, %d>", spot.subSong, spot.order, spot.point.xCoarse, spot.point.xFine, spot.point.y);
       };
-      if (ImGui::BeginChild("##CursorUndoDebugChild", ImVec2(0, 300), ImGuiChildFlags_Borders)) {
+      if (ImGui::BeginChild("##CursorUndoDebugChild", ImVec2(0, 300), ImGuiChildFlags_Border)) {
         if (ImGui::BeginTable("##CursorUndoDebug", 2, ImGuiTableFlags_Borders|ImGuiTableFlags_SizingStretchSame)) {
           for (size_t row=0; row<MAX(cursorUndoHist.size(),cursorRedoHist.size()); ++row) {
             ImGui::TableNextRow();

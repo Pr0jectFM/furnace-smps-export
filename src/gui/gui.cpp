@@ -6200,7 +6200,7 @@ bool FurnaceGUI::loop() {
         ImVec2 romLogSize=ImGui::GetContentRegionAvail();
         romLogSize.y-=ImGui::GetFrameHeightWithSpacing();
         if (romLogSize.y<60.0f*dpiScale) romLogSize.y=60.0f*dpiScale;
-        if (ImGui::BeginChild("Export Log",romLogSize,ImGuiChildFlags_Borders)) {
+        if (ImGui::BeginChild("Export Log",romLogSize,ImGuiChildFlags_Border)) {
           pendingExport->logLock.lock();
           ImGui::PushFont(patFont);
           for (String& i: pendingExport->exportLog) {
@@ -9051,7 +9051,6 @@ FurnaceGUI::FurnaceGUI():
   wavePreviewHeight(255),
   wavePreviewInit(true),
   wavePreviewPaused(false),
-  wavePreviewAccum(0.0f),
   pgSys(0),
   pgAddr(0),
   pgVal(0),

@@ -2472,7 +2472,6 @@ class FurnaceGUI {
   DivWaveSynth wavePreview;
   int wavePreviewLen, wavePreviewHeight;
   bool wavePreviewInit, wavePreviewPaused;
-  float wavePreviewAccum;
 
   // bit 31: ctrl
   // bit 30: reserved for SDL scancode mask
