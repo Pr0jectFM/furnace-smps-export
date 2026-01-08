@@ -149,9 +149,13 @@ I will dismiss any bug reports that fit any of the criteria:
 - Occur due to a limitation of the sound driver or any iteration of it (assuming there is no feasible alternative fix)
 - Are an issue that is too insubstantial to be worth the effort required to fix it (e.g. how pitch slides aren't linear in SMPS)
 
-### Is the above list of planned features guarenteed?
+### How will planned features be prioritized?
 
-No.
+I don't tend to have a set order for implementing stuff. However, you are free to contact me anywhere to request for me to prioritize anything unimplemented and I will try my best to do so. As a side note, tipping me on Ko-fi is a great motivating factor for me to spend more time working on this, and I will give extra attention to the requests of people who give me money.
+
+### How do I access development builds?
+
+
 
 Below is unchanged from the original README.md
 
