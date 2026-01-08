@@ -686,16 +686,24 @@ short DivEngine::psgNote(const unsigned short arp, short& note, short& octave, s
 
 bool DivEngine::portamentoSet(SafeWriter* w, smpsVars& vars, smpsTempVars& temp, const DivSMPSOptions& options) {
   // calculate time it takes to reach target
-  unsigned int timer = ((temp.pitchTarget - temp.note) * 128) / temp.pitchRate;
-
-
-  bool cont = false;
-  for (int i = 0; i < 4; i++) {
-    if (temp.vib[i] != 0) cont = true;
+  if (temp.pitchTimer == 0) temp.pitchRate = 0;
+  if (temp.pitchRate == 0) {
+    temp.vibChange = false;
+    for (int i = 0; i < 4; i++) {
+      if (temp.vib[i] != 0) {
+        temp.vibChange = true;
+        temp.vib[i] = 0;
+        temp.note = temp.pitchTarget;
+      }
+    }
+    return temp.vibChange;
   }
-  if (!cont && temp.pitchRate == 0) return false;
-  unsigned int startFreq = 0, endFreq = 0;
-  uint8_t vib[4] = {};
+  if ((short)temp.pitchTimer != -1) {
+    temp.pitchTimer -= 1;
+    temp.pitchPort += temp.vib[2];
+    return false;
+  }
+  unsigned short startFreq = 0, endFreq = 0;
   bool found = false;
   if (temp.noteOn && !temp.hold)
     temp.pitchPort = 0;
@@ -706,36 +714,29 @@ bool DivEngine::portamentoSet(SafeWriter* w, smpsVars& vars, smpsTempVars& temp,
     endFreq = calcFreq(baseFreq2, temp.offset, 0, false, false, 2, 0, COLOR_NTSC * 15.0 / 7.0, 9440540.0, 11);
   }
   else if (vars.chanOn[temp.channel] >= typePSG) {
-    const unsigned int baseFreq1 = round(calcBaseFreq(COLOR_NTSC, 64.0, temp.note, true));
+    const unsigned int baseFreq1 = round(calcBaseFreq(COLOR_NTSC, 64.0, temp.note - (5 * 12), true));
     startFreq = calcFreq(baseFreq1, temp.offset, 0, false, true, 0, 0, COLOR_NTSC, 64.0);
-    const unsigned int baseFreq2 = round(calcBaseFreq(COLOR_NTSC, 64.0, temp.pitchTarget, true));
+    const unsigned int baseFreq2 = round(calcBaseFreq(COLOR_NTSC, 64.0, temp.pitchTarget - (5 * 12), true));
     endFreq = calcFreq(baseFreq2, temp.offset, 0, false, true, 0, 0, COLOR_NTSC, 64.0);
   }
-  const int diff = endFreq - startFreq - temp.pitchPort;
-  const double rate = temp.pitchRate * 4;
-  vib[0] = (options.vibrato == 0)? 0x00: ((options.vibrato == 1)? 0x01: 0x02);
-  vib[1] = abs(rate);
-  vib[3] = 0xFF;
-  if (rate >= 0) {
-    if (rate > diff || rate == 0) {
-      for (int i = 0; i < 4; i++) vib[i] = 0;
-    }
-    else vib[2] = 0x01;
+  const unsigned int diff = abs(endFreq - startFreq);
+  const unsigned int estTime = (128 * (abs(temp.pitchTarget - temp.note))) / (temp.pitchRate * song.compatFlags.pitchSlideSpeed * options.stepSz);
+  if (diff >= estTime) {
+    const unsigned int rate = diff / estTime;
+    temp.pitchTimer = (unsigned short)(diff / rate);
+    temp.vib[1] = 0x01;
+    temp.vib[2] = (endFreq > startFreq) ? rate : -(unsigned short)rate;
   }
   else {
-    if (rate < diff) {
-      for (int i = 0; i < 4; i++) vib[i] = 0;
-    }
-    else vib[2] = -0x01;
+    const unsigned int rate = estTime / diff;
+    temp.pitchTimer = diff * rate;
+    temp.vib[1] = rate;
+    temp.vib[2] = (endFreq > startFreq) ? 0x01 : -0x01;
   }
-  temp.pitchPort += rate;
-  for (int i = 0; i < 4; i++) {
-    if (vib[i] != temp.vib[i]) {
-      temp.vib[i] = vib[i];
-      temp.vibChange = true;
-    }
-  }
-  return temp.vibChange;
+  temp.vib[0] = (options.vibrato == 0) ? 0x00 : ((options.vibrato == 1) ? 0x01 : 0x02);
+  temp.vib[3] = 0xFF;
+  temp.vibChange = true;
+  return true;
 }
 
 // command-specific code
@@ -748,17 +749,20 @@ String DivEngine::smpsCommands(const uint8_t effect, const uint8_t value, const 
     case 0x01:
       temp.pitchRate = value;
       temp.pitchTarget = -1;
+      temp.pitchTimer = -1;
       return "";
     // pitch slide down
     case 0x02:
       temp.pitchRate = value;
       temp.pitchTarget = 0;
+      temp.pitchTimer = -1;
       return "";
     // portamento
     case 0x03:
       temp.pitchRate = value;
       temp.pitchTarget = note;
       temp.portamento = true;
+      temp.pitchTimer = -1;
       return "";
     // vibrato
     case 0x04:

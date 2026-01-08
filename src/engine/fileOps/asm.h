@@ -443,6 +443,7 @@ struct smpsTempVars {
   short volRate;
   unsigned short volTimer;
   int pitchTarget, pitchRate, pitchPort;
+  unsigned short pitchTimer;
   uint8_t vib[4];
   short delayTime, delayNote;
   bool volCheck, fixed, portamento, vibChange;
@@ -485,6 +486,7 @@ struct smpsTempVars {
     pitchTarget(0),
     pitchRate(0),
     pitchPort(0),
+    pitchTimer(0),
     delayTime(-1),
     delayNote(-1),
     volCheck(false),
