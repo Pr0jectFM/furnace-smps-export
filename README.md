@@ -130,6 +130,29 @@ Unsupported effects:
 - DF Set sample playback (can't edit samples)
 - E3 Set vibrato shape (might change mind on this)
 
+## FAQ
+
+### Is a pre-assembled (.bin) export option planned?
+
+No. Doing that would require a substantial amount of work for what amounts to a minor convenience, and I'd much rather spend that tim
+
+### How do I submit a bug report?
+
+I'm anticipating that the vast majority of bugs reported will be from modules where an expected feature doesn't translate to SMPS correctly. In these cases you can use the Issues tab or bug me anywhere you can find me. All I require is a brief explanation of the issue, but any of these in addition would be helpful:
+- Which options you had selected
+- Linking a .fur with the issue (ideally with said issue isolated)
+- Description of ways in which you varied conditions in order to determine in what cases the bug occurs
+- An edited .asm output which shows what you expect the output to be
+
+I will dismiss any bug reports that fit any of the criteria:
+- Occur due to a planned unimplemented feature
+- Occur due to a limitation of the sound driver or any iteration of it (assuming there is no feasible alternative fix)
+- Are an issue that is too insubstantial to be worth the effort required to fix it (e.g. how pitch slides aren't linear in SMPS)
+
+### Is the above list of planned features guarenteed?
+
+No.
+
 Below is unchanged from the original README.md
 
 ---
