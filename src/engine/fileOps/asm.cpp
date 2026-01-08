@@ -684,7 +684,11 @@ short DivEngine::psgNote(const unsigned short arp, short& note, short& octave, s
   return offset;
 }
 
-bool DivEngine::portSet(SafeWriter* w, smpsVars& vars, smpsTempVars& temp, const DivSMPSOptions& options) {
+bool DivEngine::portamentoSet(SafeWriter* w, smpsVars& vars, smpsTempVars& temp, const DivSMPSOptions& options) {
+  // calculate time it takes to reach target
+  unsigned int timer = ((temp.pitchTarget - temp.note) * 128) / temp.pitchRate;
+
+
   bool cont = false;
   for (int i = 0; i < 4; i++) {
     if (temp.vib[i] != 0) cont = true;
@@ -709,8 +713,8 @@ bool DivEngine::portSet(SafeWriter* w, smpsVars& vars, smpsTempVars& temp, const
   }
   const int diff = endFreq - startFreq - temp.pitchPort;
   const double rate = temp.pitchRate * 4;
-  vib[0] = 0x01;
-  vib[1] = abs(temp.pitchRate);
+  vib[0] = (options.vibrato == 0)? 0x00: ((options.vibrato == 1)? 0x01: 0x02);
+  vib[1] = abs(rate);
   vib[3] = 0xFF;
   if (rate >= 0) {
     if (rate > diff || rate == 0) {
@@ -1078,7 +1082,7 @@ void DivEngine::getTimer(SafeWriter* w, const DivPattern* p, smpsVars& vars, smp
     if (temp.macroTimer != -1)
       found += checkMacros(vars, temp, song, options, step);
     found += checkTimers(w, vars, temp, s, options);
-    found += portSet(w, vars, temp, options);
+    found += portamentoSet(w, vars, temp, options);
 
     // leave if something is found
     if (found || (step - temp.steps == 0x7F)) {

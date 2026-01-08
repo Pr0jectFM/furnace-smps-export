@@ -706,7 +706,7 @@ class DivEngine {
     short fmNote(const unsigned short arp, short& note, short& octave, short offset);
     short psgNote(const unsigned short arp, short& note, short& octave, short offset);
     String getNote(SafeWriter* w, smpsVars& vars, smpsTempVars& temp, const DivSMPSOptions& options);
-    bool DivEngine::portSet(SafeWriter* w, smpsVars& vars, smpsTempVars& temp, const DivSMPSOptions& options);
+    bool portamentoSet(SafeWriter* w, smpsVars& vars, smpsTempVars& temp, const DivSMPSOptions& options);
     void writeNotes(SafeWriter* w, smpsVars& vars, smpsTempVars& temp, const DivSMPSOptions& options);
     void getTimer(SafeWriter* w, const DivPattern* p, smpsVars& vars, smpsTempVars& temp, DivSubSong*& s, const DivSMPSOptions& options);
 
