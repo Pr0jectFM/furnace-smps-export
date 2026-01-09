@@ -23,6 +23,8 @@ However, in order to ensure that no adjustments need to be made post-export, som
   - Avoid the use of lengthy macros
 
 ## Bugs
+- Fails to write note on the same line as a vibrato effect (still adds separating comma)
+- Parts swap between being quieter and louder (High Hazard)
 
 Lesser importance:
 - Setting the step size ratio to a non-integer causes notes to be skipped
@@ -45,7 +47,6 @@ Before the 1.0 release:
   - F1 Pitch change up
   - F2 Pitch change down
 - Reset vibrato after pitch slide
-- Detune pitch slide option
 - Improve pattern identification
   - Don't consider volume when determing macro length in PSG
   - Ignore macro length when first note of the pattern is played or silent
@@ -53,6 +54,8 @@ Before the 1.0 release:
     - Also ignore if EC 00 is used
   - Add legato to pattern identifiers
   - Figure out cases where macro length is 00 versus FF
+- Start first pattern with a rest if a note isn't immediately played
+- If vibrato is interrupted, continue from anticipated point rather than where it left off at
 
 Post 1.0 release (higher demand features take priority):
 - Effects
@@ -81,6 +84,7 @@ Post 1.0 release (higher demand features take priority):
   - FC Note release
   - FD Virtual tempo numerator
   - FE Virtual tempo denominator
+- Detune pitch slide option
 - Multiple speeds/grooves
 - SFX option
 - Use selected subsong
@@ -132,10 +136,6 @@ Unsupported effects:
 
 ## FAQ
 
-### Is a pre-assembled (.bin) export option planned?
-
-No. Doing that would require a substantial amount of work for what amounts to a minor convenience, and I'd much rather spend that tim
-
 ### How do I submit a bug report?
 
 I'm anticipating that the vast majority of bugs reported will be from modules where an expected feature doesn't translate to SMPS correctly. In these cases you can use the Issues tab or bug me anywhere you can find me. All I require is a brief explanation of the issue, but any of these in addition would be helpful:
@@ -147,13 +147,26 @@ I'm anticipating that the vast majority of bugs reported will be from modules wh
 I will dismiss any bug reports that fit any of the criteria:
 - Occur due to a planned unimplemented feature
 - Occur due to a limitation of the sound driver or any iteration of it (assuming there is no feasible alternative fix)
-- Are an issue that is too insubstantial to be worth the effort required to fix it (e.g. how pitch slides aren't linear in SMPS)
+- Are an issue that is too insubstantial to be worth the work required to fix it (e.g. how pitch slides aren't linear in SMPS)
+- Are an issue that is inhereted from the unmodified version of Furnace being worked off of
+
+In the cases of crashes, send me your crash log. On Windows, it can be found in C:/Users/*username*.
 
 ### How will planned features be prioritized?
 
-I don't tend to have a set order for implementing stuff. However, you are free to contact me anywhere to request for me to prioritize anything unimplemented and I will try my best to do so. As a side note, tipping me on Ko-fi is a great motivating factor for me to spend more time working on this, and I will give extra attention to the requests of people who give me money.
+I don't tend to have a set order for implementing stuff. However, you are free to contact me anywhere to request for me to prioritize anything unimplemented and I will try my best to do so. It helps if you can provide a .fur file that demonstrates how useful the feature is. As a side note, tipping me on Ko-fi is a great motivating factor for me to spend more time working on this, and if you give me any amount I'll be more likely to prioritize your request over others.
 
 ### How do I access development builds?
+
+GitHub will automatically compile builds after every push to the repo. They can be found in the Actions tab.
+
+### Is a pre-assembled (.bin) export option planned?
+
+No. Doing that would require a substantial amount of work for what amounts to a minor convenience, and I'd much rather spend that time improving compatibility through stuff like supporting more effects. If you want to assemble an smps2asm file, it's just a matter of using an assembler and including the appropriate header file (usually named something like "_smps2asm_inc.asm").
+
+### Do you have plans for further optimizations using loops such as what SMPSOpt does?
+
+Not at the moment, though I may end up being convinced otherwise. As earlier stated, I want to prioritize maximum compatibility over all else. If you want your song optimized, SMPSOpt is a very helpful tool, though keep in mind it only works with pre-assembled files.
 
 
 
