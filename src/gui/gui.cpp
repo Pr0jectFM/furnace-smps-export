@@ -3999,7 +3999,7 @@ bool FurnaceGUI::loop() {
           break;
         case SDL_WINDOWEVENT:
           switch (ev.window.event) {
-            case SDL_WINDOWEVENT_RESIZED:
+            case SDL_WINDOWEVENT_RESIZED: {
               scrW=ev.window.data1;
               scrH=ev.window.data2;
               portrait=(scrW<scrH);
@@ -4007,7 +4007,32 @@ bool FurnaceGUI::loop() {
               logD("window resized to %dx%d",scrW,scrH);
               updateWindow=true;
               rend->resized(ev);
+
+              // check whether we're in fullscreen
+              int displayOfWindow=SDL_GetWindowDisplayIndex(sdlWin);
+              SDL_Rect displayRect;
+              if (displayOfWindow<0) {
+                logW("couldn't get display of window after resize! (%s)",SDL_GetError());
+                break;
+              }
+
+              if (SDL_GetDisplayBounds(displayOfWindow,&displayRect)!=0) {
+                logW("couldn't get display bounds after resize! (%s)",SDL_GetError());
+                break;
+              }
+
+              if (fullScreen) {
+                sysFullScreen=false;
+              } else {
+                if (scrW==displayRect.w && scrH==displayRect.h) {
+                  logD("we may be in fullscreen");
+                  sysFullScreen=true;
+                } else {
+                  sysFullScreen=false;
+                }
+              }
               break;
+            }
             case SDL_WINDOWEVENT_MOVED:
               scrX=ev.window.data1;
               scrY=ev.window.data2;
@@ -4172,7 +4197,7 @@ bool FurnaceGUI::loop() {
     // update config x/y/w/h values based on scrMax state
     if (updateWindow) {
       logV("updateWindow is true");
-      if (!scrMax && !fullScreen) {
+      if (!scrMax && !fullScreen && !sysFullScreen) {
         logV("updating scrConf");
         scrConfX=scrX;
         scrConfY=scrY;
@@ -4845,8 +4870,13 @@ bool FurnaceGUI::loop() {
       }
       if (ImGui::BeginMenu(settings.capitalMenuBar?_("Settings"):_("settings"))) {
 #ifndef IS_MOBILE
-        if (ImGui::MenuItem(_("full screen"),BIND_FOR(GUI_ACTION_FULLSCREEN),fullScreen)) {
+        ImGui::BeginDisabled(sysFullScreen);
+        if (ImGui::MenuItem(_("full screen"),BIND_FOR(GUI_ACTION_FULLSCREEN),fullScreen || sysFullScreen)) {
           doAction(GUI_ACTION_FULLSCREEN);
+        }
+        ImGui::EndDisabled();
+        if (sysFullScreen) {
+          ImGui::SetItemTooltip(_("the system has set Furnace to full screen."));
         }
 #endif
         if (ImGui::MenuItem(_("lock layout"),NULL,lockLayout)) {
@@ -8814,6 +8844,7 @@ FurnaceGUI::FurnaceGUI():
   displayNew(false),
   displayPalette(false),
   fullScreen(false),
+  sysFullScreen(false),
   preserveChanPos(false),
   sysDupCloneChannels(true),
   sysDupEnd(false),
