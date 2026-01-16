@@ -23,7 +23,6 @@ However, in order to ensure that no adjustments need to be made post-export, som
   - Avoid the use of lengthy macros
 
 ## Bugs
-- Fails to write note on the same line as a vibrato effect (still adds separating comma)
 - Parts swap between being quieter and louder (High Hazard)
 
 Lesser importance:
@@ -46,7 +45,6 @@ Before the 1.0 release:
   - EC Note cut
   - F1 Pitch change up
   - F2 Pitch change down
-- Reset vibrato after pitch slide
 - Improve pattern identification
   - Don't consider volume when determing macro length in PSG
   - Ignore macro length when first note of the pattern is played or silent
@@ -168,7 +166,9 @@ No. Doing that would require a substantial amount of work for what amounts to a 
 
 Not at the moment, though I may end up being convinced otherwise. As earlier stated, I want to prioritize maximum compatibility over all else. If you want your song optimized, SMPSOpt is a very helpful tool, though keep in mind it only works with pre-assembled files.
 
+### Do you plan on adding support for MML?
 
+This one's up in the air for me since it would be a lot of work but a worthwhile payoff that can hopefully make MDSDRV more accessible to musicians. Because it will essentially be a separate project, I want to wait until this project is much closer to completion.
 
 Below is unchanged from the original README.md
 

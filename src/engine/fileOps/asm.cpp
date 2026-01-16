@@ -690,9 +690,9 @@ bool DivEngine::portamentoSet(SafeWriter* w, smpsVars& vars, smpsTempVars& temp,
   if (temp.pitchRate == 0) {
     temp.vibChange = false;
     for (int i = 0; i < 4; i++) {
-      if (temp.vib[i] != 0) {
+      if (temp.port[i] != 0) {
         temp.vibChange = true;
-        temp.vib[i] = 0;
+        temp.port[i] = 0;
         temp.note = temp.pitchTarget;
       }
     }
@@ -700,7 +700,7 @@ bool DivEngine::portamentoSet(SafeWriter* w, smpsVars& vars, smpsTempVars& temp,
   }
   if ((short)temp.pitchTimer != -1) {
     temp.pitchTimer -= 1;
-    temp.pitchPort += temp.vib[2];
+    temp.pitchPort += temp.port[2];
     return false;
   }
   unsigned short startFreq = 0, endFreq = 0;
@@ -720,21 +720,22 @@ bool DivEngine::portamentoSet(SafeWriter* w, smpsVars& vars, smpsTempVars& temp,
     endFreq = calcFreq(baseFreq2, temp.offset, 0, false, true, 0, 0, COLOR_NTSC, 64.0);
   }
   const unsigned int diff = abs(endFreq - startFreq);
+  if (diff == 0) return false;
   const unsigned int estTime = (128 * (abs(temp.pitchTarget - temp.note))) / (temp.pitchRate * song.compatFlags.pitchSlideSpeed * options.stepSz);
   if (diff >= estTime) {
     const unsigned int rate = diff / estTime;
     temp.pitchTimer = (unsigned short)(diff / rate);
-    temp.vib[1] = 0x01;
-    temp.vib[2] = (endFreq > startFreq) ? rate : -(unsigned short)rate;
+    temp.port[1] = 0x01;
+    temp.port[2] = (endFreq > startFreq) ? rate : -(unsigned short)rate;
   }
   else {
     const unsigned int rate = estTime / diff;
     temp.pitchTimer = diff * rate;
-    temp.vib[1] = rate;
-    temp.vib[2] = (endFreq > startFreq) ? 0x01 : -0x01;
+    temp.port[1] = rate;
+    temp.port[2] = (endFreq > startFreq) ? 0x01 : -0x01;
   }
-  temp.vib[0] = (options.vibrato == 0) ? 0x00 : ((options.vibrato == 1) ? 0x01 : 0x02);
-  temp.vib[3] = 0xFF;
+  temp.port[0] = (options.vibrato == 0) ? 0x00 : ((options.vibrato == 1) ? 0x02 : 0x01);
+  temp.port[3] = 0xFF;
   temp.vibChange = true;
   return true;
 }
@@ -766,33 +767,25 @@ String DivEngine::smpsCommands(const uint8_t effect, const uint8_t value, const 
       return "";
     // vibrato
     case 0x04:
-      if ((value & 0x0F) == 0)
-        return fmt::sprintf("%s", (*vars.symCommands)[smpsVibOff]);
-
-      switch (options.vibrato) {
-        case 0:
-          temp.vib[0] = 0x00;
-          break;
-        case 1:
-          temp.vib[0] = 0x02;
-          break;
-        default:
-          temp.vib[0] = 0x01;
+    {
+      short vib[4] = {};
+      if ((value & 0x0F) == 0) vib[2] = 0;
+      else {
+        vib[0] = (options.vibrato == 0) ? 0x00 : ((options.vibrato == 1) ? 0x02 : 0x01);
+        vib[1] = 0x01;
+        // (TickRate/(64*VibratoSpeed))
+        vib[3] = round(s->hz * (0x0F - 1.0 * value / 0x10) / vib[1] * 64 * 2);
+        if (vars.chanOn[temp.channel] < typePSG) {
+          vib[2] = round(8.0 * vib[1] * (value & 0x0F) / (0x0F - 1.0 * value / 0x10));
+        }
+        else {
+          vib[2] = round(5.0 * vib[1] * (value & 0x0F) / (0x0F - 1.0 * value / 0x10));
+        }
       }
-      temp.vib[1] = 0x01;
-      // (TickRate/(64*VibratoSpeed))
-      temp.vib[3] = round(s->hz * (0x0F - 1.0 * value / 0x10) / (temp.vib[1] * 64 * 2));
-      if (vars.chanOn[temp.channel] < typePSG) {
-        temp.vib[2] = round(8.0 * temp.vib[1] * (value & 0x0F) / (0x0F - 1.0 * value / 0x10));
-      } else {
-        temp.vib[2] = round(5.0 * temp.vib[1] * (value & 0x0F) / (0x0F - 1.0 * value / 0x10));
-      }
-
-
-      if (options.style != verSource)
-        return fmt::sprintf("%s\t$%.2X, $%.2X, $%.2X, $%.2X", (*vars.symCommands)[smpsSetVib68k], temp.vib[0], temp.vib[1], temp.vib[2], temp.vib[3]);
-      else
-        return fmt::sprintf("%s,%d,%d,%d,%d", (*vars.symCommands)[smpsSetVib68k], temp.vib[0], temp.vib[1], temp.vib[2], temp.vib[3]);
+      for (int i = 0; i < 4; i++)
+        if (vib[i] != temp.vib[i]) temp.vibChange = true;
+      return "";
+    }
 
     // tremolo
     case 0x07:
@@ -1227,8 +1220,26 @@ void DivEngine::writeNotes(SafeWriter* w, smpsVars& vars, smpsTempVars& temp, co
   if (temp.vibChange) {
     temp.vibChange = false;
     temp.lineCnt = 0;
-    if (temp.vib[2] == 0) w->writeText(fmt::sprintf("\n\t%s", (*vars.symCommands)[smpsVibOff]));
-    else w->writeText(fmt::sprintf("\n\t%s\t\t$%.2X, $%.2X, $%.2X, $%.2X", (*vars.symCommands)[smpsSetVib68k], temp.vib[0], temp.vib[1], temp.vib[2], temp.vib[3]));
+    short vib[4] = {};
+    for (int i = 0; i < 4; i++) {
+      if (temp.port[2] != 0) vib[i] = temp.port[i];
+      else vib[i] = temp.vib[i];
+    }
+    if (temp.port[2] == 0) {
+      if (options.style != verSource) w->writeText(fmt::sprintf("\n\t"));
+      w->writeText(fmt::sprintf("%s", (*vars.symCommands)[smpsVibOff]));
+    }
+    else {
+      if (options.style != verSource) {
+        w->writeText(fmt::sprintf("\n\t%s\t$%.2X, $%.2X, $%.2X, $%.2X", (*vars.symCommands)[smpsSetVib68k], vib[0], vib[1], vib[2], vib[3]));
+        temp.lineCnt = 0;
+      }
+      else {
+        separateNote(w, temp.lineCnt, true);
+        w->writeText(fmt::sprintf("%s,%d,%d,%d,%d", (*vars.symCommands)[smpsSetVib68k], vib[0], vib[1], vib[2], vib[3]));
+        temp.lineCnt += 5;
+      }
+    }
     if (!temp.noteOn) temp.hold = true;
   }
 

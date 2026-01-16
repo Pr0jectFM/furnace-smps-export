@@ -314,7 +314,7 @@ static const char* smpsSymSource[smpsSymLen] = {
 
 // note names used for Flamewing
 static const char* notesFlamewing[14] = {
-  "nC", "nCs", "nD", "nDs", "nE", "nF", "nFs", "nG", "nAb", "nA", "nBb", "nB", "nRst", "nMaxPSG"
+  "nC", "nCs", "nD", "nEb", "nE", "nF", "nFs", "nG", "nAb", "nA", "nBb", "nB", "nRst", "nMaxPSG"
 };
 
 // note names used for MD Music Player
@@ -444,7 +444,7 @@ struct smpsTempVars {
   unsigned short volTimer;
   int pitchTarget, pitchRate, pitchPort;
   unsigned short pitchTimer;
-  uint8_t vib[4];
+  uint8_t vib[4], port[4];
   short delayTime, delayNote;
   bool volCheck, fixed, portamento, vibChange;
   smpsTempVars():
@@ -499,6 +499,7 @@ struct smpsTempVars {
     for (int i = 0; i < macLen; i++) macroVals[i] = 0;
     macroVals[macVol] = 0x7F;
     for (int i = 0; i < 4; i++) vib[i] = 0;
+    for (int i = 0; i < 4; i++) port[i] = 0;
 
   }
 };
