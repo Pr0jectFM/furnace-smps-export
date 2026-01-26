@@ -1126,7 +1126,8 @@ String DivEngine::getNote(SafeWriter* w, smpsVars& vars, smpsTempVars& temp, con
           else
             return fmt::sprintf("%s+%d", (*vars.notesSet)[13], -options.psgPitch);
         }
-        note = options.psgMax - options.psgPitch;
+        note = (options.psgMax - options.psgPitch) % 12;
+        octave = (options.psgMax - options.psgPitch) / 12;
       }
     }
     if (vars.chanOn[temp.channel] == typePCM) {
