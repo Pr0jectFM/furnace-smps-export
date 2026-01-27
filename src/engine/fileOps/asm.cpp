@@ -1227,8 +1227,15 @@ void DivEngine::writeNotes(SafeWriter* w, smpsVars& vars, smpsTempVars& temp, co
       else vib[i] = temp.vib[i];
     }
     if (temp.port[2] == 0) {
-      if (options.style != verSource) w->writeText(fmt::sprintf("\n\t"));
-      w->writeText(fmt::sprintf("%s", (*vars.symCommands)[smpsVibOff]));
+      if (options.style != verSource) {
+        w->writeText(fmt::sprintf("\n\t%s", (*vars.symCommands)[smpsVibOff]));
+        temp.lineCnt = 0;
+      }
+      else {
+        separateNote(w, temp.lineCnt, true);
+        w->writeText(fmt::sprintf("%s", (*vars.symCommands)[smpsVibOff]));
+        temp.lineCnt += 1;
+      }
     }
     else {
       if (options.style != verSource) {
