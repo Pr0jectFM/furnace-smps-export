@@ -1960,7 +1960,6 @@ class FurnaceGUI {
     int loadFallbackPat;
     int fmLayout;
     int sampleLayout;
-    int waveLayout;
     int susPosition;
     int effectCursorDir;
     int cursorPastePos;
@@ -2216,7 +2215,6 @@ class FurnaceGUI {
       loadFallbackPat(1),
       fmLayout(4),
       sampleLayout(0),
-      waveLayout(0),
       susPosition(0),
       effectCursorDir(1),
       cursorPastePos(1),
