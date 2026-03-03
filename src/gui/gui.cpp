@@ -429,29 +429,29 @@ bool FurnaceGUI::isCtrlWheelModifierHeld() const {
 
 void FurnaceGUI::VerticalText(const char* fmt, ...) {
   va_list args;
-  va_start(args, fmt);
+  va_start(args,fmt);
   ImVec2 pos=ImGui::GetCursorScreenPos();
   ImDrawList* dl=ImGui::GetWindowDrawList();
   int vtxBegin, vtxEnd;
   vtxBegin=dl->_VtxCurrentIdx;
   char text[4096];
-  vsnprintf(text, 4096, fmt, args);
+  vsnprintf(text,4096,fmt,args);
   ImVec2 size=ImGui::CalcTextSize(text);
-  dl->AddText(pos, ImGui::GetColorU32(ImGuiCol_Text), text);
+  dl->AddText(pos,ImGui::GetColorU32(ImGuiCol_Text),text);
   vtxEnd=dl->_VtxCurrentIdx;
-  ImGui::ShadeVertsTransformPos(dl, vtxBegin, vtxEnd, pos+ImVec2(size.x,0), 0, -1, ImGui::GetCursorScreenPos());
+  ImGui::ShadeVertsTransformPos(dl,vtxBegin,vtxEnd,pos+ImVec2(size.x,0),0,-1,ImGui::GetCursorScreenPos());
   ImGui::Dummy(ImVec2(size.y,size.x));
 }
 
 void FurnaceGUI::VerticalText(float maxSize, bool centered, const char* fmt, ...) {
   va_list args;
-  va_start(args, fmt);
+  va_start(args,fmt);
   ImVec2 pos=ImGui::GetWindowPos();
   ImDrawList* dl=ImGui::GetWindowDrawList();
   int vtxBegin, vtxEnd;
   vtxBegin=dl->_VtxCurrentIdx;
   char text[4096];
-  vsnprintf(text, 4096, fmt, args);
+  vsnprintf(text,4096,fmt,args);
   const char* textEol=ImGui::FindRenderedTextEnd(text);
   ImVec2 size=ImGui::CalcTextSize(text);
   dl->PushClipRect(pos,pos+ImGui::GetWindowSize());
@@ -459,7 +459,7 @@ void FurnaceGUI::VerticalText(float maxSize, bool centered, const char* fmt, ...
   dl->PopClipRect();
   vtxEnd=dl->_VtxCurrentIdx;
   float ySize=(size.x>maxSize)?maxSize:size.x;
-  ImGui::ShadeVertsTransformPos(dl, vtxBegin, vtxEnd, pos, 0, -1, ImGui::GetCursorScreenPos()+ImVec2(0,(size.x+ySize)/2+(centered?(maxSize-size.x)/2.0f:0)));
+  ImGui::ShadeVertsTransformPos(dl,vtxBegin,vtxEnd,pos,0,-1,ImGui::GetCursorScreenPos()+ImVec2(0,(size.x+ySize)/2+(centered?(maxSize-size.x)/2.0f:0)));
   ImGui::Dummy(ImVec2(size.y,centered?maxSize:ySize));
 }
 
@@ -1367,7 +1367,7 @@ void FurnaceGUI::stop() {
   if (followPattern && wasPlaying) {
     nextScroll=-1.0f;
     nextAddScroll=0.0f;
-    e->getPlayPos(curOrder, cursor.y);
+    e->getPlayPos(curOrder,cursor.y);
     if (selStart.xCoarse==selEnd.xCoarse && selStart.xFine==selEnd.xFine && selStart.y==selEnd.y && selStart.order==selEnd.order && !selecting) {
       selStart=cursor;
       selEnd=cursor;
@@ -1375,8 +1375,8 @@ void FurnaceGUI::stop() {
     updateScroll(cursor.y);
   }
   if (wasFollowing) {
-    followPattern = true;
-    wasFollowing = false;
+    followPattern=true;
+    wasFollowing=false;
   }
 }
 
@@ -1796,6 +1796,7 @@ void FurnaceGUI::keyDown(SDL_Event& ev) {
         }
         // pattern input otherwise
         if (mapped&(FURKMOD_ALT|FURKMOD_CTRL|FURKMOD_META|FURKMOD_SHIFT)) break;
+        if (warnIsOpen && !settings.warnNotePassthrough) break;
         if (!ev.key.repeat || settings.inputRepeat) {
           if (cursor.xFine==0) { // note
             auto it=noteKeys.find(ev.key.keysym.scancode);
@@ -2846,6 +2847,307 @@ void FurnaceGUI::showWarning(String what, FurnaceGUIWarnings type) {
   warnString=what;
   warnAction=type;
   warnQuit=true;
+
+  const char* tYes=_N("Yes");
+  int kYes=ImGuiKey_Y;
+
+  const char* tNo=_N("No");
+  int kNo=ImGuiKey_N;
+
+  const char* tCancel=_N("Cancel");
+  int kCancel=ImGuiKey_Escape;
+
+  const char* tGotIt=_N("Got It");
+  int kGotIt=ImGuiKey_Enter;
+
+  const char* tOk=_N("Ok");
+  int kOk=ImGuiKey_Enter;
+
+  FurnaceGUI::WarnChoice wCancel={tCancel,kCancel,[]{}};
+
+  switch (type) {
+    case GUI_WARN_QUIT:
+      warnChoices={
+        {tYes,kYes,[this]{
+          if (curFileName=="" || curFileName.find(backupPath)==0 || e->song.version>=0xff00) {
+            openFileDialog(GUI_FILE_SAVE);
+            postWarnAction=GUI_WARN_QUIT;
+          } else {
+            if (save(curFileName,e->song.isDMF?e->song.version:0)>0) {
+              showError(fmt::sprintf(_("Error while saving file! (%s)"),lastError));
+            } else {
+              quit=true;
+            }
+          }
+        }},
+        {tNo,kNo,[this]{
+          quit=true;
+        }},
+        wCancel,
+      };
+      break;
+    case GUI_WARN_NEW:
+      warnChoices={
+        {tYes,kYes,[this]{
+          if (curFileName=="" || curFileName.find(backupPath)==0 || e->song.version>=0xff00) {
+            openFileDialog(GUI_FILE_SAVE);
+            postWarnAction=GUI_WARN_NEW;
+          } else {
+            if (save(curFileName,e->song.isDMF?e->song.version:0)>0) {
+              showError(fmt::sprintf(_("Error while saving file! (%s)"),lastError));
+            } else {
+              displayNew=true;
+            }
+          }
+        }},
+        {tNo,kNo,[this]{
+          displayNew=true;
+        }},
+        wCancel,
+      };
+      break;
+    case GUI_WARN_OPEN:
+      warnChoices={
+        {tYes,kYes,[this]{
+          if (curFileName=="" || curFileName.find(backupPath)==0 || e->song.version>=0xff00) {
+            openFileDialog(GUI_FILE_SAVE);
+            postWarnAction=GUI_WARN_OPEN;
+          } else {
+            if (save(curFileName,e->song.isDMF?e->song.version:0)>0) {
+              showError(fmt::sprintf(_("Error while saving file! (%s)"),lastError));
+            } else {
+              openFileDialog(GUI_FILE_OPEN);
+            }
+          }
+        }},
+        {tNo,kNo,[this]{
+          openFileDialog(GUI_FILE_OPEN);
+        }},
+        wCancel,
+      };
+      break;
+    case GUI_WARN_CV:
+      warnChoices={
+        {tYes,kYes,[this]{
+          if (curFileName=="" || curFileName.find(backupPath)==0 || e->song.version>=0xff00) {
+            openFileDialog(GUI_FILE_SAVE);
+            postWarnAction=GUI_WARN_CV;
+          } else {
+            if (save(curFileName,e->song.isDMF?e->song.version:0)>0) {
+              showError(fmt::sprintf(_("Error while saving file! (%s)"),lastError));
+            } else {
+              cvOpen=true;
+            }
+          }
+        }},
+        {tNo,kNo,[this]{
+          cvOpen=true;
+        }},
+        wCancel,
+      };
+      break;
+    case GUI_WARN_OPEN_BACKUP:
+      warnChoices={
+        {tYes,kYes,[this]{
+          if (curFileName=="" || curFileName.find(backupPath)==0 || e->song.version>=0xff00) {
+            openFileDialog(GUI_FILE_SAVE);
+            postWarnAction=GUI_WARN_OPEN_BACKUP;
+          } else {
+            if (save(curFileName,e->song.isDMF?e->song.version:0)>0) {
+              showError(fmt::sprintf(_("Error while saving file! (%s)"),lastError));
+            } else {
+              openFileDialog(GUI_FILE_OPEN_BACKUP);
+            }
+          }
+        }},
+        {tNo,kNo,[this]{
+          openFileDialog(GUI_FILE_OPEN_BACKUP);
+        }},
+        wCancel,
+      };
+      break;
+    case GUI_WARN_OPEN_DROP:
+      warnChoices={
+        {tYes,kYes,[this]{
+          if (curFileName=="" || curFileName.find(backupPath)==0 || e->song.version>=0xff00) {
+            openFileDialog(GUI_FILE_SAVE);
+            postWarnAction=GUI_WARN_OPEN_DROP;
+          } else {
+            if (save(curFileName,e->song.isDMF?e->song.version:0)>0) {
+              showError(fmt::sprintf(_("Error while saving file! (%s)"),lastError));
+              nextFile="";
+            } else {
+              if (load(nextFile)>0) {
+                showError(fmt::sprintf(_("Error while loading file! (%s)"),lastError));
+              }
+              nextFile="";
+            }
+          }
+        }},
+        {tNo,kNo,[this]{
+          if (load(nextFile)>0) {
+            showError(fmt::sprintf(_("Error while loading file! (%s)"),lastError));
+          }
+          nextFile="";
+        }},
+        {tCancel,kCancel,[this]{
+          nextFile="";
+        }},
+      };
+      break;
+    case GUI_WARN_RESET_LAYOUT:
+      warnChoices={
+        {tYes,kYes,[this]{
+          if (!mobileUI) {
+            ImGui::LoadIniSettingsFromMemory(defaultLayout);
+            if (!ImGui::SaveIniSettingsToDisk(finalLayoutPath,true)) {
+              reportError(fmt::sprintf(_("could NOT save layout! %s"),strerror(errno)));
+            }
+          }
+          settingsChanged=true;
+        },true},
+        {tNo,kNo,[]{}},
+      };
+      break;
+    case GUI_WARN_RESET_KEYBINDS:
+      warnChoices={
+        {tYes,kYes,[this]{
+          resetKeybinds();
+          settingsChanged=true;
+        }},
+        {tNo,kNo,[]{}},
+      };
+      break;
+    case GUI_WARN_RESET_COLORS:
+      warnChoices={
+        {tYes,kYes,[this]{
+          resetColors();
+          applyUISettings(false);
+          settingsChanged=true;
+        }},
+        {tNo,kNo,[]{}},
+      };
+      break;
+    case GUI_WARN_CLOSE_SETTINGS:
+      warnChoices={
+        {tYes,kYes,[this]{
+          settingsOpen=false;
+          willCommit=true;
+          settingsChanged=false;
+        }},
+        {tNo,kNo,[this]{
+          settingsOpen=false;
+          syncSettings();
+          settingsChanged=false;
+        }},
+        wCancel,
+      };
+      break;
+    case GUI_WARN_CLEAR:
+      warnChoices={}; // handled separately
+      break;
+    case GUI_WARN_SUBSONG_DEL:
+      warnChoices={
+        {tYes,kYes,[this]{
+          if (e->removeSubSong(e->getCurrentSubSong())) {
+            undoHist.clear();
+            redoHist.clear();
+            updateScroll(0);
+            oldRow=0;
+            cursor.xCoarse=0;
+            cursor.xFine=0;
+            cursor.y=0;
+            cursor.order=0;
+            selStart=cursor;
+            selEnd=cursor;
+            curOrder=0;
+            recalcTimestamps=true;
+            MARK_MODIFIED;
+          }
+        }},
+        {tNo,kNo,[]{}},
+      };
+      break;
+    case GUI_WARN_SYSTEM_DEL:
+      warnChoices={
+        {tYes,kYes,[this]{
+          e->removeSystem(sysToDelete,preserveChanPos);
+          if (e->song.autoSystem) {
+            autoDetectSystem();
+            updateWindowTitle();
+            MARK_MODIFIED;
+          }
+          updateROMExportAvail();
+          recalcTimestamps=true;
+        }},
+        {tNo,kNo,[]{}},
+      };
+      break;
+    case GUI_WARN_CLEAR_HISTORY:
+      warnChoices={
+        {tYes,kYes,[this]{
+          recentFile.clear();
+        }},
+        {tNo,kNo,[]{}},
+      };
+      break;
+    case GUI_WARN_RESET_CONFIG:
+      warnChoices={
+        {tYes,kYes,[this]{
+          e->factoryReset();
+          quit=true;
+          quitNoSave=true;
+        },true},
+        {tNo,kNo,[]{}},
+      };
+      break;
+    case GUI_WARN_IMPORT:
+      warnChoices={
+        {tGotIt,kGotIt,[this]{
+          switch (e->song.version) {
+            case DIV_VERSION_MOD:
+              tutorial.importedMOD=true;
+              break;
+            case DIV_VERSION_S3M:
+              tutorial.importedS3M=true;
+              break;
+            case DIV_VERSION_XM:
+              tutorial.importedXM=true;
+              break;
+            case DIV_VERSION_IT:
+              tutorial.importedIT=true;
+              break;
+          }
+          commitTutorial();
+        }},
+      };
+      break;
+    case GUI_WARN_NPR:
+      warnChoices={
+        {tGotIt,kGotIt,[this]{
+          tutorial.nprFieldTrial=true;
+          commitTutorial();
+        }},
+      };
+      break;
+    case GUI_WARN_GENERIC:
+      warnChoices={
+        {tOk,kOk,[]{}},
+      };
+      break;
+    default:
+      warnChoices={};
+      logW("invalid warning type: %d",(int)type);
+      break;
+  }
+}
+
+FurnaceGUI::WarnChoice::WarnChoice(const char* name, int key, std::function<void ()> action, bool destructive):
+  name(name),
+  key(key),
+  action(action),
+  destructive(destructive) {
+  if (key!=-1) nameHint=fmt::sprintf(" (%s)",ImGui::GetKeyName((ImGuiKey)key));
 }
 
 void FurnaceGUI::showError(String what) {
@@ -3583,6 +3885,7 @@ int FurnaceGUI::processEvent(SDL_Event* ev) {
           }
           // fall-through
         default: {
+          if (warnIsOpen && !settings.warnNotePassthrough) break;
           auto it=noteKeys.find(ev->key.keysym.scancode);
           if (it!=noteKeys.cend()) {
             int key=it->second;
@@ -4126,7 +4429,7 @@ bool FurnaceGUI::loop() {
             }
             int sampleCountBefore=e->song.sampleLen;
             std::vector<DivInstrument*> instruments=e->instrumentFromFile(ev.drop.file,true,settings.readInsNames);
-            std::vector<DivSample*> samples = e->sampleFromFile(ev.drop.file);
+            std::vector<DivSample*> samples=e->sampleFromFile(ev.drop.file);
             DivWavetable* droppedWave=NULL;
             //DivSample* droppedSample=NULL;
             if (!instruments.empty()) {
@@ -4907,9 +5210,9 @@ bool FurnaceGUI::loop() {
       }
       if (ImGui::BeginMenu(settings.capitalMenuBar?_("Window"):_("window"))) {
         if (ImGui::BeginMenu(_("song"))) {
-          if (ImGui::MenuItem(_("song comments"), BIND_FOR(GUI_ACTION_WINDOW_NOTES), notesOpen)) notesOpen = !notesOpen;
-          if (ImGui::MenuItem(_("song information"), BIND_FOR(GUI_ACTION_WINDOW_SONG_INFO), songInfoOpen)) songInfoOpen = !songInfoOpen;
-          if (ImGui::MenuItem(_("subsongs"), BIND_FOR(GUI_ACTION_WINDOW_SUBSONGS), subSongsOpen)) subSongsOpen = !subSongsOpen;
+          if (ImGui::MenuItem(_("song comments"), BIND_FOR(GUI_ACTION_WINDOW_NOTES), notesOpen)) notesOpen=!notesOpen;
+          if (ImGui::MenuItem(_("song information"), BIND_FOR(GUI_ACTION_WINDOW_SONG_INFO), songInfoOpen)) songInfoOpen=!songInfoOpen;
+          if (ImGui::MenuItem(_("subsongs"), BIND_FOR(GUI_ACTION_WINDOW_SUBSONGS), subSongsOpen)) subSongsOpen=!subSongsOpen;
           ImGui::Separator();
           if (ImGui::MenuItem(_("channels"),BIND_FOR(GUI_ACTION_WINDOW_CHANNELS),channelsOpen)) channelsOpen=!channelsOpen;
           if (ImGui::MenuItem(_("chip manager"),BIND_FOR(GUI_ACTION_WINDOW_SYS_MANAGER),sysManagerOpen)) sysManagerOpen=!sysManagerOpen;
@@ -4922,16 +5225,16 @@ bool FurnaceGUI::loop() {
         }
         if (ImGui::BeginMenu(_("assets"))) {
           if (settings.unifiedDataView) {
-            if (ImGui::MenuItem(_("assets"), BIND_FOR(GUI_ACTION_WINDOW_INS_LIST), insListOpen)) insListOpen = !insListOpen;
+            if (ImGui::MenuItem(_("assets"), BIND_FOR(GUI_ACTION_WINDOW_INS_LIST), insListOpen)) insListOpen=!insListOpen;
           } else {
-            if (ImGui::MenuItem(_("instruments"), BIND_FOR(GUI_ACTION_WINDOW_INS_LIST), insListOpen)) insListOpen = !insListOpen;
-            if (ImGui::MenuItem(_("samples"), BIND_FOR(GUI_ACTION_WINDOW_SAMPLE_LIST), sampleListOpen)) sampleListOpen = !sampleListOpen;
-            if (ImGui::MenuItem(_("wavetables"), BIND_FOR(GUI_ACTION_WINDOW_WAVE_LIST), waveListOpen)) waveListOpen = !waveListOpen;
+            if (ImGui::MenuItem(_("instruments"), BIND_FOR(GUI_ACTION_WINDOW_INS_LIST), insListOpen)) insListOpen=!insListOpen;
+            if (ImGui::MenuItem(_("samples"), BIND_FOR(GUI_ACTION_WINDOW_SAMPLE_LIST), sampleListOpen)) sampleListOpen=!sampleListOpen;
+            if (ImGui::MenuItem(_("wavetables"), BIND_FOR(GUI_ACTION_WINDOW_WAVE_LIST), waveListOpen)) waveListOpen=!waveListOpen;
           }
           ImGui::Separator();
-          if (ImGui::MenuItem(_("instrument editor"), BIND_FOR(GUI_ACTION_WINDOW_INS_EDIT), insEditOpen)) insEditOpen = !insEditOpen;
-          if (ImGui::MenuItem(_("sample editor"), BIND_FOR(GUI_ACTION_WINDOW_SAMPLE_EDIT), sampleEditOpen)) sampleEditOpen = !sampleEditOpen;
-          if (ImGui::MenuItem(_("wavetable editor"), BIND_FOR(GUI_ACTION_WINDOW_WAVE_EDIT), waveEditOpen)) waveEditOpen = !waveEditOpen;
+          if (ImGui::MenuItem(_("instrument editor"), BIND_FOR(GUI_ACTION_WINDOW_INS_EDIT), insEditOpen)) insEditOpen=!insEditOpen;
+          if (ImGui::MenuItem(_("sample editor"), BIND_FOR(GUI_ACTION_WINDOW_SAMPLE_EDIT), sampleEditOpen)) sampleEditOpen=!sampleEditOpen;
+          if (ImGui::MenuItem(_("wavetable editor"), BIND_FOR(GUI_ACTION_WINDOW_WAVE_EDIT), waveEditOpen)) waveEditOpen=!waveEditOpen;
           ImGui::EndMenu();
         }
         if (ImGui::BeginMenu(_("visualizers"))) {
@@ -5678,7 +5981,7 @@ bool FurnaceGUI::loop() {
                       pendingSamples.push_back(std::make_pair(s,false));
                     }
                     displayPendingSamples=true;
-                    replacePendingSample = false;
+                    replacePendingSample=false;
                   }
                 }
               }
@@ -6423,218 +6726,9 @@ bool FurnaceGUI::loop() {
       ImGui::PushTextWrapPos(canvasW);
       ImGui::TextUnformatted(warnString.c_str());
       ImGui::PopTextWrapPos();
+
       switch (warnAction) {
-        case GUI_WARN_QUIT:
-          if (ImGui::Button(_("Yes"))) {
-            ImGui::CloseCurrentPopup();
-            if (curFileName=="" || curFileName.find(backupPath)==0 || e->song.version>=0xff00) {
-              openFileDialog(GUI_FILE_SAVE);
-              postWarnAction=GUI_WARN_QUIT;
-            } else {
-              if (save(curFileName,e->song.isDMF?e->song.version:0)>0) {
-                showError(fmt::sprintf(_("Error while saving file! (%s)"),lastError));
-              } else {
-                quit=true;
-              }
-            }
-          }
-          ImGui::SameLine();
-          if (ImGui::Button(_("No"))) {
-            ImGui::CloseCurrentPopup();
-            quit=true;
-          }
-          ImGui::SameLine();
-          if (ImGui::Button(_("Cancel")) || ImGui::IsKeyPressed(ImGuiKey_Escape)) {
-            ImGui::CloseCurrentPopup();
-          }
-          break;
-        case GUI_WARN_NEW:
-          if (ImGui::Button(_("Yes"))) {
-            ImGui::CloseCurrentPopup();
-            if (curFileName=="" || curFileName.find(backupPath)==0 || e->song.version>=0xff00) {
-              openFileDialog(GUI_FILE_SAVE);
-              postWarnAction=GUI_WARN_NEW;
-            } else {
-              if (save(curFileName,e->song.isDMF?e->song.version:0)>0) {
-                showError(fmt::sprintf(_("Error while saving file! (%s)"),lastError));
-              } else {
-                displayNew=true;
-              }
-            }
-          }
-          ImGui::SameLine();
-          if (ImGui::Button(_("No"))) {
-            ImGui::CloseCurrentPopup();
-            displayNew=true;
-          }
-          ImGui::SameLine();
-          if (ImGui::Button(_("Cancel")) || ImGui::IsKeyPressed(ImGuiKey_Escape)) {
-            ImGui::CloseCurrentPopup();
-          }
-          break;
-        case GUI_WARN_OPEN:
-          if (ImGui::Button(_("Yes"))) {
-            ImGui::CloseCurrentPopup();
-            if (curFileName=="" || curFileName.find(backupPath)==0 || e->song.version>=0xff00) {
-              openFileDialog(GUI_FILE_SAVE);
-              postWarnAction=GUI_WARN_OPEN;
-            } else {
-              if (save(curFileName,e->song.isDMF?e->song.version:0)>0) {
-                showError(fmt::sprintf(_("Error while saving file! (%s)"),lastError));
-              } else {
-                openFileDialog(GUI_FILE_OPEN);
-              }
-            }
-          }
-          ImGui::SameLine();
-          if (ImGui::Button(_("No"))) {
-            ImGui::CloseCurrentPopup();
-            openFileDialog(GUI_FILE_OPEN);
-          }
-          ImGui::SameLine();
-          if (ImGui::Button(_("Cancel")) || ImGui::IsKeyPressed(ImGuiKey_Escape)) {
-            ImGui::CloseCurrentPopup();
-          }
-          break;
-        case GUI_WARN_CV:
-          if (ImGui::Button(_("Yes"))) {
-            ImGui::CloseCurrentPopup();
-            if (curFileName=="" || curFileName.find(backupPath)==0 || e->song.version>=0xff00) {
-              openFileDialog(GUI_FILE_SAVE);
-              postWarnAction=GUI_WARN_CV;
-            } else {
-              if (save(curFileName,e->song.isDMF?e->song.version:0)>0) {
-                showError(fmt::sprintf(_("Error while saving file! (%s)"),lastError));
-              } else {
-                cvOpen=true;
-              }
-            }
-          }
-          ImGui::SameLine();
-          if (ImGui::Button(_("No"))) {
-            ImGui::CloseCurrentPopup();
-            cvOpen=true;
-          }
-          ImGui::SameLine();
-          if (ImGui::Button(_("Cancel")) || ImGui::IsKeyPressed(ImGuiKey_Escape)) {
-            ImGui::CloseCurrentPopup();
-          }
-          break;
-        case GUI_WARN_OPEN_BACKUP:
-          if (ImGui::Button(_("Yes"))) {
-            ImGui::CloseCurrentPopup();
-            if (curFileName=="" || curFileName.find(backupPath)==0 || e->song.version>=0xff00) {
-              openFileDialog(GUI_FILE_SAVE);
-              postWarnAction=GUI_WARN_OPEN_BACKUP;
-            } else {
-              if (save(curFileName,e->song.isDMF?e->song.version:0)>0) {
-                showError(fmt::sprintf(_("Error while saving file! (%s)"),lastError));
-              } else {
-                openFileDialog(GUI_FILE_OPEN_BACKUP);
-              }
-            }
-          }
-          ImGui::SameLine();
-          if (ImGui::Button(_("No"))) {
-            ImGui::CloseCurrentPopup();
-            openFileDialog(GUI_FILE_OPEN_BACKUP);
-          }
-          ImGui::SameLine();
-          if (ImGui::Button(_("Cancel")) || ImGui::IsKeyPressed(ImGuiKey_Escape)) {
-            ImGui::CloseCurrentPopup();
-          }
-          break;
-        case GUI_WARN_OPEN_DROP:
-          if (ImGui::Button(_("Yes"))) {
-            ImGui::CloseCurrentPopup();
-            if (curFileName=="" || curFileName.find(backupPath)==0 || e->song.version>=0xff00) {
-              openFileDialog(GUI_FILE_SAVE);
-              postWarnAction=GUI_WARN_OPEN_DROP;
-            } else {
-              if (save(curFileName,e->song.isDMF?e->song.version:0)>0) {
-                showError(fmt::sprintf(_("Error while saving file! (%s)"),lastError));
-                nextFile="";
-              } else {
-                if (load(nextFile)>0) {
-                  showError(fmt::sprintf(_("Error while loading file! (%s)"),lastError));
-                }
-                nextFile="";
-              }
-            }
-          }
-          ImGui::SameLine();
-          if (ImGui::Button(_("No"))) {
-            ImGui::CloseCurrentPopup();
-            if (load(nextFile)>0) {
-              showError(fmt::sprintf(_("Error while loading file! (%s)"),lastError));
-            }
-            nextFile="";
-          }
-          ImGui::SameLine();
-          if (ImGui::Button(_("Cancel")) || ImGui::IsKeyPressed(ImGuiKey_Escape)) {
-            ImGui::CloseCurrentPopup();
-            nextFile="";
-          }
-          break;
-        case GUI_WARN_RESET_LAYOUT:
-          if (ImGui::Button(_("Yes"))) {
-            ImGui::CloseCurrentPopup();
-            if (!mobileUI) {
-              ImGui::LoadIniSettingsFromMemory(defaultLayout);
-              if (!ImGui::SaveIniSettingsToDisk(finalLayoutPath,true)) {
-                reportError(fmt::sprintf(_("could NOT save layout! %s"),strerror(errno)));
-              }
-            }
-            settingsChanged=true;
-          }
-          ImGui::SameLine();
-          if (ImGui::Button(_("No"))) {
-            ImGui::CloseCurrentPopup();
-          }
-          break;
-        case GUI_WARN_RESET_KEYBINDS:
-          if (ImGui::Button(_("Yes"))) {
-            ImGui::CloseCurrentPopup();
-            resetKeybinds();
-            settingsChanged=true;
-          }
-          ImGui::SameLine();
-          if (ImGui::Button(_("No"))) {
-            ImGui::CloseCurrentPopup();
-          }
-          break;
-        case GUI_WARN_RESET_COLORS:
-          if (ImGui::Button(_("Yes"))) {
-            ImGui::CloseCurrentPopup();
-            resetColors();
-            applyUISettings(false);
-            settingsChanged=true;
-          }
-          ImGui::SameLine();
-          if (ImGui::Button(_("No"))) {
-            ImGui::CloseCurrentPopup();
-          }
-          break;
-        case GUI_WARN_CLOSE_SETTINGS:
-          if (ImGui::Button(_("Yes"))) {
-            ImGui::CloseCurrentPopup();
-            settingsOpen=false;
-            willCommit=true;
-            settingsChanged=false;
-          }
-          ImGui::SameLine();
-          if (ImGui::Button(_("No"))) {
-            ImGui::CloseCurrentPopup();
-            settingsOpen=false;
-            syncSettings();
-            settingsChanged=false;
-          }
-          ImGui::SameLine();
-          if (ImGui::Button(_("Cancel")) || ImGui::IsKeyPressed(ImGuiKey_Escape)) {
-            ImGui::CloseCurrentPopup();
-          }
-          break;
-        case GUI_WARN_CLEAR:
+        case GUI_WARN_CLEAR: {
           if (ImGui::BeginTable("EraseOpt",2,ImGuiTableFlags_BordersInnerV)) {
             ImGui::TableSetupColumn("c0",ImGuiTableColumnFlags_WidthStretch,0.5f);
             ImGui::TableSetupColumn("c1",ImGuiTableColumnFlags_WidthStretch,0.5f);
@@ -6788,106 +6882,34 @@ bool FurnaceGUI::loop() {
             ImGui::EndTable();
           }
           break;
-        case GUI_WARN_SUBSONG_DEL:
-          if (ImGui::Button(_("Yes"))) {
-            if (e->removeSubSong(e->getCurrentSubSong())) {
-              undoHist.clear();
-              redoHist.clear();
-              updateScroll(0);
-              oldRow=0;
-              cursor.xCoarse=0;
-              cursor.xFine=0;
-              cursor.y=0;
-              cursor.order=0;
-              selStart=cursor;
-              selEnd=cursor;
-              curOrder=0;
-              recalcTimestamps=true;
-              MARK_MODIFIED;
+        }
+        default: {
+          static_assert(sizeof(int) == sizeof(ImGuiKey), "sizes must match (safety check)");
+
+          // For other warning types, follow `warnChoices`
+          for (size_t i=0; i<warnChoices.size(); i++) {
+            FurnaceGUI::WarnChoice& wc=warnChoices[i];
+            if (wc.destructive) pushDestColor();
+            bool passthroughKey=!settings.warnNotePassthrough || wc.key==ImGuiKey_Escape;
+            bool keyAccepted=(wc.key != -1) && ImGui::IsKeyPressed((ImGuiKey)wc.key) && passthroughKey;
+            String name=passthroughKey?(fmt::sprintf("%s",_(wc.name))):(_(wc.name));
+            if (ImGui::Button(_(name.c_str())) || keyAccepted) {
+              ImGui::CloseCurrentPopup();
+              wc.action();
             }
-            ImGui::CloseCurrentPopup();
-          }
-          ImGui::SameLine();
-          if (ImGui::Button(_("No"))) {
-            ImGui::CloseCurrentPopup();
-          }
-          break;
-        case GUI_WARN_SYSTEM_DEL:
-          if (ImGui::Button(_("Yes"))) {
-            e->removeSystem(sysToDelete,preserveChanPos);
-            if (e->song.autoSystem) {
-              autoDetectSystem();
-              updateWindowTitle();
-              MARK_MODIFIED;
+            if (wc.destructive) popDestColor();
+            if (i<warnChoices.size()-1) {
+              ImGui::SameLine();
             }
-            updateROMExportAvail();
-            recalcTimestamps=true;
-            ImGui::CloseCurrentPopup();
-          }
-          ImGui::SameLine();
-          if (ImGui::Button(_("No"))) {
-            ImGui::CloseCurrentPopup();
           }
           break;
-        case GUI_WARN_CLEAR_HISTORY:
-          if (ImGui::Button(_("Yes"))) {
-            recentFile.clear();
-            ImGui::CloseCurrentPopup();
-          }
-          ImGui::SameLine();
-          if (ImGui::Button(_("No"))) {
-            ImGui::CloseCurrentPopup();
-          }
-          break;
-        case GUI_WARN_RESET_CONFIG:
-          pushDestColor();
-          if (ImGui::Button(_("Yes"))) {
-            e->factoryReset();
-            quit=true;
-            quitNoSave=true;
-            ImGui::CloseCurrentPopup();
-          }
-          popDestColor();
-          ImGui::SameLine();
-          if (ImGui::Button(_("No"))) {
-            ImGui::CloseCurrentPopup();
-          }
-          break;
-        case GUI_WARN_IMPORT:
-          if (ImGui::Button(_("Got it"))) {
-            switch (e->song.version) {
-              case DIV_VERSION_MOD:
-                tutorial.importedMOD=true;
-                break;
-              case DIV_VERSION_S3M:
-                tutorial.importedS3M=true;
-                break;
-              case DIV_VERSION_XM:
-                tutorial.importedXM=true;
-                break;
-              case DIV_VERSION_IT:
-                tutorial.importedIT=true;
-                break;
-            }
-            commitTutorial();
-            ImGui::CloseCurrentPopup();
-          }
-          break;
-        case GUI_WARN_NPR:
-          if (ImGui::Button(_("Got it"))) {
-            tutorial.nprFieldTrial=true;
-            commitTutorial();
-            ImGui::CloseCurrentPopup();
-          }
-          break;
-        case GUI_WARN_GENERIC:
-          if (ImGui::Button(_("OK"))) {
-            ImGui::CloseCurrentPopup();
-          }
-          break;
+        }
       }
+
       ImGui::EndPopup();
     }
+
+    warnIsOpen=ImGui::IsPopupOpen(_("Warning"));
 
     if (ImGui::BeginPopup("InsTypeList",ImGuiWindowFlags_NoMove|ImGuiWindowFlags_AlwaysAutoResize|ImGuiWindowFlags_NoTitleBar|ImGuiWindowFlags_NoSavedSettings)) {
       char temp[1024];
@@ -7090,7 +7112,6 @@ bool FurnaceGUI::loop() {
       ImGui::EndPopup();
     }
 
-    // TODO: fix style
     centerNextWindow(_("Select Sample"),canvasW,canvasH);
     if (ImGui::BeginPopupModal(_("Select Sample"),NULL,ImGuiWindowFlags_AlwaysAutoResize)) {
       bool quitPlease=false;
@@ -7113,43 +7134,29 @@ bool FurnaceGUI::loop() {
 
       bool anySelected=false;
       float sizeY=ImGui::GetFrameHeightWithSpacing()*pendingSamples.size();
-      if (sizeY>(canvasH-180.0*dpiScale)) 
-      {
+      if (sizeY>(canvasH-180.0*dpiScale)) {
         sizeY=canvasH-180.0*dpiScale;
         if (sizeY<60.0*dpiScale) sizeY=60.0*dpiScale;
       }
-      if (ImGui::BeginTable("PendingSamplesList",1,ImGuiTableFlags_ScrollY,ImVec2(0.0f,sizeY))) 
-      {
-        if (sampleBankSearchQuery.empty())
-        {
-          for (size_t i=0; i<pendingSamples.size(); i++) 
-          {
+      if (ImGui::BeginTable("PendingSamplesList",1,ImGuiTableFlags_ScrollY,ImVec2(0.0f,sizeY))) {
+        if (sampleBankSearchQuery.empty()) {
+          for (size_t i=0; i<pendingSamples.size(); i++) {
             ImGui::TableNextRow();
             ImGui::TableNextColumn();
             String id=fmt::sprintf("%d: %s",(int)i,pendingSamples[i].first->name);
-            if (pendingInsSingle) 
-            {
-              if (ImGui::Selectable(id.c_str())) 
-              {
+            if (pendingInsSingle) {
+              if (ImGui::Selectable(id.c_str())) {
                 pendingSamples[i].second=true;
                 quitPlease=true;
               }
-            } 
-            else 
-            {
-              // TODO:fixstyle from hereonwards
-              ImGuiIO& io = ImGui::GetIO();
-              if(ImGui::Checkbox(id.c_str(),&pendingSamples[i].second) && io.KeyShift)
-              {
-                for(int jj = (int)i - 1; jj >= 0; jj--)
-                {
-                  if(pendingSamples[jj].second) //pressed shift and there's selected item above
-                  {
-                    for(int k = jj; k < (int)i; k++)
-                    {
-                      pendingSamples[k].second = true;
+            } else {
+              ImGuiIO& io=ImGui::GetIO();
+              if (ImGui::Checkbox(id.c_str(),&pendingSamples[i].second) && io.KeyShift) {
+                for (int jj=(int)i-1; jj>=0; jj--) {
+                  if (pendingSamples[jj].second) { // pressed shift and there's selected item above
+                    for (int k=jj; k<(int)i; k++) {
+                      pendingSamples[k].second=true;
                     }
-
                     break;
                   }
                 }
@@ -7157,51 +7164,40 @@ bool FurnaceGUI::loop() {
             }
             if (pendingSamples[i].second) anySelected=true;
           }
-        }
-        else //display search results
-        {
-          if(reissueSearch)
-          {
+        } else {
+          // display search results
+          if (reissueSearch) {
             String lowerCase=sampleBankSearchQuery;
 
-            for (char& ii: lowerCase) 
-            {
+            for (char& ii: lowerCase) {
               if (ii>='A' && ii<='Z') ii+='a'-'A';
             }
 
             sampleBankSearchResults.clear();
-            for (int j=0; j < (int)pendingSamples.size(); j++) 
-            {
-              String lowerCase1 = pendingSamples[j].first->name;
+            for (int j=0; j<(int)pendingSamples.size(); j++) {
+              String lowerCase1=pendingSamples[j].first->name;
 
-              for (char& ii: lowerCase1) 
-              {
+              for (char& ii: lowerCase1) {
                 if (ii>='A' && ii<='Z') ii+='a'-'A';
               }
 
-              if (lowerCase1.find(lowerCase)!=String::npos) 
-              {
-                sampleBankSearchResults.push_back(std::make_pair(pendingSamples[j].first, pendingSamples[j].second));
+              if (lowerCase1.find(lowerCase)!=String::npos) {
+                sampleBankSearchResults.push_back(std::make_pair(pendingSamples[j].first,pendingSamples[j].second));
               }
             }
           }
 
-          for (size_t i=0; i<sampleBankSearchResults.size(); i++)
-          {
+          for (size_t i=0; i<sampleBankSearchResults.size(); i++) {
             ImGui::TableNextRow();
             ImGui::TableNextColumn();
             String id=fmt::sprintf("%d: %s",(int)i,sampleBankSearchResults[i].first->name);
 
-            ImGuiIO& io = ImGui::GetIO();
-            if(ImGui::Checkbox(id.c_str(),&sampleBankSearchResults[i].second) && io.KeyShift)
-            {
-              for(int jj = (int)i - 1; jj >= 0; jj--)
-              {
-                if(sampleBankSearchResults[jj].second) //pressed shift and there's selected item above
-                {
-                  for(int k = jj; k < (int)i; k++)
-                  {
-                    sampleBankSearchResults[k].second = true;
+            ImGuiIO& io=ImGui::GetIO();
+            if (ImGui::Checkbox(id.c_str(),&sampleBankSearchResults[i].second) && io.KeyShift) {
+              for (int jj=(int)i-1; jj>=0; jj--) {
+                if (sampleBankSearchResults[jj].second) { // pressed shift and there's selected item above
+                  for (int k=jj; k<(int)i; k++) {
+                    sampleBankSearchResults[k].second=true;
                   }
 
                   break;
@@ -7211,15 +7207,11 @@ bool FurnaceGUI::loop() {
             if (sampleBankSearchResults[i].second) anySelected=true;
           }
 
-          for (size_t i=0; i<pendingSamples.size(); i++)
-          {
-            if(sampleBankSearchResults.size() > 0)
-            {
-              for (size_t j=0; j<sampleBankSearchResults.size(); j++)
-              {
-                if(sampleBankSearchResults[j].first == pendingSamples[i].first && sampleBankSearchResults[j].second && pendingSamples[i].first != NULL)
-                {
-                  pendingSamples[i].second = true;
+          for (size_t i=0; i<pendingSamples.size(); i++) {
+            if (sampleBankSearchResults.size() > 0) {
+              for (size_t j=0; j<sampleBankSearchResults.size(); j++) {
+                if (sampleBankSearchResults[j].first == pendingSamples[i].first && sampleBankSearchResults[j].second && pendingSamples[i].first != NULL) {
+                  pendingSamples[i].second=true;
                   if (pendingSamples[i].second) anySelected=true;
                   break;
                 }
@@ -7243,32 +7235,24 @@ bool FurnaceGUI::loop() {
         }
         quitPlease=true;
       }
-      if (quitPlease) 
-      {
+      if (quitPlease) {
         ImGui::CloseCurrentPopup();
-        int counter = 0;
-        for (std::pair<DivSample*,bool>& i: pendingSamples) 
-        {
-          if (!i.second)
-          {
+        int counter=0;
+        for (std::pair<DivSample*,bool>& i: pendingSamples) {
+          if (!i.second) {
             delete i.first;
-          }
-          else
-          {
-            if(counter == 0 && replacePendingSample)
-            {
+          } else {
+            if (counter==0 && replacePendingSample) {
               *e->song.sample[curSample]=*i.first;
-              replacePendingSample = false;
-            }
-            else
-            {
+              replacePendingSample=false;
+            } else {
               e->addSamplePtr(i.first);
             }
           }
           counter++;
         }
 
-        curSample = (int)e->song.sample.size() - 1;
+        curSample=(int)e->song.sample.size()-1;
         pendingSamples.clear();
       }
 
@@ -7750,9 +7734,6 @@ bool FurnaceGUI::loop() {
 
 bool FurnaceGUI::init() {
   logI("initializing GUI.");
-
-  // new pattern renderer "field" trial.
-  newPatternRenderer=(rand()&3);
 
   newFilePicker=new FurnaceFilePicker;
   newFilePicker->setConfigPrefix("fp_");
@@ -8865,7 +8846,7 @@ FurnaceGUI::FurnaceGUI():
   replacePendingSample(false),
   displayExportingROM(false),
   displayExportingCS(false),
-  newPatternRenderer(false),
+  newPatternRenderer(true),
   quitNoSave(false),
   changeCoarse(false),
   orderLock(false),
@@ -9117,7 +9098,8 @@ FurnaceGUI::FurnaceGUI():
   pgVal(0),
   curQueryRangeX(false),
   curQueryBackwards(false),
-  curQueryRangeXMin(0), curQueryRangeXMax(0),
+  curQueryRangeXMin(0),
+  curQueryRangeXMax(0),
   curQueryRangeY(0),
   curQueryEffectPos(0),
   queryReplaceEffectCount(0),
@@ -9254,6 +9236,7 @@ FurnaceGUI::FurnaceGUI():
   resampleStrat(5),
   amplifyVol(100.0),
   amplifyOff(0.0),
+  noiseGateThreshold(-60.0f),
   sampleSelStart(-1),
   sampleSelEnd(-1),
   sampleInfo(true),
@@ -9287,6 +9270,7 @@ FurnaceGUI::FurnaceGUI():
   openSampleSilenceOpt(false),
   openSampleFilterOpt(false),
   openSampleCrossFadeOpt(false),
+  openSampleNoiseGateOpt(false),
   selectedPortSet(0x1fff),
   selectedSubPort(-1),
   hoveredPortSet(0x1fff),
@@ -9405,7 +9389,8 @@ FurnaceGUI::FurnaceGUI():
   romMultiFile(false),
   romExportSave(false),
   pendingExport(NULL),
-  romExportExists(false) {
+  romExportExists(false),
+  warnIsOpen(false) {
   // value keys
   valueKeys[SDLK_0]=0;
   valueKeys[SDLK_1]=1;
@@ -9484,7 +9469,7 @@ FurnaceGUI::FurnaceGUI():
   memset(waveGenFMCon0,0,sizeof(bool)*5);
   memset(waveGenFMCon1,0,sizeof(bool)*5);
   memset(waveGenFMCon2,0,sizeof(bool)*5);
-  memset(waveGenFMCon3, 0, sizeof(bool) * 5);
+  memset(waveGenFMCon3,0,sizeof(bool)*5);
   memset(waveGenFMCon4,0,sizeof(bool)*5);
 
   waveGenAmp[0]=1.0f;

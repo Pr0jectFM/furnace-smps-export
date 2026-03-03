@@ -852,7 +852,7 @@ void FurnaceGUI::drawChanOsc() {
                 //ImGui::PopClipRect();
               }
 
-              //ImGui::PushClipRect(inRect.Min,inRect.Max,false);
+              ImGui::PushClipRect(inRect.Min,inRect.Max,false);
               if (!chanOscTextFormat.empty()) {
                 String text;
                 bool inFormat=false;
@@ -962,7 +962,7 @@ void FurnaceGUI::drawChanOsc() {
                 dl->AddText(ImLerp(inRect.Min,inRect.Max,ImVec2(0.0f,0.0f)),ImGui::GetColorU32(chanOscTextColor),text.c_str());
               }
 
-              //ImGui::PopClipRect();
+              ImGui::PopClipRect();
             }
           }
         }

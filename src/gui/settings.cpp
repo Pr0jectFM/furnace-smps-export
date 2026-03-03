@@ -1202,6 +1202,14 @@ void FurnaceGUI::drawSettings() {
           settings.blankIns=blankInsB;
           settingsChanged=true;
         }
+        bool warnNotePassthroughB=settings.warnNotePassthrough;
+        if (ImGui::Checkbox(_("Allow note input with open warning"),&warnNotePassthroughB)) {
+          settings.warnNotePassthrough=warnNotePassthroughB;
+          settingsChanged=true;
+        }
+        if (ImGui::IsItemHovered()) {
+          ImGui::SetTooltip(_("allows passthrough for notes while warnings are open; only ESC will be used for warnings"));
+        }
         // SUBSECTION CONFIGURATION
         CONFIG_SUBSECTION(_("Configuration"));
         if (ImGui::Button(_("Import"))) {
@@ -2570,6 +2578,8 @@ void FurnaceGUI::drawSettings() {
             drawKeybindSettingsTableRow(GUI_ACTION_SAMPLE_ZOOM_AUTO);
             drawKeybindSettingsTableRow(GUI_ACTION_SAMPLE_MAKE_INS);
             drawKeybindSettingsTableRow(GUI_ACTION_SAMPLE_SET_LOOP);
+            drawKeybindSettingsTableRow(GUI_ACTION_SAMPLE_TRIM_AFTER_LOOP);
+            drawKeybindSettingsTableRow(GUI_ACTION_SAMPLE_TRIM_TO_LOOP);
 
             KEYBIND_CONFIG_END;
             ImGui::TreePop();
@@ -4938,6 +4948,7 @@ void FurnaceGUI::readConfig(DivConfig& conf, FurnaceGUISettingGroups groups) {
     settings.displayAllInsTypes=conf.getInt("displayAllInsTypes",0);
 
     settings.blankIns=conf.getInt("blankIns",0);
+    settings.warnNotePassthrough=conf.getInt("warnNotePassthrough",0);
 
     settings.saveWindowPos=conf.getInt("saveWindowPos",1);
 
@@ -5393,6 +5404,7 @@ void FurnaceGUI::readConfig(DivConfig& conf, FurnaceGUISettingGroups groups) {
   clampSetting(settings.effectValCellSpacing,0,32);
   clampSetting(settings.doubleClickColumn,0,1);
   clampSetting(settings.blankIns,0,1);
+  clampSetting(settings.warnNotePassthrough,0,1);
   clampSetting(settings.dragMovesSelection,0,5);
   clampSetting(settings.draggableDataView,0,1);
   clampSetting(settings.unsignedDetune,0,1);
@@ -5540,6 +5552,7 @@ void FurnaceGUI::writeConfig(DivConfig& conf, FurnaceGUISettingGroups groups) {
     conf.set("displayAllInsTypes",settings.displayAllInsTypes);
 
     conf.set("blankIns",settings.blankIns);
+    conf.set("warnNotePassthrough",settings.warnNotePassthrough);
 
     conf.set("saveWindowPos",settings.saveWindowPos);
 

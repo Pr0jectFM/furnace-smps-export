@@ -965,6 +965,8 @@ enum FurnaceGUIActions {
   GUI_ACTION_SAMPLE_SET_LOOP,
   GUI_ACTION_SAMPLE_CREATE_WAVE,
   GUI_ACTION_SAMPLE_COPY_NEW,
+  GUI_ACTION_SAMPLE_TRIM_AFTER_LOOP,
+  GUI_ACTION_SAMPLE_TRIM_TO_LOOP,
   GUI_ACTION_SAMPLE_MAX,
 
   GUI_ACTION_ORDERS_MIN,
@@ -2093,6 +2095,7 @@ class FurnaceGUI {
     int s3mOPL3;
     int songNotesWrap;
     int rackShowLEDs;
+    int warnNotePassthrough;
     int sampleImportInstDetune;
     int mixerStyle;
     int mixerLayout;
@@ -2347,6 +2350,7 @@ class FurnaceGUI {
       s3mOPL3(1),
       songNotesWrap(0),
       rackShowLEDs(1),
+      warnNotePassthrough(0),
       sampleImportInstDetune(0),
       mixerStyle(1),
       mixerLayout(0),
@@ -2666,6 +2670,7 @@ class FurnaceGUI {
   double resampleTarget;
   int resampleStrat;
   float amplifyVol, amplifyOff;
+  float noiseGateThreshold;
   int sampleSelStart, sampleSelEnd;
   bool sampleInfo;
   bool sampleDragActive, sampleDragMode, sampleDrag16, sampleZoomAuto;
@@ -2683,7 +2688,7 @@ class FurnaceGUI {
   unsigned char sampleFilterPower;
   short* sampleClipboard;
   size_t sampleClipboardLen;
-  bool openSampleResizeOpt, openSampleResampleOpt, openSampleAmplifyOpt, openSampleSilenceOpt, openSampleFilterOpt, openSampleCrossFadeOpt;
+  bool openSampleResizeOpt, openSampleResampleOpt, openSampleAmplifyOpt, openSampleSilenceOpt, openSampleFilterOpt, openSampleCrossFadeOpt, openSampleNoiseGateOpt;
 
   // mixer
   // 0xxx: output
@@ -2940,8 +2945,21 @@ class FurnaceGUI {
 
   std::vector<String> randomDemoSong;
 
+  // used for storing warning dialog options, when appliable
+  struct WarnChoice {
+    const char* name;
+    String nameHint; // for key hint
+    int key;
+    std::function<void ()> action;
+    bool destructive;
+
+    WarnChoice(const char* name, int key, std::function<void ()> action, bool destructive=false);
+  };
+  bool warnIsOpen; // workaround for ImGui::IsPopupOpen crashing if not used in the right place
+  std::vector<WarnChoice> warnChoices;
+
   void commandExportOptions();
-  
+
   void drawExportAudio(bool onWindow=false);
   void drawExportVGM(bool onWindow=false);
   void drawExportROM(bool onWindow=false);
@@ -3272,8 +3290,8 @@ class FurnaceGUI {
 
   public:
     void editStr(String* which);
-    void showWarning(String what, FurnaceGUIWarnings type);
     void showError(String what);
+    void showWarning(String what, FurnaceGUIWarnings type);
     String getLastError();
     const char* noteNameNormal(short note);
     const char* noteName(short note);
