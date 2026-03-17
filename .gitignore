@@ -44,7 +44,9 @@ src/asm/6502/*.bin
 src/asm/6502/nes/test.nes
 src/asm/6502/nes/test.o
 src/asm/6502/nes/test.sym
-/out/install/x64-Debug/bin/furnace.exe
+src/asm/spc700/*.o
+src/asm/spc700/furnace.spc
+src/asm/spc700/furnace.sym
 *.log
 *.asm
 /smpstests/*.s

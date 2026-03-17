@@ -849,6 +849,10 @@ bool DivEngine::loadDMF(unsigned char* file, size_t len) {
                 if (newVal>0xff) newVal=0xff;
                 pat->newData[k][DIV_PAT_FXVAL(l)]=newVal;
               }
+              // apply TimeBase
+              if ((pat->newData[k][DIV_PAT_FX(l)]==0x09 || pat->newData[k][DIV_PAT_FX(l)]==0x0f) && pat->newData[k][DIV_PAT_FXVAL(l)]!=-1) {
+                pat->newData[k][DIV_PAT_FXVAL(l)]=CLAMP(pat->newData[k][DIV_PAT_FXVAL(l)]*(oldTimeBase+1),1,255);
+              }
             }
             // instrument
             pat->newData[k][DIV_PAT_INS]=reader.readS();
@@ -1412,7 +1416,7 @@ SafeWriter* DivEngine::saveDMF(unsigned char version) {
     addWarning(".dmf format does not support virtual tempo");
   }
 
-  if (song.tuning<439.99 && song.tuning>440.01) {
+  if (song.tuning<439.99 || song.tuning>440.01) {
     addWarning(".dmf format does not support tuning");
   }
 
