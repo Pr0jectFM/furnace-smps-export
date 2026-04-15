@@ -1410,7 +1410,7 @@ skipEmpty:
     // Create array to keep track of written patterns
     uint8_t patNum[2 * 0xFF] = {};
 
-    short* patId[idLen];
+    short* patId[idLen] = {};
     for (int row = 0; row < idLen; row++) {
       patId[row] = (short*)malloc(2 * 0xFF * sizeof(short));
       for (int col = 0; col < 2 * 0xFF; col++)

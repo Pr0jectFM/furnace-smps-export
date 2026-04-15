@@ -24,6 +24,10 @@ However, in order to ensure that no adjustments need to be made post-export, som
 
 ## Bugs
 - Parts swap between being quieter and louder (High Hazard)
+- Modules with portamento used often crash
+- Doesn't export any notes even though it's indistinguishable from a working module (trapezoid)
+- Exporting with a jump to an invalid spot with 0B crashes Furnace
+- Bb and F# are off by 1 (Bonus)
 
 Lesser importance:
 - Setting the step size ratio to a non-integer causes notes to be skipped
