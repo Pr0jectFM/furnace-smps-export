@@ -721,10 +721,10 @@ bool DivEngine::portamentoSet(SafeWriter* w, smpsVars& vars, smpsTempVars& temp,
   }
   const unsigned int diff = abs(endFreq - startFreq);
   if (diff == 0) return false;
-  const unsigned int estTime = (128 * (abs(temp.pitchTarget - temp.note))) / (temp.pitchRate * song.compatFlags.pitchSlideSpeed * options.stepSz);
+  const double estTime = (128 * (abs(temp.pitchTarget - temp.note))) / (temp.pitchRate * song.compatFlags.pitchSlideSpeed * options.stepSz);
   if (diff >= estTime) {
-    const unsigned int rate = diff / estTime;
-    temp.pitchTimer = (unsigned short)(diff / rate);
+    const unsigned int rate = (estTime == 0) ? 0x7F : (diff / estTime);
+    temp.pitchTimer = (unsigned short)(estTime);
     temp.port[1] = 0x01;
     temp.port[2] = (endFreq > startFreq) ? rate : -(unsigned short)rate;
   }
