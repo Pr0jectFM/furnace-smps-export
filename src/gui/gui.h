@@ -857,6 +857,8 @@ enum FurnaceGUIActions {
   GUI_ACTION_PAT_NEXT_ORDER,
   GUI_ACTION_PAT_PREV_ORDER,
   GUI_ACTION_PAT_COLLAPSE,
+  GUI_ACTION_PAT_COLLAPSE_SELECTED,
+  GUI_ACTION_PAT_EXPAND_SELECTED,
   GUI_ACTION_PAT_INCREASE_COLUMNS,
   GUI_ACTION_PAT_DECREASE_COLUMNS,
   GUI_ACTION_PAT_INTERPOLATE,
@@ -2781,6 +2783,9 @@ class FurnaceGUI {
   float xyOscDecayTime;
   float xyOscIntensity;
   float xyOscThickness;
+
+  // register view
+  int regViewColumns;
 
   // spectrum and tuner
   double* tunerFFTInBuf;

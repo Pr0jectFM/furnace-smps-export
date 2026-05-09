@@ -1677,7 +1677,7 @@ void DivPlatformYM2610::forceIns() {
   ay->getRegisterWrites().clear();
 }
 
-void* DivPlatformYM2610::getChanState(int ch) {
+SharedChannel* DivPlatformYM2610::getChanState(int ch) {
   return &chan[ch];
 }
 
@@ -1783,6 +1783,10 @@ void DivPlatformYM2610::notifyInsDeletion(void* ins) {
   for (int i=adpcmAChanOffs; i<chanNum; i++) {
     chan[i].std.notifyInsDeletion((DivInstrument*)ins);
   }
+}
+
+void DivPlatformYM2610::notifyPitchTable(int sample) {
+  ay->notifyPitchTable(sample);
 }
 
 void DivPlatformYM2610::setSkipRegisterWrites(bool value) {

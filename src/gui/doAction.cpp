@@ -674,6 +674,34 @@ void FurnaceGUI::doAction(int what) {
         e->curSubSong->chanCollapse[cursor.xCoarse]--;
       }
       break;
+    case GUI_ACTION_PAT_COLLAPSE_SELECTED: {
+      finishSelection();
+      int chCount=e->getTotalChannelCount();
+      int chStart=(int)selStart.xCoarse;
+      if (chStart<0) chStart=0;
+      else if (chStart>=chCount) chStart=chCount-1;
+      int chEnd=(int)selEnd.xCoarse;
+      if (chEnd<0) chEnd=0;
+      else if (chEnd>=chCount) chEnd=chCount-1;
+      for (int i=chStart; i<=chEnd; i++) {
+        e->curSubSong->chanCollapse[i]=3;
+      }
+      break;
+    }
+    case GUI_ACTION_PAT_EXPAND_SELECTED: {
+      finishSelection();
+      int chCount=e->getTotalChannelCount();
+      int chStart=(int)selStart.xCoarse;
+      if (chStart<0) chStart=0;
+      else if (chStart>=chCount) chStart=chCount-1;
+      int chEnd=(int)selEnd.xCoarse;
+      if (chEnd<0) chEnd=0;
+      else if (chEnd>=chCount) chEnd=chCount-1;
+      for (int i=chStart; i<=chEnd; i++) {
+        e->curSubSong->chanCollapse[i]=0;
+      }
+      break;
+    }
     case GUI_ACTION_PAT_INCREASE_COLUMNS:
       if (cursor.xCoarse<0 || cursor.xCoarse>=e->getTotalChannelCount()) break;
       e->curPat[cursor.xCoarse].effectCols++;
@@ -972,6 +1000,7 @@ void FurnaceGUI::doAction(int what) {
             e->renderSamples();
           });
           wantScrollListSample=true;
+          e->notifyPitchTable();
           MARK_MODIFIED;
         }
         updateSampleTex=true;
@@ -1030,6 +1059,7 @@ void FurnaceGUI::doAction(int what) {
         showError(_("too many samples!"));
       } else {
         wantScrollListSample=true;
+        e->notifyPitchTable();
         MARK_MODIFIED;
       }
       updateSampleTex=true;
@@ -1064,6 +1094,7 @@ void FurnaceGUI::doAction(int what) {
             e->renderSamples();
           });
           wantScrollListSample=true;
+          e->notifyPitchTable();
           MARK_MODIFIED;
         }
         updateSampleTex=true;
@@ -1094,6 +1125,7 @@ void FurnaceGUI::doAction(int what) {
         wantScrollListSample=true;
         updateSampleTex=true;
         notifySampleChange=true;
+        e->notifyPitchTable();
         MARK_MODIFIED;
       }
       break;
@@ -1103,6 +1135,7 @@ void FurnaceGUI::doAction(int what) {
         wantScrollListSample=true;
         updateSampleTex=true;
         notifySampleChange=true;
+        e->notifyPitchTable();
         MARK_MODIFIED;
       }
       break;
@@ -1115,6 +1148,7 @@ void FurnaceGUI::doAction(int what) {
       }
       updateSampleTex=true;
       notifySampleChange=true;
+      e->notifyPitchTable();
       break;
     case GUI_ACTION_SAMPLE_LIST_EDIT:
       sampleEditOpen=true;
@@ -1847,6 +1881,7 @@ void FurnaceGUI::doAction(int what) {
       curSample=prevSampleNum;
 
       // TODO: confirm these
+      e->notifyPitchTable();
       wantScrollListSample=true;
       MARK_MODIFIED;
       updateSampleTex=true;

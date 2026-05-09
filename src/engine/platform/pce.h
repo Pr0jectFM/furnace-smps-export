@@ -42,7 +42,7 @@ class DivPlatformPCE: public DivDispatch {
   /**
    * this is our Channel struct. it is based on SharedChannel and adds chip-specific state on top.
    */
-  struct Channel: public SharedChannel<signed char> {
+  struct Channel: public SharedChannel {
     // anti-click related variables.
     // - anti-click is a trick which predicts the channel's current waveform position
     //   and adds that offset when updating the waveform.
@@ -69,8 +69,8 @@ class DivPlatformPCE: public DivDispatch {
     // wave synth - a tiny wave morphing engine for waveform effects.
     DivWaveSynth ws;
     // here's our constructor. notice how we set the default volume to maximum.
-    Channel():
-      SharedChannel<signed char>(31),
+    Channel(bool linear=true):
+      SharedChannel(31,linear),
       antiClickPeriodCount(0),
       antiClickWavePos(0),
       dacPeriod(0),
@@ -107,6 +107,9 @@ class DivPlatformPCE: public DivDispatch {
     QueuedWrite(unsigned char a, unsigned char v): addr(a), val(v) {}
   };
   FixedQueue<QueuedWrite,512> writes;
+  // this provides pitch calculation.
+  DivPitchTable pitchTable;
+  DivPitchTableManager samplePitchTable;
 
   // PCE is a bit unique. you've got a channel selection register which you must write to
   // before setting channel registers.
@@ -129,7 +132,7 @@ class DivPlatformPCE: public DivDispatch {
     void acquire(short** buf, size_t len);
     void acquireDirect(blip_buffer_t** bb, size_t len);
     int dispatch(DivCommand c);
-    void* getChanState(int chan);
+    SharedChannel* getChanState(int chan);
     DivMacroInt* getChanMacroInt(int ch);
     unsigned short getPan(int chan);
     void getPaired(int ch, std::vector<DivChannelPair>& ret);
