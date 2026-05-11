@@ -370,7 +370,7 @@ struct smpsVars {
   uint8_t noise, retrigger;
   int chans;
   uint8_t chanOn[11];
-  int8_t startVol[11];
+  int8_t startVol[11], startIns[11];
   bool dualPCM, loop;
   int pitch, pitch2;
   smpsVars() :
@@ -394,6 +394,7 @@ struct smpsVars {
     }
     for (int i = 0; i < 11; i++) chanOn[i] = 0;
     for (int i = 0; i < 11; i++) startVol[i] = -1;
+    for (int i = 0; i < 11; i++) startIns[i] = -1;
   }
 };
 

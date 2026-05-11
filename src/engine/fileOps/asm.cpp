@@ -125,6 +125,9 @@ void DivEngine::smpsChanNum(DivSubSong*& s, smpsVars& vars) {
       for (int step = vars.lenTable[0][orders]; step <= vars.lenTable[1][orders]; step++) {
         if (p->newData[step][DIV_PAT_VOL] != -1 && vars.startVol[channel] < 0)
           vars.startVol[channel] = ((type < typePSG) ? 0x7F : 0x0F) - p->newData[step][DIV_PAT_VOL];
+        if (p->newData[step][DIV_PAT_INS] != -1 && vars.startIns[channel] < 0)
+          vars.startIns[channel] = p->newData[step][DIV_PAT_INS];
+          // To Do: Get current instrument
         if (p->newData[step][DIV_PAT_NOTE] != -1) {
           vars.chanOn[channel] = type;
           // if noise channel and other PSG channels are null, set them to empty
@@ -137,6 +140,7 @@ void DivEngine::smpsChanNum(DivSubSong*& s, smpsVars& vars) {
             vars.chanOn[channel - 1] = typeNull;
           }
           if (vars.startVol[channel] < 0) vars.startVol[channel] = 0;
+          if (vars.startIns[channel] < 0) vars.startIns[channel] = 0;
           break;
         }
       }
@@ -302,7 +306,13 @@ static void writeHeader(SafeWriter* w, smpsVars& vars, DivSubSong*& s, const Div
   }
   for (int i = 6 + (vars.dualPCM); i < 11; i++) {
     if (vars.chanOn[i] == typeEmpty) w->writeText(fmt::sprintf("\t%s\t%s_Empty,\t$00, $00, $00, $00\n", (*vars.symCommands)[smpsPSG], options.label));
-    if (vars.chanOn[i] >= typePSG) w->writeText(fmt::sprintf("\t%s\t%s,\t$%.2X, $%.2X, $00, $%.2X\n", (*vars.symCommands)[smpsPSG], smpsChanName(options, i, vars, true), uint8_t(options.psgPitch), vars.startVol[i] * (options.style == verAMPS ? 8 : 1), 0));
+    const uint8_t envelope = vars.voices[vars.startIns[i]];
+    if (vars.chanOn[i] >= typePSG) {
+      w->writeText(fmt::sprintf("\t%s\t%s,\t$%.2X, $%.2X, $00, %s%.2X\n",
+        (*vars.symCommands)[smpsPSG], smpsChanName(options, i, vars, true), uint8_t(options.psgPitch),
+        vars.startVol[i] * (options.style == verAMPS ? 8 : 1),
+        (envelope == 0 && options.style == verFlamewing) ? "$" : options.psgPrefix, envelope));
+    }
   }
 }
 
@@ -385,6 +395,30 @@ static void writeHeaderSource(SafeWriter* w, smpsVars& vars, DivSubSong*& s, con
 
 }
 
+static void assignVoices(smpsVars& vars, const DivSong& song) {
+  uint8_t fmVoice = 0;
+  for (int i = 0; i < song.insLen; i++) {
+    DivInstrument* ins = song.ins[i];
+    if (ins->type == DIV_INS_FM) {
+      vars.voices[i] = fmVoice;
+      fmVoice++;
+    }
+    if (ins->type == DIV_INS_STD) {
+      const String envName = ins->name;
+      int envelope = 0, start = 0;
+      // search for the first valid number in the string and then convert that to decimal
+      for (char i : envName) {
+        if ((i >= '0' && i <= '9') || (i >= 'A' && i <= 'F') || (i >= 'a' && i <= 'f')) {
+          envelope = std::stoi(envName.substr(start), nullptr, 16);
+          break;
+        }
+        start++;
+      };
+      vars.voices[i] = envelope;
+    }
+  }
+}
+
 // write instrument table
 static void writeVoices(SafeWriter* w, smpsVars &vars, const DivSong &song, const DivSMPSOptions &options) {
   w->writeText("\n; ===========================================================================\n");
@@ -400,8 +434,7 @@ static void writeVoices(SafeWriter* w, smpsVars &vars, const DivSong &song, cons
 
     // For FM voices
     if (ins->type == DIV_INS_FM) {
-      w->writeText(fmt::sprintf("\n;\tFM Voice %.2X -> %.2X: %s\n", i, fmVoice, ins->name));
-      vars.voices[i] = fmVoice;
+      w->writeText(fmt::sprintf("\n;\tFM Voice %.2X -> %.2X: %s\n", i, vars.voices[i], ins->name));
       const int opCount = 4;
 
       // create table of operator values
@@ -449,23 +482,11 @@ static void writeVoices(SafeWriter* w, smpsVars &vars, const DivSong &song, cons
         writeOperator(w, opParams[smpsRelRt - smpsVoices], (*vars.symCommands)[smpsSusLv], opParams[smpsSusLv - smpsVoices]);
         writeOperator(w, opParams[smpsTotLv - smpsVoices], (*vars.symCommands)[smpsTotLv], verSource);
       }
-      fmVoice++;
     }
 
     // For PSG voices
     if (ins->type == DIV_INS_STD) {
-      const String envName = ins->name;
-      int envelope = 0, start = 0;
-      // search for the first valid number in the string and then convert that to decimal
-      for (char i : envName) {
-        if ((i >= '0' && i <= '9') || (i >= 'A' && i <= 'F') || (i >= 'a' && i <= 'f')) {
-          envelope = std::stoi(envName.substr(start), nullptr, 16);
-          break;
-        }
-        start++;
-      };
-      w->writeText(fmt::sprintf("\n;\tPSG Voice %.2X -> %s%.2X\n", i, options.psgPrefix, envelope));
-      vars.voices[i] = envelope;
+      w->writeText(fmt::sprintf("\n;\tPSG Voice %.2X -> %s%.2X\n", i, options.psgPrefix, vars.voices[i]));
     }
     bool header = false;
     // To Do: apply volume macros for FM
@@ -714,9 +735,9 @@ bool DivEngine::portamentoSet(SafeWriter* w, smpsVars& vars, smpsTempVars& temp,
     endFreq = calcFreq(baseFreq2, temp.offset, 0, false, false, 2, 0, COLOR_NTSC * 15.0 / 7.0, 9440540.0, 11);
   }
   else if (vars.chanOn[temp.channel] >= typePSG) {
-    const unsigned int baseFreq1 = round(calcBaseFreq(COLOR_NTSC, 64.0, temp.note - (5 * 12), true));
+    const unsigned int baseFreq1 = round(calcBaseFreq(COLOR_NTSC, 64.0, temp.note, true));
     startFreq = calcFreq(baseFreq1, temp.offset, 0, false, true, 0, 0, COLOR_NTSC, 64.0);
-    const unsigned int baseFreq2 = round(calcBaseFreq(COLOR_NTSC, 64.0, temp.pitchTarget - (5 * 12), true));
+    const unsigned int baseFreq2 = round(calcBaseFreq(COLOR_NTSC, 64.0, temp.pitchTarget, true));
     endFreq = calcFreq(baseFreq2, temp.offset, 0, false, true, 0, 0, COLOR_NTSC, 64.0);
   }
   const unsigned int diff = abs(endFreq - startFreq);
@@ -844,6 +865,22 @@ String DivEngine::smpsCommands(const uint8_t effect, const uint8_t value, const 
     case 0xC0:
       return "\t; set tick rate (Hz)";
 
+    // note slide up
+    case 0xE1:
+      temp.pitchRate = value % 0x10;
+      temp.pitchTarget = note + value / 0x10;
+      temp.portamento = true;
+      temp.pitchTimer = -1;
+      return "";
+
+      // note slide up
+    case 0xE2:
+      temp.pitchRate = value % 0x10;
+      temp.pitchTarget = note - value / 0x10;
+      temp.portamento = true;
+      temp.pitchTimer = -1;
+      return "";
+
     // set pitch
     case 0xE5:
       vars.pitch = value - 0x80;
@@ -869,6 +906,16 @@ String DivEngine::smpsCommands(const uint8_t effect, const uint8_t value, const 
     // send external command
     case 0xEE:
       return fmt::sprintf("%s\t\t%.2X", (*vars.symCommands)[smpsComm], value);
+
+    // single tick pitch up:
+    case 0xF1:
+      vars.pitch2 = value * song.compatFlags.pitchSlideSpeed;
+      return "";
+
+    // single tick pitch down:
+    case 0xF2:
+      vars.pitch2 = -value * song.compatFlags.pitchSlideSpeed;
+      return "";
 
     // set tick rate (bpm)
     case 0xF0:
@@ -1111,7 +1158,7 @@ String DivEngine::getNote(SafeWriter* w, smpsVars& vars, smpsTempVars& temp, con
   temp.lastOffset = temp.offset;
   if (temp.note == 0) return temp.prevNote;
   if (temp.note != DIV_NOTE_OFF) {
-    const unsigned short arp = calcArp(temp.fixed ? 0 : temp.note - (5 * 12), temp.macroVals[macPitch], 0);
+    const unsigned short arp = calcArp(temp.fixed ? 0 : temp.note, temp.macroVals[macPitch], 0);
     short octave = arp / 12;
     short note = arp % 12;
 
@@ -1367,6 +1414,7 @@ SafeWriter* DivEngine::saveASM(const DivSMPSOptions options) {
   w->writeText(fmt::sprintf("; End Pattern = %.2X\n", vars.endPat));
   w->writeText(fmt::sprintf("; End Place = %.2X\n", vars.endPlace));
   w->writeText("; ===========================================================================\n");
+  assignVoices(vars,song);
   if (options.style == verSource)
     writeHeaderSource(w, vars, s, options);
   else
@@ -1420,7 +1468,10 @@ skipEmpty:
     vars.pitch = vars.pitch2 = 0;
     patId[idVolMac][0] = 0x7F;
     patId[idVol][0] = vars.startVol[l];
-    patId[idIns][0] = -1;
+    if ((vars.chanOn[l] == typePSG) || (vars.chanOn[l] == typeNoise))
+      patId[idIns][0] = vars.startIns[l];
+    else
+      patId[idIns][0] = -1;
     int loopPat = vars.loopPat;
     bool finished = false;
 

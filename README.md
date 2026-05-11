@@ -37,8 +37,6 @@ Lesser importance:
 ## To do
 
 Before the 1.0 release:
-- Header values
-  - PSG name
 - Effects
   - 01 Pitch slide up
   - 02 Pitch slide down
