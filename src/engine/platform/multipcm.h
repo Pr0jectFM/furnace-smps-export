@@ -125,6 +125,8 @@ class DivPlatformMultiPCM: public DivDispatch {
     void notifySampleChange(int sample);
     void notifyInsAddition(int sysID);
     void notifyInsDeletion(void* ins);
+    void notifyPitchTable(int sample=-1);
+    unsigned int getMaxFreq(int ch);
     int getPortaFloor(int ch);
     void poke(unsigned int addr, unsigned short val);
     void poke(std::vector<DivRegWrite>& wlist);
