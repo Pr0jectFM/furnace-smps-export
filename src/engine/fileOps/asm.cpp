@@ -55,18 +55,19 @@ static void smpsFindLoop(DivSubSong* s, smpsVars& vars) {
         const DivPattern* p = s->pat[l].getPattern(s->orders.ord[l][j], false);
         for (int m = 0; m < s->pat[l].effectCols; m++) {
           if (p->newData[k][DIV_PAT_FX(m)] == 0x0B) {
-            if (p->newData[k][DIV_PAT_FXVAL(m)] <= j) {
+            const uint8_t jmpVal = (p->newData[k][DIV_PAT_FXVAL(m)] < s->ordersLen) ? p->newData[k][DIV_PAT_FXVAL(m)] : 0;
+            if (jmpVal <= j) {
               // if looping
               vars.lenTable[1][j] = k + 1;
               vars.endPat = j;
               vars.endPlace = k;
-              vars.loopPat = p->newData[k][DIV_PAT_FXVAL(m)];
+              vars.loopPat = jmpVal;
               return;
             }
             else {
               // if skipping ahead
               vars.lenTable[1][j] = k + 1;
-              j = p->newData[k][DIV_PAT_FXVAL(m)];
+              j = jmpVal;
               k = 0;
               goto nextPattern;
             }
@@ -540,19 +541,19 @@ short DivEngine::fmNote(const unsigned short arp, short& note, short& octave, sh
   short octChange = 0;
   // convert note to frequency and back
   unsigned short noteFreqs[]{
-    644, // C
-    682, // C#
-    723, // D
-    765, // D#
-    811, // E
-    860, // F
-    910, // F#
-    965, // G
-    1022, // G#
-    1083, // A
-    1146, // A#
+    640, // C
+    672, // C#
+    736, // D
+    768, // D#
+    800, // E
+    864, // F
+    896, // F#
+    960, // G
+    1024, // G#
+    1088, // A
+    1152, // A#
     1216, // B
-    1288  // C+
+    1280  // C+
   };
   const unsigned int baseFreq = calcBaseFreq(1, 1, arp % 12, false);
   unsigned int fNum = calcFreq(baseFreq, offset, 0, false, false, 2, 0, COLOR_NTSC * 15.0 / 7.0, 9440540.0, 11);
@@ -873,7 +874,7 @@ String DivEngine::smpsCommands(const uint8_t effect, const uint8_t value, const 
       temp.pitchTimer = -1;
       return "";
 
-      // note slide up
+      // note slide down
     case 0xE2:
       temp.pitchRate = value % 0x10;
       temp.pitchTarget = note - value / 0x10;
@@ -1547,6 +1548,7 @@ skipEmpty:
       if (j > vars.endPat) w->writeText(fmt::sprintf("\n\t; Failed to match pattern %.2X", patNum[matching]));
       patNum[j] = j;
       temp.volLast = patId[idVol][j];
+      temp.vol = patId[idVol][j];
       temp.macroTimer = patId[idMacro][j];
       temp.volRate = patId[idVolRate][j];
       temp.pitchTarget = patId[idPitchTarget][j];
@@ -1554,6 +1556,7 @@ skipEmpty:
       temp.macroVals[macVol] = patId[idVolMac][j];
       temp.macroVals[macPitch] = patId[idArp][j];
       temp.macroVals[macDetune] = patId[idDetune][j];
+      temp.lastIns = patId[idIns][j];
 
       int cntWait = 0;
       int lastNote = 0, lastWait = 0;

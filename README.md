@@ -23,16 +23,22 @@ However, in order to ensure that no adjustments need to be made post-export, som
   - Avoid the use of lengthy macros
 
 ## Bugs
-- Parts swap between being quieter and louder (High Hazard)
-- Modules with portamento used often crash
-- Doesn't export any notes even though it's indistinguishable from a working module (trapezoid)
-- Exporting with a jump to an invalid spot with 0B crashes Furnace
-- Bb and F# are off by 1 (Bonus)
+- Looping back after a pitch macro doesn't reset the detune (Bonus)
+- Blank pattern has no set note before the timer (WPZ1)
+- Melody and bass get quieter as the song loops (WPZ1)
+- Detuned part un-detunes at seemingly random points (Miniboss)
+- Ending loops back even though it's supposed to stop when FF is used at the exact end (Title)
+- Something is causing it to crash (Black Knight)
+- F3F4 crashes the program
+- PSG Scale crashes the program
+- 03 doesn't scale correctly
+- Notes at the beginning of the order don't play (Ranbu no Melody)
 
 Lesser importance:
 - Setting the step size ratio to a non-integer causes notes to be skipped
 - Turning off linear pitch mode causes the FM parts to be pitched down
 - In Source style, there may be more than 16 bytes per line, notably when setting vibrato
+- If you're using the noise channel, you can't use PSG3 for global commands and vice versa
 
 ## To do
 

@@ -364,7 +364,7 @@ struct smpsVars {
   uint8_t voices[0x100];
   // pattern and song length
   uint8_t loopPat, endPat;
-  uint8_t lenTable[2][0xFF];
+  unsigned short lenTable[2][0x100];
   int endPlace;
   // note status
   uint8_t noise, retrigger;
@@ -388,7 +388,7 @@ struct smpsVars {
     pitch2(0)
   {
     for (int i = 0; i < 0x100; i++) voices[i] = 0;
-    for (int i = 0; i < 0xFF; i++) {
+    for (int i = 0; i < 0x100; i++) {
       lenTable[0][i] = 0;
       lenTable[1][i] = 0;
     }
