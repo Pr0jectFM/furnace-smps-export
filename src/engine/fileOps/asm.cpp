@@ -55,7 +55,7 @@ static void smpsFindLoop(DivSubSong* s, smpsVars& vars) {
         const DivPattern* p = s->pat[l].getPattern(s->orders.ord[l][j], false);
         for (int m = 0; m < s->pat[l].effectCols; m++) {
           if (p->newData[k][DIV_PAT_FX(m)] == 0x0B) {
-            const uint8_t jmpVal = (p->newData[k][DIV_PAT_FXVAL(m)] < s->ordersLen) ? p->newData[k][DIV_PAT_FXVAL(m)] : 0;
+            const short jmpVal = (p->newData[k][DIV_PAT_FXVAL(m)] < s->ordersLen) ? p->newData[k][DIV_PAT_FXVAL(m)] : 0;
             if (jmpVal <= j) {
               // if looping
               vars.lenTable[1][j] = k + 1;
@@ -76,7 +76,8 @@ static void smpsFindLoop(DivSubSong* s, smpsVars& vars) {
             // if going to the next order
             vars.lenTable[1][j] = k + 1;
             j++;
-            k = p->newData[k][DIV_PAT_FXVAL(m)];
+            const unsigned short jmpLoc = p->newData[k][DIV_PAT_FXVAL(m)];
+            k = (jmpLoc < s->patLen) ? jmpLoc : 0;
             vars.lenTable[0][j] = k;
             goto nextPattern;
           }

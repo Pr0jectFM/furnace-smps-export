@@ -26,12 +26,12 @@ However, in order to ensure that no adjustments need to be made post-export, som
 - Looping back after a pitch macro doesn't reset the detune (Bonus)
 - Blank pattern has no set note before the timer (WPZ1)
 - Melody and bass get quieter as the song loops (WPZ1)
-- Detuned part un-detunes at seemingly random points (Miniboss)
 - Using unsupported macro types causes it to crash (Black Knight)
 - 03 doesn't scale correctly
 - Notes at the beginning of the order don't play (Ranbu no Melody)
 - The next note after a note with a volume macro doesn't properly reset the volume (FM Macros)
 - Failed match: 00 because of id 1 - FFFFFFFF 00
+- FM detune seems to be quantized to -$20
 
 Lesser importance:
 - Setting the step size ratio to a non-integer causes notes to be skipped
