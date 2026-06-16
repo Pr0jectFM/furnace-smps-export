@@ -27,12 +27,11 @@ However, in order to ensure that no adjustments need to be made post-export, som
 - Blank pattern has no set note before the timer (WPZ1)
 - Melody and bass get quieter as the song loops (WPZ1)
 - Detuned part un-detunes at seemingly random points (Miniboss)
-- Ending loops back even though it's supposed to stop when FF is used at the exact end (Title)
-- Something is causing it to crash (Black Knight)
-- F3F4 crashes the program
-- PSG Scale crashes the program
+- Using unsupported macro types causes it to crash (Black Knight)
 - 03 doesn't scale correctly
 - Notes at the beginning of the order don't play (Ranbu no Melody)
+- The next note after a note with a volume macro doesn't properly reset the volume (FM Macros)
+- Failed match: 00 because of id 1 - FFFFFFFF 00
 
 Lesser importance:
 - Setting the step size ratio to a non-integer causes notes to be skipped
@@ -54,7 +53,7 @@ Before the 1.0 release:
   - F1 Pitch change up
   - F2 Pitch change down
 - Improve pattern identification
-  - Don't consider volume when determing macro length in PSG
+  - Don't consider volume when determining macro length in PSG
   - Ignore macro length when first note of the pattern is played or silent
     - Make exception for 03 and ED
     - Also ignore if EC 00 is used
@@ -62,6 +61,7 @@ Before the 1.0 release:
   - Figure out cases where macro length is 00 versus FF
 - Start first pattern with a rest if a note isn't immediately played
 - If vibrato is interrupted, continue from anticipated point rather than where it left off at
+- Use sample instruments without a sample map
 
 Post 1.0 release (higher demand features take priority):
 - Effects
@@ -95,7 +95,6 @@ Post 1.0 release (higher demand features take priority):
 - SFX option
 - Use selected subsong
 - Swap between PSG3 and noise channels
-- Split FM6 from PCM
 - SMS export
 - Pitched PCM mode (AMPS only)
 - ADSR and oscillating macros

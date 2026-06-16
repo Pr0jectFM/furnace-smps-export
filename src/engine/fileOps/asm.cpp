@@ -1159,7 +1159,7 @@ String DivEngine::getNote(SafeWriter* w, smpsVars& vars, smpsTempVars& temp, con
   temp.lastOffset = temp.offset;
   if (temp.note == 0) return temp.prevNote;
   if (temp.note != DIV_NOTE_OFF) {
-    const unsigned short arp = calcArp(temp.fixed ? 0 : temp.note, temp.macroVals[macPitch], 0);
+    const unsigned short arp = calcArp(temp.fixed ? 0 : temp.note, temp.fixed ? (temp.macroVals[macPitch] + 5 * 12) : temp.macroVals[macPitch], 0);
     short octave = arp / 12;
     short note = arp % 12;
 
@@ -1478,7 +1478,8 @@ skipEmpty:
 
     w->writeText("; ===========================================================================\n");
 
-    for (int j = 0; j < (vars.endPat + 1) * 2; j++) {
+    const int fullPat = vars.loop ? ((vars.endPat + 1) * 2 - vars.loopPat) : vars.endPat + 1;
+    for (int j = 0; j < fullPat; j++) {
       // Don't write duplicate patterns
       const int matching = (j > vars.endPat) ? ((j - vars.loopPat) % (vars.endPat + 1 - vars.loopPat) + vars.loopPat) : j;
       const int orderNum = s->orders.ord[l][matching];
@@ -1504,7 +1505,7 @@ skipEmpty:
             }
             // only check for note instrument if macros are doing stuff
             else if (id == idNote || id == idIns) {
-              if (patId[idIns][j] == -1) continue;
+              if (patId[idIns][j] < 0 || patId[idIns][j] >= song.insLen) continue;
               const DivInstrument* ins = song.ins[patId[idIns][j]];
               for (int macType = 0; macType < macLen; macType++) {
                 const DivInstrumentMacro m[macLen] = {
@@ -1545,7 +1546,7 @@ skipEmpty:
         }
         continue;
       }
-      if (j > vars.endPat) w->writeText(fmt::sprintf("\n\t; Failed to match pattern %.2X", patNum[matching]));
+      if (vars.loop && (j > vars.endPat)) w->writeText(fmt::sprintf("\n\t; Failed to match pattern %.2X", patNum[matching]));
       patNum[j] = j;
       temp.volLast = patId[idVol][j];
       temp.vol = patId[idVol][j];
@@ -1609,7 +1610,6 @@ skipEmpty:
         w->writeText(fmt::sprintf("\n\t\tDC.B\t%s,NOIS7", (*vars.symCommands)[smpsNoise]));
     }
 
-    const int fullPat = (vars.endPat + 1) * 2 - vars.loopPat;
     int endPat = fullPat;
     if (!finished) loopPat = vars.endPat + 1;
     for (int j = 0; j < fullPat; j++) {
