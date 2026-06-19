@@ -373,7 +373,7 @@ void DivPlatformSID3::tick(bool sysTick)
     }
     if (NEW_ARP_STRAT) {
       chan[i].handleArp();
-    } else if (chan[i].std.arp.had) {
+    } else if (chan[i].std.arp.had && !chan[i].rawFreq) {
       if (!chan[i].inPorta) {
         chan[i].baseFreq=chan[i].calcBaseFreq(parent->calcArp(chan[i].note,chan[i].std.arp.val));
       }
@@ -667,8 +667,12 @@ void DivPlatformSID3::tick(bool sysTick)
         chan[i].gate = false;
       }
 
-      if (chan[i].freq<0) chan[i].freq=0;
-      if (chan[i].freq>0xffffff) chan[i].freq=0xffffff;
+      if (chan[i].rawFreq) {
+        chan[i].freq&=0xffffff;
+      } else {
+        if (chan[i].freq<0) chan[i].freq=0;
+        if (chan[i].freq>0xffffff) chan[i].freq=0xffffff;
+      }
 
       updateFreq(i);
       

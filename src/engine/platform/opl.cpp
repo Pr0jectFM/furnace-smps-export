@@ -1087,7 +1087,7 @@ void DivPlatformOPL::tick(bool sysTick) {
 
       if (NEW_ARP_STRAT) {
         chan[i].handleArp();
-      } else if (chan[i].std.arp.had) {
+      } else if (chan[i].std.arp.had && !chan[i].rawFreq) {
         if (!chan[i].inPorta) {
           chan[i].baseFreq=chan[i].calcBaseFreq(parent->calcArp(chan[i].note,chan[i].std.arp.val));
         }
@@ -1188,7 +1188,7 @@ void DivPlatformOPL::tick(bool sysTick) {
 
       if (NEW_ARP_STRAT) {
         chan[i].handleArp();
-      } else if (chan[i].std.arp.had) {
+      } else if (chan[i].std.arp.had && !chan[i].rawFreq) {
         if (!chan[i].inPorta) {
           chan[i].baseFreq=chan[i].calcBaseFreq(parent->calcArp(chan[i].note,chan[i].std.arp.val));
         }
@@ -1385,7 +1385,7 @@ void DivPlatformOPL::tick(bool sysTick) {
 
     if (NEW_ARP_STRAT) {
       chan[adpcmChan].handleArp();
-    } else if (chan[adpcmChan].std.arp.had) {
+    } else if (chan[adpcmChan].std.arp.had && !chan[adpcmChan].rawFreq) {
       if (!chan[adpcmChan].inPorta) {
         chan[adpcmChan].baseFreq=chan[adpcmChan].calcBaseFreq(parent->calcArp(chan[adpcmChan].note,chan[adpcmChan].std.arp.val));
       }
@@ -1411,8 +1411,10 @@ void DivPlatformOPL::tick(bool sysTick) {
           chan[adpcmChan].freq=5461; // 4KHz
         }
       }
-      if (chan[adpcmChan].freq<0) chan[adpcmChan].freq=0;
-      if (chan[adpcmChan].freq>65535) chan[adpcmChan].freq=65535;
+      if (!chan[adpcmChan].rawFreq) {
+        if (chan[adpcmChan].freq<0) chan[adpcmChan].freq=0;
+        if (chan[adpcmChan].freq>65535) chan[adpcmChan].freq=65535;
+      }
       immWrite(16,chan[adpcmChan].freq&0xff);
       immWrite(17,(chan[adpcmChan].freq>>8)&0xff);
       if (chan[adpcmChan].keyOn || chan[adpcmChan].keyOff) {
